@@ -3,7 +3,7 @@
 
 """
 
-hilfreiche Funktionen im Zusammenhang mit sympy
+useful functions on basis of sympy
 
 """
 
@@ -168,10 +168,8 @@ def trans_poly(var, cn, left, right):
     """
     returns a polynomial y(t) that is cn times continous differentiable
 
-    left and right are sequences of conditions for the boundaries
-
-    left = (t1, y1,  *derivs) # derivs contains cn derivatives
-
+    left and right are sequences of conditions for the boundaries, e.g.,
+        left = (t1, y1,  *derivs) # derivs contains cn derivatives
     """
     assert len(left) == cn+2
     assert len(right) == cn+2
@@ -184,13 +182,9 @@ def trans_poly(var, cn, left, right):
     for tmp in (y1, y2):
         assert not isinstance(tmp, (np.ndarray, np.matrix, sp.Symbol) )
 
-
     # store the derivs
     D1 = left[2:]
     D2 = right[2:]
-
-
-
 
     # preparations
     condNbr = 2 + 2*cn
@@ -245,6 +239,7 @@ def make_pw(var, transpoints, fncs):
     pieces = [(fnc, var < ub) for ub, fnc in zip(upper_borders, fncs)]
     #IPS()
     return piece_wise(*pieces)
+
 
 
 def integrate_pw(fnc, var, transpoints):
@@ -486,7 +481,7 @@ def ratsimp(arg):
     """
     sp.ratsimp currently has no matrix support
     """
-    if isinstance(arg, sp.Matrix):
+    if isinstance(arg, sp.MatrixBase):
         return arg.applyfunc(sp.ratsimp)
     else:
         return sp.ratsimp(arg)
@@ -519,7 +514,7 @@ def symbs_to_func(expr, symbs, arg):
     in expr replace x by x(arg)
     where x is any element of symbs
     """
-    #TODO: assert all([isinstance(s, sp.Symbol) for s in symbs])
+    assert all([isinstance(s, sp.Symbol) for s in symbs])
     funcs = [sp.Function(s.name)(arg) for s in symbs]
 
     # conveniece: type casting
@@ -888,6 +883,15 @@ def cancel_rows_cols(M, rows, cols):
     return M
 
 
+def norm2(v):
+    """
+    assumes that v is a n x 1 matrix (column vector)
+    returns (v.T*v)[0,0] i.e. the squared 2-norm
+    """
+    assert isinstance(v, (sp.Matrix,))
+    return (v.T*v)[0,0]
+
+
 # TODO: Doctest
 def concat_cols(*args):
     """
@@ -908,6 +912,27 @@ def concat_cols(*args):
 
 # other name:
 col_stack = concat_cols
+
+
+def col_split(A, *indices):
+    """
+    returns a list of columns corresponding to the passed indices
+    """
+    if not indices:
+        indices = range(A.shape[1])
+    res = [ A[:, i] for i in indices ]
+    return res
+
+
+def crow_split(A, *indices):
+    """
+    returns a list of rows corresponding to the passed indices
+    """
+    if not indices:
+        indices = range(A.shape[0])
+    res = [ A[i, :] for i in indices ]
+    return res
+
 
 
 # TODO: Doctest
@@ -1736,24 +1761,27 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
 
 
 def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
-    raise DeprecationWarning, "user random equaltest"
+    raise DeprecationWarning, "use random_equaltest instead"
 
 
 # TODO: Funktionen und Ableitungen (aus random_equaltest rauslösen
 # und auch hier verwenden )
-def matrix_random_numbers(M):
+def subs_random_numbers(expr):
     """
-    replaces all symbols in the given matrix by random numbers
+    replaces all symbols in the given expr (scalar or matrx) by random numbers
     and returns the substituted result
 
     usefull for e.g. for checking the rank at a "generic" point
     """
 
-    a = atoms(M, sp.Symbol)
+    a = atoms(expr, sp.Symbol)
 
     tuples = [(s, random.random()) for s in a]
 
-    return M.subs(tuples)
+    return expr.subs(tuples)
+
+def matrix_random_numbers(M):
+    raise DeprecationWarning, "use subs_random_numbers"
 
 
 def zip0(*xx, **kwargs):
@@ -2146,6 +2174,37 @@ def symm_matrix_to_vect(M):
     return res
 
 
+# todo: unit test
+def rpinv(M):
+    """compute symbolic right pseudo inverse"""
+    # http://stackoverflow.com/questions/15426624/computing-pseudo-inverse-of-a-matrix-using-sympy
+    M = sp.Matrix(M)
+    n1, n2 = M.shape
+    #if n2 > n1:
+    # more columns -> assume full row rank
+    # right inverse
+    rpinv = M.T * (M * M.T).inv()
+    res = M*rpinv
+
+    return rpinv
+
+def lpinv(M):
+    """compute symbolic left pseudo inverse"""
+    # http://stackoverflow.com/questions/15426624/computing-pseudo-inverse-of-a-matrix-using-sympy
+    M = sp.Matrix(M)
+    n1, n2 = M.shape
+    #if n2 > n1:
+
+    #assume full column rank
+    # left inverse
+    lpinv = (M.T * M).inv() * M.T
+    res = lpinv*M
+
+    #print res
+    return lpinv
+
+
+# todo: unit test, (split up into rpinv und lpinv?)
 def pinv(M):
     """compute symbolic pseudo inverse"""
     # http://stackoverflow.com/questions/15426624/computing-pseudo-inverse-of-a-matrix-using-sympy
@@ -2168,7 +2227,7 @@ def pinv(M):
 
 def nullspaceMatrix(M, *args, **kwargs):
     """
-    wrapper for the symyp-nullspace method
+    wrapper for the sympy-nullspace method
     returns a Matrix where each column is a basis vector of the nullspace
     additionally it uses the enhanced nullspace function to calculate
     ideally simple (i.e. fraction free) expressions in the entries
@@ -2294,8 +2353,6 @@ def do_laplace_deriv(laplace_expr, s, t):
     return res
 
 
-
-
 def simplify_derivs(expr):
     """
     iterates over Derivative-atoms and performs "doit"
@@ -2317,7 +2374,70 @@ def simplify_derivs(expr):
     return expr.subs(SUBS)
 
 
-# TODO: (multiplication by integers (especially -1) should be preserved by default)
+def perform_time_derivative(expr, func_symbols, t_symbol=None,
+                                                order=1, **kwargs):
+    """
+    Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
+    we want : expr.diff(t) with te appropriate substitutions made
+    :param expr:
+    :param func_symbols:
+    :return:
+    """
+
+    if not t_symbol:
+        t = sp.Symbol("t")
+    else:
+        t = t_symbol
+
+    func_symbols = list(func_symbols) # we work with lists here
+
+    funcs = [ symbs_to_func(s, [s], t) for s in func_symbols ]
+
+    derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
+
+
+    if not kwargs:
+        # assumptions for the symbols (facilitating the postprocessing)
+        kwargs ={"real": True}
+
+    def extended_name_symb(base, ord):
+        if isinstance(base, sp.Symbol):
+            base = base.name
+        if base.endswith('_d') or base.endswith('_dd'):
+            sep = ''
+        else:
+            sep = '_'
+        new_name = base + sep + 'd'
+        if ord == 1:
+            return sp.Symbol(new_name, **kwargs)
+        else:
+            return extended_name_symb(new_name, ord - 1)
+
+    deriv_symbols1 = [ [extended_name_symb(s, ord)
+                      for s in func_symbols] for ord in range(order, 0, -1)]
+
+    # flatten the lists:
+    derivs = []
+    for d_list in derivs1:
+        derivs.extend(d_list)
+
+    deriv_symbols = []
+    for ds_list in deriv_symbols1:
+        deriv_symbols.extend(ds_list)
+
+    subs1 = zip(func_symbols, funcs)
+
+    # important: begin substitution with highest order
+    subs2 = zip(derivs + funcs, deriv_symbols + func_symbols)
+
+    expr1 = expr.subs(subs1)
+    expr2 = expr1.diff(t, order)
+    expr3 = expr2.subs(subs2)
+
+    return expr3
+
+
+# TODO: (multipl. by integers (especially -1) should be preserved by default)
 def symbolify_matrix(M):
     """
     associates a symbol to every matrix entry
