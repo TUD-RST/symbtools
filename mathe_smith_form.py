@@ -104,6 +104,18 @@ def solve_bezout_eq(p1, p2, var):
 
         raise ValueError(errmsg.format(p1=p1, p2=p2))
     sol = sol[0]
+    sol_symbols = st.atoms(sp.Matrix(sol.values()), sp.Symbol)
+
+    # there might be some superflous coeffs
+    free_c_symbols = set(cc1+cc2).intersection(sol_symbols)
+    if free_c_symbols:
+        # set them to zero
+        fcs0 = st.zip0(free_c_symbols)
+        keys, values = zip(*sol.items())
+        new_values = [v.subs(fcs0) for v in values]
+
+        sol = dict(zip(keys, new_values)+fcs0)
+
 
     return c1.subs(sol), c2.subs(sol)
 
@@ -137,6 +149,25 @@ def smith_column_step(col, t, var):
 
     return new_col, L0
 
+def row_swap(n, i1, i2):
+    row_op = sp.eye(n)
+    tmp1 = row_op[i1, :]
+    tmp2 = row_op[i2, :]
+    row_op[i2, :] = tmp1
+    row_op[i1, :] = tmp2
+
+    return row_op
+
+def row_op(n, i1, i2, c1, c2):
+    """
+    new <row i1> is <old i1>*c1 + <old i2>*c2
+    """
+    assert not c1 == 0
+    row_op = sp.eye(n)
+    row_op[i1, i1] = c1
+    row_op[i1, i2] = c2
+
+    return row_op
 
 
 def smith_step(A, t, var):
@@ -147,6 +178,8 @@ def smith_step(A, t, var):
     row_op_list = []
 
     cols = st.col_split(A)
+
+    # erste nicht verschwindende Spalte finden
     for j, c in enumerate(cols):
         if j < t:
             continue
@@ -155,15 +188,10 @@ def smith_step(A, t, var):
     # Eintrag mit Index t soll ungleich 0 sein, ggf. Zeilen tauschen
     if c[t] == 0:
         i, elt = first_nonzero_element(c)
-        row_op = sp.eye(nr)
-        tmp1 = row_op[t, :]
-        tmp2 = row_op[i, :]
-        row_op[i, :] = tmp1
-        row_op[t, :] = tmp2
-        A = row_op*A
-        c = row_op*c
+        ro = row_swap(t,i)
+        c = ro*c
 
-        row_op_list.append(row_op)
+        row_op_list.append(ro)
 
     col = c
     while True:
@@ -171,21 +199,60 @@ def smith_step(A, t, var):
         if L0 == sp.eye(nr):
             # nothing has changed
             break
-        row_op.append(L0)
+        row_op_list.append(L0)
         col = new_col
+
+    # jetzt teilt col[t] alle Einträge in col
+    # Probe in der nächsten Schleife
+
+    col.simplify()
+    for i,a in enumerate(col):
+        if i == t:
+            continue
+        if not sp.simplify(sp.gcd(a, col[t]) - col[t]) == 0:
+            IPS()
+            raise ValueError
+        quotient = sp.simplify(a/col[t])
+        if a == 0:
+            continue
+
+        # eliminiere a
+        ro = row_op(nr, i, t, -1, quotient)
+        row_op_list.append(ro)
+
+    #IPS()
+
+    return row_op_list
+
+def smith_form(A, var):
+
+    nr, nc = A.shape
+    row_op_list = []
+    A_tmp = A*1
+    total_ro = sp.eye(nr)
+    for t in xrange(nr):
+        new_ro_list = smith_step(A_tmp, t, var)
+        for ro in new_ro_list:
+            A_tmp = ro*A_tmp
+            A_tmp.simplify()
+            total_ro = ro*total_ro
+
+        row_op_list.extend(new_ro_list)
+        print "fertig mit t=", t
 
 
     IPS()
-
-
-
+    return total_ro
 
 
 
 if __name__ == "__main__":
 
     #solve_bezout_eq(0, 3, s)
-    smith_step(M, 0, s)
+    #smith_step(M, 0, s)
+
+    ro = smith_form(M, s)
+
 
 
 

@@ -93,6 +93,17 @@ class BezoutTest(unittest.TestCase):
             r = sp.simplify(c1*w1+c2*w2)
             self.assertEquals(r, 1)
 
+    def test_regular4(self):
+        s = sp.Symbol("s")
+        a, b, c = sp.symbols("a, b, c")
+
+        w1 = a+b*s**2
+        w2 = c*s**2
+
+        c1 , c2 = solve_bezout_eq(w1, w2, s)
+        r = sp.simplify(c1*w1+c2*w2)
+        self.assertEquals(r, 1)
+
 
 
 def main():
