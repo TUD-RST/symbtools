@@ -14,7 +14,15 @@ import ipHelp
 # http://en.wikipedia.org/wiki/Smith_normal_form
 #
 
-# In[6]:
+"""
+Aktueller Stand: Schritte 1-3 sind umgesetzt. Schritt 4 (Normierung) fehlt noch
+
+Weiteres Vorgehen:
+    * Normierung,
+    * Umgang mit Rechteckigen Matrizen,
+    * Erweiterung auf andere algebraische Strukturen als Polynome
+"""
+
 
 # Beispliel von Prof. Röbenack:
 m0, m1, l, g, s= sp.symbols('m0, m1, l, g, s')
@@ -96,13 +104,12 @@ def solve_bezout_eq(p1, p2, var):
     sol = sp.solve(eq, cc1+cc2, dict=True)
 
     if len(sol) == 0:
-        pass
-        IPS()
         errmsg = "No solution found.\n"\
                  "p1 = {p1}\n"\
                  "p2 = {p2}"
 
         raise ValueError(errmsg.format(p1=p1, p2=p2))
+
     sol = sol[0]
     sol_symbols = st.atoms(sp.Matrix(sol.values()), sp.Symbol)
 
@@ -125,7 +132,7 @@ def smith_column_step(col, t, var):
 
     nr = len(col)
     L0 = sp.eye(nr)
-    new_col = col*1
+    col = col.expand()
     at = col[t]
 
     for k, ak in enumerate(col):
@@ -142,7 +149,7 @@ def smith_column_step(col, t, var):
         L0[k, t] = -gamma_k
         L0[k, k] = alpha_t
 
-        new_col = L0*col
+        new_col = sp.expand(L0*col)
         # Linksmultiplikation der Spalte mit L0 liefert eine neue Spalte
         # mit Einträgen beta bei t und 0 bei k
         break
@@ -188,12 +195,12 @@ def smith_step(A, t, var):
     # Eintrag mit Index t soll ungleich 0 sein, ggf. Zeilen tauschen
     if c[t] == 0:
         i, elt = first_nonzero_element(c)
-        ro = row_swap(t,i)
+        ro = row_swap(nr, t, i)
         c = ro*c
 
         row_op_list.append(ro)
 
-    col = c
+    col = c.expand()
     while True:
         new_col, L0 = smith_column_step(col, t, var)
         if L0 == sp.eye(nr):
@@ -206,12 +213,13 @@ def smith_step(A, t, var):
     # Probe in der nächsten Schleife
 
     col.simplify()
+    col = col.expand()
     for i,a in enumerate(col):
         if i == t:
             continue
         if not sp.simplify(sp.gcd(a, col[t]) - col[t]) == 0:
             IPS()
-            raise ValueError
+            raise ValueError, "col[t] should divide all entries in col"
         quotient = sp.simplify(a/col[t])
         if a == 0:
             continue
@@ -220,7 +228,6 @@ def smith_step(A, t, var):
         ro = row_op(nr, i, t, -1, quotient)
         row_op_list.append(ro)
 
-    #IPS()
 
     return row_op_list
 
@@ -228,21 +235,47 @@ def smith_form(A, var):
 
     nr, nc = A.shape
     row_op_list = []
-    A_tmp = A*1
     total_ro = sp.eye(nr)
-    for t in xrange(nr):
-        new_ro_list = smith_step(A_tmp, t, var)
-        for ro in new_ro_list:
-            A_tmp = ro*A_tmp
-            A_tmp.simplify()
-            total_ro = ro*total_ro
 
-        row_op_list.extend(new_ro_list)
+    col_op_list = []
+    total_co = sp.eye(nc)
+
+    A_tmp = A*1
+    for t in xrange(nr):
+        while True:
+            print "t=", t
+            step_ro = sp.eye(nr)
+            step_co = sp.eye(nc)
+
+            new_ro_list = smith_step(A_tmp, t, var)
+            for ro in new_ro_list:
+                A_tmp = ro*A_tmp
+                A_tmp.simplify()
+                total_ro = ro*total_ro
+                step_ro = ro*step_ro
+
+            row_op_list.extend(new_ro_list)
+
+            # after processing column t, now process row t
+
+            new_co_list = smith_step(A_tmp.T, t, var)
+            # Transpose the column operations
+            new_co_list = [co.T for co in new_co_list]
+            for co in new_co_list:
+                A_tmp = A_tmp*co
+                A_tmp.simplify()
+                total_co = total_co*co
+                step_co = step_co*co
+
+            if step_ro == sp.eye(nr) and step_co == sp.eye(nc):
+                break
         print "fertig mit t=", t
 
 
-    IPS()
-    return total_ro
+
+    total_ro.simplify()
+    total_co.simplify()
+    return total_ro.expand(), total_co.expand()
 
 
 
@@ -251,7 +284,41 @@ if __name__ == "__main__":
     #solve_bezout_eq(0, 3, s)
     #smith_step(M, 0, s)
 
-    ro = smith_form(M, s)
+    if 0:
+        M1 = sp.Matrix([[s-2, 0, 0, 0],
+                        [1, s-1, 0, 0],
+                        [0, 1, s  , 1],
+                        [-1, -1, -1, s-2]])
+
+        ro = smith_form(M1, s)
+
+        M1_1 = sp.simplify(ro*M1)
+        IPS()
+
+        # - - - -
+
+    M1_1 = sp.Matrix([
+    [s - 2,     0,             0, 0],
+    [    1, s - 1,             0, 0],
+    [    0,     0, s*(s - 2) + 1, 0],
+    [    0,     1,             s, 1]])
+
+    ro2, co = smith_form(M1_1.T, s)
+
+    M1_2 = sp.simplify(ro2*M1_1).T
+    ro3 = smith_form(M1_2, s)
+
+
+#    M = sp.Matrix([
+#    [s - 2, -(s - 2)*(s - 1) + 1, s*((s - 2)*(s - 1) - 1), s**4 - 5*s**3 + 8*s**2 - 5*s + 1],
+#    [    0,                s - 1,              s*(-s + 1),    -(s - 1)*(s**2 - 2*s + 1) + 1],
+#    [    0,                    0,           s*(s - 2) + 1,      s + (s - 2)*(s*(s - 2) + 1)],
+#    [    0,                    0,                       0,                                1]])
+#
+#    M.simplify()
+#    ro, co = smith_form(M, s)
+    IPS()
+
 
 
 

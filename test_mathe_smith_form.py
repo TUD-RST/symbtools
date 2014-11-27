@@ -10,7 +10,7 @@ import sympy as sp
 from sympy import sin, cos
 import symb_tools as st
 
-from mathe_smith_form import solve_bezout_eq
+from mathe_smith_form import solve_bezout_eq, smith_column_step
 
 from IPython import embed as IPS
 
@@ -105,6 +105,33 @@ class BezoutTest(unittest.TestCase):
         self.assertEquals(r, 1)
 
 
+
+class SmithTest(unittest.TestCase):
+
+    def test_column_step1(self):
+
+        s = sp.Symbol("s")
+        col = sp.Matrix([
+        [                                                                                                                                                                                                                                                                                                                        0],
+        [                                                          s + (s - 2)*(s*(s - 2) + 1) - (s**3 - 4*s**2 + 6*s - 2)*(-(s - 1)*(s**2 - 2*s + 1) + (s - 1)*(-s**4 + 5*s**3 - 8*s**2 + 5*s - 1) + ((-s + 1)*((s - 2)*(-(s - 2)*(s - 1) + 1) + (s - 2)*((s - 2)*(s - 1) - 1)) + (s - 2)*(s - 1))*(s**3 - 3*s**2 + 3*s - 1) + 1)],
+        [                                                                s*(s - 2) - (s**3 - 4*s**2 + 6*s - 2)*(-s*(-s + 1)*((-s + 1)*((s - 2)*(-(s - 2)*(s - 1) + 1) + (s - 2)*((s - 2)*(s - 1) - 1)) + (s - 2)*(s - 1)) + s*(-s + 1) - s*(s - 1)*(s**2 - 3*s + 1) + (-s + 1)*(s*((s - 2)*(s - 1) - 1) - s*(s**2 - 3*s + 1))) + 1],
+        [(s + (s - 2)*(s*(s - 2) + 1))*(s**2 - 3*s + 2) - (((-s + 1)*((s - 2)*(-(s - 2)*(s - 1) + 1) + (s - 2)*((s - 2)*(s - 1) - 1)) + (s - 2)*(s - 1))*(s**5 - 6*s**4 + 14*s**3 - 16*s**2 + 9*s - 3) + (s**2 - 3*s + 2)*(-(s - 1)*(s**2 - 2*s + 1) + (s - 1)*(-s**4 + 5*s**3 - 8*s**2 + 5*s - 1) + 1))*(s**3 - 4*s**2 + 6*s - 2)]])
+
+
+#        Matrix(
+#        [
+#        [                                           0],
+#        [                                           0],
+#        [                               s*(s - 2) + 1],
+#        [s**5 - 7*s**4 + 20*s**3 - 28*s**2 + 18*s - 4]])
+
+        t = 2
+
+        new_col, L0 = smith_column_step(col, t, s)
+
+        #IPS()
+
+        self.assertFalse(L0 == sp.eye(len(col)))
 
 def main():
     unittest.main()
