@@ -18,6 +18,10 @@ def Rz(phi):
     s = sp.sin(phi)
     return sp.Matrix([[c, -s], [s, c]])
 
+# 2d coordinate unitvectors
+ex = sp.Matrix([1,0])
+ey = sp.Matrix([0,1])
+
 
 # helper function for velocity generation
 
@@ -194,8 +198,8 @@ def generate_model(T, U, qq, F, **kwargs):
 
 
     # also store kinetic and potential energy
-    model.T = T
-    model.U = U
+    model1.T = T
+    model1.U = U
 
     # analyse the model
 

@@ -523,6 +523,26 @@ def symbs_to_func(expr, symbs, arg):
 
     return expr.subs(zip(symbs, funcs))
 
+# TODO: Unittest
+def funcs_to_symbs(expr, funcs=None, symbs=None, arg=None, kwargs = None):
+    """
+    in expr replace x(arg) by x
+    where x is any element of symbs
+    (not fully implemented)
+
+    # conveniece: type casting
+    if isinstance(expr, (tuple, list)):
+        expr = sp.Matrix(expr)
+    """
+    if not kwargs:
+        kwargs = {}
+
+    funcs = list(atoms(expr, sp.function.AppliedUndef))
+    symbs = [sp.Symbol(str(type(f)), **kwargs) for f in funcs]
+
+    return expr.subs(zip(funcs, symbs))
+
+
 def getOccupation(M):
     """
     maps (m_ij != 0) to every element
@@ -1809,6 +1829,22 @@ def aux_make_tup_if_necc(arg):
 
     return arg
 
+
+
+#TODO:
+"""
+https://github.com/sympy/sympy/wiki/Release-Notes-for-0.7.6
+
+Previously lambdify would convert Matrix to numpy.matrix by default.
+This behavior is being deprecated, and will be completely phased out with
+the release of 0.7.7. To use the new behavior now set the modules
+kwarg to [{'ImmutableMatrix': numpy.array}, 'numpy'].
+If lambdify will be used frequently it is recommended to wrap it with a
+partial as so:
+lambdify =
+functools.partial(lambdify, modules=[{'ImmutableMatrix': numpy.array}, 'numpy']).
+For more information see #7853 and the lambdify doc string.
+"""
 def expr_to_func(args, expr, modules = 'numpy', **kwargs):
     """
     wrapper for sympy.lambdify to handle constant expressions

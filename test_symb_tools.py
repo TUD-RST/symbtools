@@ -12,7 +12,6 @@ import symb_tools as st
 
 from IPython import embed as IPS
 
-
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
