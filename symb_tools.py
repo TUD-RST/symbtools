@@ -2410,14 +2410,23 @@ def simplify_derivs(expr):
     return expr.subs(SUBS)
 
 
-def perform_time_derivative(expr, func_symbols, t_symbol=None,
-                                                order=1, **kwargs):
+def perform_time_derivative(expr, func_symbols, deriv_symbols=None,
+                            t_symbol=None, order=1, **kwargs):
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
     we want : expr.diff(t) with te appropriate substitutions made
-    :param expr:
-    :param func_symbols:
-    :return:
+    :param expr: the expression to be differentiated
+    :param func_symbols: the symbols which are functions (e.g. of the time)
+    :param deriv_symbols: a sequence of symbols which will be used for the
+                          derivatives of the symbols
+
+    :return: derived expression
+
+
+    Note: this process might be tricky because symbols with the same name
+    but different sets of assumptions (real=True etc.) are handled as
+    different symbols by sympy. Here we dont want this. If the name of
+    func_symbols occurs in expr this is sufficient for being regarded as equal.
     """
 
     if not t_symbol:
@@ -2425,12 +2434,16 @@ def perform_time_derivative(expr, func_symbols, t_symbol=None,
     else:
         t = t_symbol
 
-    func_symbols = list(func_symbols) # we work with lists here
+    func_symbols = list(func_symbols)  # we work with lists here
+    # replace the func_symbols by the symbols from expr to make sure the the
+    # correct symbols are used.
+    expr_symbols = atoms(expr, sp.Symbol)
+    func_symbols = match_symbols_by_name(expr_symbols, func_symbols)
 
+    # convert symbols to functions
     funcs = [ symbs_to_func(s, [s], t) for s in func_symbols ]
 
     derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
-
 
     if not kwargs:
         # assumptions for the symbols (facilitating the postprocessing)
@@ -2471,6 +2484,31 @@ def perform_time_derivative(expr, func_symbols, t_symbol=None,
     expr3 = expr2.subs(subs2)
 
     return expr3
+
+
+def match_symbols_by_name(symbols1, symbols2):
+    '''
+    :param symbols1:
+    :param symbols2: (might be a sequence of strings as well)
+    :return: a list of symbols which are those objects from symbols1 where
+     the name occurs in symbols2
+    '''
+
+    str_list1 = [str(s.name) for s in symbols1]
+    sdict1 = dict( zip(str_list1, symbols1) )
+
+    str_list2 = [str(s) for s in symbols2]
+    symb_list2 = sp.symbols(str_list2)  # in case symbols2 contained other types
+
+    # sympy expects str here (unicode not allowed)
+
+    res = []
+
+    for string2, symb2 in zip(str_list2, symb_list2):
+        res_symb = sdict1.get(string2, symb2)
+        res.append(res_symb)
+
+    return res
 
 
 # TODO: (multipl. by integers (especially -1) should be preserved by default)

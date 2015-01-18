@@ -6,11 +6,13 @@ Created on Wed Oct 22 11:35:00 2014
 """
 
 import unittest
-import sympy as sp
-from sympy import sin, cos
-import symb_tools as st
 
+import sympy as sp
+from sympy import sin
+
+import symb_tools as st
 from IPython import embed as IPS
+
 
 class SymbToolsTest(unittest.TestCase):
 
@@ -37,6 +39,22 @@ class SymbToolsTest(unittest.TestCase):
         f2_dot = st.perform_time_derivative(f2, [a], t)
         f2_ddot = st.perform_time_derivative(f2_dot, [a, sp.Symbol('a_d')], t)
         self.assertEqual(f2_ddot, f2_dot2)
+
+    def test_match_symbols_by_name(self):
+        a, b, c = abc0 = sp.symbols('a, b, c', real=True)
+        a1, b1, c1 = abc1 = sp.symbols('a, b, c')
+
+        self.assertFalse(a == a1 or b == b1 or c == c1)
+
+        abc2 = st.match_symbols_by_name(abc0, abc1)
+        self.assertEquals(abc0, tuple(abc2))
+
+        input3 = [a1, b, "c", "x"]
+        a3, b3, c3, x3 = st.match_symbols_by_name(abc0, input3)
+
+        self.assertEquals(abc0, (a3, b3, c3))
+        self.assertEquals(x3, sp.Symbol('x'))
+
 
 
 def main():
