@@ -912,7 +912,7 @@ def norm2(v):
     return (v.T*v)[0,0]
 
 
-# TODO: Doctest
+# TODO: Doctest/unittest
 def concat_cols(*args):
     """
     takes some col vectors and aggregetes them to a matrix
@@ -921,6 +921,11 @@ def concat_cols(*args):
     col_list = []
 
     for a in args:
+        if not a.is_Matrix:
+            # convenience: allow stacking scalars
+            # TODO: catch the sequence case and unify with duplicated code
+            # in concat_rows
+            a = sp.Matrix([a])
         if a.shape[1] == 1:
             col_list.append( list(a) )
             continue
@@ -964,6 +969,8 @@ def concat_rows(*args):
     row_list = []
 
     for a in args:
+        if not a.is_Matrix:
+            a = sp.Matrix([a])
         if a.shape[0] == 1:
             row_list.append( list(a) )
             continue
@@ -2481,7 +2488,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
             assert len(part) == L
 
             deriv_symbols1.append(part)
-            print deriv_symbols1
 
     # flatten the lists:
     derivs = []
