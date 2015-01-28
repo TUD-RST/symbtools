@@ -75,7 +75,6 @@ class SymbToolsTest(unittest.TestCase):
                                                  (ad, bd)+ (add, bdd) )
         self.assertEquals(f1d_2, f1d_2_altntv)
 
-
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a, b, c', real=True)
         a1, b1, c1 = abc1 = sp.symbols('a, b, c')
@@ -91,6 +90,31 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEquals(abc0, (a3, b3, c3))
         self.assertEquals(x3, sp.Symbol('x'))
 
+    def test_symbs_to_func(self):
+        a, b, t = sp.symbols("a, b, t")
+        x, y = sp.symbols("x, y")
+
+        at = sp.Function('a')(t)
+        bt = sp.Function('b')(t)
+
+        xt = sp.Function('x')(t)
+        yt = sp.Function('y')(t)
+
+        M = sp.Matrix([x, y])
+        Mt = sp.Matrix([xt, yt])
+
+        expr1 = a**2 + b**2
+        f1 = st.symbs_to_func(expr1, (a,b), t)
+        self.assertEqual(f1, at**2 + bt**2)
+
+        at2 = st.symbs_to_func(a, arg=t)
+        self.assertEqual(at, at2)
+
+        # Matrix
+        Mt2 = st.symbs_to_func(M, arg=t)
+        self.assertEqual(Mt, Mt2)
+
+        # TODO: assert raises
 
 
 def main():

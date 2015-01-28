@@ -509,11 +509,24 @@ def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol):
     return A
 
 
-def symbs_to_func(expr, symbs, arg):
+def symbs_to_func(expr, symbs=None, arg=None):
     """
     in expr replace x by x(arg)
     where x is any element of symbs
+
+    if symbs == None, we assume symbs == expr:
+        (useful for conversion of matrices with single-symbol-components)
+
+    arg=None is not allowed
     """
+
+    if symbs==None:
+        if  hasattr(expr, 'is_Symbol') and expr.is_Symbol:
+            symbs = [expr] # a list with a single Symbol-object
+        else:
+            assert len(expr)>0
+            symbs = expr
+
     assert all([isinstance(s, sp.Symbol) for s in symbs])
     funcs = [sp.Function(s.name)(arg) for s in symbs]
 
@@ -568,10 +581,12 @@ def symmetryDict(M):
 
 
 # TODO: unit test
-def make_global(varList, up_count = 0):
+# TODO: make it intuitivly work in IPyton NB
+# (currently up_count=1 is neccessary)
+def make_global(varList, up_count=0):
     """
     injects the symbolic variables of a collection to the global namespace
-    usefull for interactive sessions
+    useful for interactive sessions
 
     :up_count: is the number of frames to go back;
     up_count = 0 means up to the upper_most frame
@@ -595,8 +610,6 @@ def make_global(varList, up_count = 0):
         i -= 1
         if i == 0:
             break
-
-
 
     # this is strongly inspired by sympy.var
     try:
