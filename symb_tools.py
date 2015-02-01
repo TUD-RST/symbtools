@@ -18,6 +18,7 @@ from collections import Counter
 import random
 
 import itertools as it
+import collections as col
 
 
 # convenience
@@ -691,18 +692,23 @@ def get_rows(A):
     return [A[:,i] for i in range(m)]
 
 
-
 # ---------------- July 2010 -----------
-
 def elementwise_mul(M1, M2):
     """
-    performs elment wise multiplication of matrices
+    performs element-wise multiplication of matrices
     """
     assert M1.shape == M2.shape
-    return sp.Matrix(np.array(M1)*np.array(M2))
+    return sp.Matrix(np.array(M1) * np.array(M2))
 
 
+#TODO: obsolete?
 def poly_occ_matrix(expr, arg1, arg2, n = 2):
+    """
+    expects expr to be a bivariate polynomial in arg1, arg2 up to order n
+
+    returns a matrix which symbolizes which coefficients are vanishing
+    and which are not
+    """
     p = sp.Poly(expr, arg1, arg2)
     M = sp.matrices.zeros(n+1)
     star = sp.Symbol('#')
@@ -717,31 +723,29 @@ def poly_occ_matrix(expr, arg1, arg2, n = 2):
     return M
 
 
-
-def get_coeff_row(eq, vars):
+def get_coeff_row(eq, variables):
     """
-    takes one equation object and returns the corresponding row of
+    takes one linear equation and returns the corresponding row of
     the system matrix
     """
     if not isinstance(eq, equation):
         # assume its the lhs     and rhs = 0
         eq = equation(eq,0)
 
-    if isinstance(vars, sp.Matrix):
-        vars = list(vars)
+    if isinstance(variables, sp.Matrix):
+        variables = list(variables)
 
     get_coeff = lambda var: sp.diff(eq.lhs(), var)
-    coeffs =  map(get_coeff, vars)
-    rest = eq.lhs() - sum([coeffs[i]*vars[i] for i in range( len(vars) )])
-    coeff_row = map(get_coeff, vars) + [eq.rhs() - rest]
+    coeffs =  map(get_coeff, variables)
+    rest = eq.lhs() - sum([coeffs[i]*variables[i] for i in range( len(variables) )])
+    coeff_row = map(get_coeff, variables) + [eq.rhs() - rest]
     return coeff_row
-
 
 
 def lin_solve_all(eqns):
     """
     takes a list of equations and tries to solve wrt. to all
-    ocurring symbols
+    occurring symbols
     """
     eqns = sp.Matrix(eqns)
 
@@ -1299,10 +1303,10 @@ def get_expr_var(expr, var = None):
 
 def poly_degree(expr, var=None):
     """
-    returns degree of monovariable polynomial
+    returns degree of monovariant polynomial
     """
     var = get_expr_var(expr, var)
-    if var == None:
+    if not var:
         return sp.sympify(0)
 
     P = sp.Poly(expr, var, domain = "EX")
@@ -1311,7 +1315,7 @@ def poly_degree(expr, var=None):
 
 def poly_coeffs(expr, var=None):
     """
-    returns all (monovariate)-poly-coeffs (including 0s) as a list
+    returns all (monovariant)-poly-coeffs (including 0s) as a list
     first element is highest coeff.
     """
     var = get_expr_var(expr, var)
@@ -1325,8 +1329,6 @@ def poly_coeffs(expr, var=None):
     d = P.degree()
 
     return [pdict.get((i,), 0) for i in reversed(xrange(d+1))]
-
-
 
 
 def coeffs(expr, var = None):
@@ -1344,6 +1346,49 @@ def coeffs(expr, var = None):
     else:
         dom = 'EX'
     return sp.Poly(expr, var, domain =dom).all_coeffs()
+
+# TODO: harmonize with poly_coeffs
+def poly_expr_coeffs(expr, variables, maxorder=2):
+    """
+    :param expr: expression assumed to be a polynomial in `variables`
+    :param variables: the independend variables
+    :param maxorder maximum order to look for
+    :return: a dictionary like Poly.as_dict (except that it is a default-dict)
+
+    Background: For expressions where the coefficients are too big, the
+    conversion to a sp.Poly object takes too long. We calculate the coeffs
+    by differentiating and substitution
+    """
+
+    dd = col.defaultdict
+    if not hasattr(variables, '__len__'):
+        assert variables.is_Symbol
+        variables = [variables]
+    N = len(variables)
+    assert int(maxorder) == maxorder
+
+    # defaultdict needs a callable as constructor arg. This factory is called
+    # each time when the default value is needed (no matching key present)
+    # int() -> 0
+    result = col.defaultdict(int)
+
+    v0 = zip0(variables)
+
+    orders = range(1, maxorder+1)
+
+    diff_list, order_tuples = get_diffterms(variables, orders, order_list=True)
+    # -> lists like [(x1,x1), (x1, x2), ...], [(2, 0, 0), (1, 1, 0), ...]
+
+    # special case: order 0
+    key = (0,)*N
+    value = expr.subs(v0)
+    result[key] = value
+
+    for diff_tup, order_tup in zip(diff_list, order_tuples):
+        tmp = expr.diff(*diff_tup).subs(v0)
+        result[order_tup] = tmp
+
+    return result
 
 
 
@@ -1394,6 +1439,7 @@ def matrix_with_rationals(A):
 
 arr_float = np.frompyfunc(np.float, 1,1)
 
+
 def to_np(arr, dtype=np.float):
     """ converts a sympy matrix in a nice numpy array
     """
@@ -1407,14 +1453,17 @@ def to_np(arr, dtype=np.float):
     arr1 = arr_float( np.array(arr) )
     return np.array( arr1, dtype )
 
+
 def roots(expr):
     import scipy as sc
     return sc.roots(coeffs(expr))
+
 
 def real_roots(expr):
     import scipy as sc
     r = sc.roots(coeffs(expr))
     return np.real( r[np.imag(r)==0] )
+
 
 def zeros_to_coeffs(*z_list, **kwargs):
     """
@@ -1438,6 +1487,7 @@ def fac(i):
         return 1
     return i * fac(i-1)
 
+
 def div(vf, x):
     """divergence of a vector field"""
     vf = list(vf)
@@ -1445,6 +1495,7 @@ def div(vf, x):
     assert len(vf) == len(x)
 
     return sum([c.diff(xi) for c,xi in zip(vf, x)])
+
 
 def chop(expr, tol = 1e-10):
     """suppress small numerical values"""
@@ -1457,10 +1508,7 @@ def chop(expr, tol = 1e-10):
     return sp.Add(*[term for term in expr.as_Add() if sp.abs(term.as_coeff_terms()[0]) >= tol])
 
 
-
-# trigsimp
-
-
+# TODO: obsolete?
 def trigsimp2(expr):
     """
     sin**2 + cos**2 = 1 in big expressions
@@ -1501,14 +1549,18 @@ def trigsimp2(expr):
     return expr.expand()
 
 
-
-
 def rev_tuple(tup):
+    """
+    :param tup: a sequence of 2-tuples
+    :return: a list of 2-tuples where each tuple has the reversed order
+    """
     return [(t[1], t[0]) for t in tup]
+
 
 def gradient(scalar_field, xx):
     # returns a row vector (coverctorfiel)!
     return sp.Matrix([scalar_field]).jacobian(xx)
+
 
 def trig_term_poly(expr, s):
     """
@@ -1527,6 +1579,7 @@ def matrix_atoms(M, *args, **kwargs):
     S = set().union(*sets)
 
     return S
+
 
 def atoms(expr, *args, **kwargs):
     if isinstance(expr, (sp.Matrix, list)):
@@ -1552,7 +1605,7 @@ def count_ops(expr, *args, **kwargs):
         return sp.count_ops(expr, *args, **kwargs)
 
 
-def get_diffterms(xx, order, indices=False):
+def get_diffterms(xx, order, order_list=False):
     """
     returns a list such as
 
@@ -1561,24 +1614,21 @@ def get_diffterms(xx, order, indices=False):
     :param xx: example: xx = (x1, x2, x3)
     :param order: example: order =2
 
-    :param indices: flag whether or not to return an additional index list
-      like [(0, 0), (0,1), ...]
+    :param order_list: flag whether or not to return an additional index list
+      like [(2, 0, 0), (1, 1, 0), ...]
     :return:
     """
 
     if order == 0:
         return []
 
-    if len(xx) == 2:
-        return [ (xx[0],)*(order-i)+(xx[1],)*(i) for i in range(order+1)]
-
     if isinstance(order, (list, tuple)):
-        if not indices:
+        if not order_list:
             return sum([get_diffterms(xx, o) for o in order], [])
         else:
-            terms, terms_indices = get_diffterms(xx, order[0], indices=indices)
+            terms, terms_indices = get_diffterms(xx, order[0], order_list=order_list)
             if len(order) > 1:
-                t2, ti2 = get_diffterms(xx, order[1:], indices=indices)
+                t2, ti2 = get_diffterms(xx, order[1:], order_list=order_list)
                 terms += t2
                 terms_indices += ti2
             return terms, terms_indices
@@ -1587,11 +1637,10 @@ def get_diffterms(xx, order, indices=False):
 
     terms = list(it.combinations_with_replacement(xx, order))
 
-    if indices:
-        idx_list = range(len(xx))
+    if order_list:
         terms_indices = []
         for tup in terms:
-            element = sp.Matrix(tup).subs(zip(xx, idx_list))
+            element = [tup.count(x) for x in xx]
             terms_indices.append( tuple(element) )
 
         return terms, terms_indices

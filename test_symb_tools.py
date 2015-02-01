@@ -116,13 +116,13 @@ class SymbToolsTest(unittest.TestCase):
 
         # TODO: assert raises
 
-    def _test_poly_expr_coeffs(self):
+    def test_poly_expr_coeffs(self):
         a, b, c, d = sp.symbols("a, b, c, d")
         x, y = sp.symbols("x, y")
 
         p1 = a*x + b*x**2 + c*y - d + 2*a*x*y
-        sample_solution = [((0, 0), -d), ((1, 0), a), ((2, 0), b), ((0, 1), c),
-                           ((1, 1), 2*a)]
+        sample_solution = [((0, 0), -d), ((1, 0), a), ((2, 0), 2*b),
+                           ((0, 1), c), ((1, 1), 2*a), ((0, 2), 0)]
 
         # coeff-dict
         cd1 = st.poly_expr_coeffs(p1, [x,y])
@@ -134,7 +134,8 @@ class SymbToolsTest(unittest.TestCase):
         expected_res2 = [(x1, x1), (x1, x2), (x1, x3), (x2, x2),
                          (x2, x3), (x3, x3)]
 
-        expected_indices2 = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
+        expected_indices2 = [(2, 0, 0), (1, 1, 0), (1, 0, 1), (0, 2, 0),
+                             (0, 1, 1), (0, 0, 2)]
         self.assertEqual(res2, expected_res2)
 
         res3 = st.get_diffterms(xx, 3)
@@ -142,15 +143,20 @@ class SymbToolsTest(unittest.TestCase):
 
         self.assertEqual(res23, res2 + res3)
 
-        res2b, indices2 = st.get_diffterms(xx, 2, indices=True)
+        res2b, indices2 = st.get_diffterms(xx, 2, order_list=True)
         self.assertEqual(res2b, res2)
         self.assertEqual(expected_indices2, indices2)
 
-        res3b, indices3 = st.get_diffterms(xx, 3, indices=True)
-        res23b, indices23 = st.get_diffterms(xx, (2, 3), indices=True)
+        res3b, indices3 = st.get_diffterms(xx, 3, order_list=True)
+        res23b, indices23 = st.get_diffterms(xx, (2, 3), order_list=True)
 
         self.assertEqual(res23b, res2b + res3b)
         self.assertEqual(indices23, indices2 + indices3)
+
+    def test_get_diffterms_bug1(self):
+        xx = sp.symbols('x, y')
+        res, orders = st.get_diffterms(xx, 2, order_list=True)
+        self.assertEqual(orders, [(2, 0), (1, 1), (0, 2)])
 
 
 
