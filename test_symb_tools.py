@@ -116,7 +116,7 @@ class SymbToolsTest(unittest.TestCase):
 
         # TODO: assert raises
 
-    def test_poly_expr_coeffs(self):
+    def _test_poly_expr_coeffs(self):
         a, b, c, d = sp.symbols("a, b, c, d")
         x, y = sp.symbols("x, y")
 
@@ -133,12 +133,25 @@ class SymbToolsTest(unittest.TestCase):
         res2 = st.get_diffterms(xx, 2)
         expected_res2 = [(x1, x1), (x1, x2), (x1, x3), (x2, x2),
                          (x2, x3), (x3, x3)]
+
+        expected_indices2 = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
         self.assertEqual(res2, expected_res2)
 
         res3 = st.get_diffterms(xx, 3)
-        res23 = st.get_diffterms(xx, (2,3))
+        res23 = st.get_diffterms(xx, (2, 3))
 
         self.assertEqual(res23, res2 + res3)
+
+        res2b, indices2 = st.get_diffterms(xx, 2, indices=True)
+        self.assertEqual(res2b, res2)
+        self.assertEqual(expected_indices2, indices2)
+
+        res3b, indices3 = st.get_diffterms(xx, 3, indices=True)
+        res23b, indices23 = st.get_diffterms(xx, (2, 3), indices=True)
+
+        self.assertEqual(res23b, res2b + res3b)
+        self.assertEqual(indices23, indices2 + indices3)
+
 
 
 def main():

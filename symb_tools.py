@@ -1541,25 +1541,31 @@ def matrix_count_ops(M, visual=False):
     return M.applyfunc(co)
 
 
+def count_ops(expr, *args, **kwargs):
+    """
+    Matrix aware wrapper for sp.count_ops
+    """
+
+    if isinstance(expr, sp.Matrix):
+        return matrix_count_ops(expr, *args, **kwargs)
+    else:
+        return sp.count_ops(expr, *args, **kwargs)
 
 
-#def get_diffterms2(xx, order):
-#    assert len(xx) == 2
-#    order = int(order)
-
-
-
-
-
-def get_diffterms(xx, order):
+def get_diffterms(xx, order, indices=False):
     """
     returns a list such as
 
     [(x1, x1), (x1, x2), (x1, x3), (x2, x2), (x2, x3), (x3, x3)]
 
-    for xx = (x1, x2, x3) and order = 2
+    :param xx: example: xx = (x1, x2, x3)
+    :param order: example: order =2
 
+    :param indices: flag whether or not to return an additional index list
+      like [(0, 0), (0,1), ...]
+    :return:
     """
+
     if order == 0:
         return []
 
@@ -1567,12 +1573,28 @@ def get_diffterms(xx, order):
         return [ (xx[0],)*(order-i)+(xx[1],)*(i) for i in range(order+1)]
 
     if isinstance(order, (list, tuple)):
-        return sum([get_diffterms(xx, o) for o in order], [])
+        if not indices:
+            return sum([get_diffterms(xx, o) for o in order], [])
+        else:
+            terms, terms_indices = get_diffterms(xx, order[0], indices=indices)
+            if len(order) > 1:
+                t2, ti2 = get_diffterms(xx, order[1:], indices=indices)
+                terms += t2
+                terms_indices += ti2
+            return terms, terms_indices
 
     assert isinstance(order, int)
 
     terms = list(it.combinations_with_replacement(xx, order))
 
+    if indices:
+        idx_list = range(len(xx))
+        terms_indices = []
+        for tup in terms:
+            element = sp.Matrix(tup).subs(zip(xx, idx_list))
+            terms_indices.append( tuple(element) )
+
+        return terms, terms_indices
     return terms
 
 
