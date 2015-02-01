@@ -1347,6 +1347,7 @@ def coeffs(expr, var = None):
         dom = 'EX'
     return sp.Poly(expr, var, domain =dom).all_coeffs()
 
+
 # TODO: harmonize with poly_coeffs
 def poly_expr_coeffs(expr, variables, maxorder=2):
     """
@@ -1390,6 +1391,20 @@ def poly_expr_coeffs(expr, variables, maxorder=2):
 
     return result
 
+
+def monomial_from_signature(sig, variables):
+    """
+    :param sig: tuple of integers, example (2, 1)
+    :param variables: sequence of symbols example (x, y)
+    :return: multivariant monomial example (x**2*y)
+    """
+    assert len(sig) == len(variables)
+
+    res = 1
+    for i, v in zip(sig, variables):
+        res *= v**i
+
+    return res
 
 
 def rat_if_close(x, tol=1e-10):

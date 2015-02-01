@@ -158,6 +158,16 @@ class SymbToolsTest(unittest.TestCase):
         res, orders = st.get_diffterms(xx, 2, order_list=True)
         self.assertEqual(orders, [(2, 0), (1, 1), (0, 2)])
 
+    def test_monomial_from_signature(self):
+        x1, x2, x3, = xx = sp.symbols('x1:4')
+
+        s1 = (0, 0, 0)
+        p1 = st.monomial_from_signature(s1, xx)
+        self.assertEqual(p1, 1)
+
+        s2 = (3, 2, 1)
+        p2 = st.monomial_from_signature(s2, xx)
+        self.assertEqual(p2, x1**3 * x2**2 * x3 )
 
 
 def main():
