@@ -1571,11 +1571,15 @@ def get_diffterms(xx, order):
 
     assert isinstance(order, int)
 
+    # TODO: maybe it would be smarter to use it.combinations_with_replacement
     L1 = list(  it.product( *([xx]*order) )   )
-    #L2 = map(list, L1)
-    L3 = map(tuple, map(sorted, L1))
+
+    def mysort(tup):
+        return tuple( sorted(tup, key=str) )
+
+    L3 = map(mysort, L1)
     terms = dict(zip(L3, [0]*len(L3))).keys() # remove duplicates
-    terms.sort()
+    terms.sort(key=str)
 
     return terms
 
