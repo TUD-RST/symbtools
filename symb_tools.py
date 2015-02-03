@@ -2590,9 +2590,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
             new_order = int(new[len(base):len(new)]) + 1
             new_name = base + str(new_order) + r')}_' + trailing_number
 
-            #import re
-            #order = int(re.search('{\((.*)\)}',base_order).group(1)) + 1
-            #new_name = base_order[0] + r'^{(' + str(order) + r')}_' + trailing_number
 
         else:
             new_name = base_order + r'dot' + trailing_number
