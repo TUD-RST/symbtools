@@ -20,6 +20,8 @@ import random
 import itertools as it
 import collections as col
 
+from IPython import embed
+
 
 # convenience
 np.set_printoptions(8, linewidth=300)
@@ -2550,15 +2552,52 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     if not kwargs:
         # assumptions for the symbols (facilitating the postprocessing)
         kwargs ={"real": True}
+        
+        
 
     def extended_name_symb(base, ord):
         if isinstance(base, sp.Symbol):
-            base = base.name
-        if base.endswith('_d') or base.endswith('_dd'):
-            sep = ''
+            base = base.name  
+
+        # remove trailing number
+        base_order = base.rstrip('1234567890')
+
+        # store trailing number
+        trailing_number = str(base[len(base_order):len(base)])
+
+        new_name = []
+        
+        # check for 3rd derivative
+        if base_order[-5:len(base_order)]=='dddot':
+            variable_name = base_order[0:-5]
+            new_name = variable_name + r'^{(4)}_' + trailing_number
+
+        # check for 2nd derivative
+        elif base_order[-4:len(base_order)]=='ddot' and not new_name:
+            variable_name = base_order[0:-4]
+            new_name = variable_name + r'dddot' + trailing_number
+
+        # check for 1st derivative
+        elif base_order[-3:len(base_order)]=='dot' and not new_name:
+            variable_name = base_order[0:-3]
+            new_name = variable_name + r'ddot' + trailing_number
+
+        # check for higher order derivative
+        elif base_order[-3:len(base_order)]==')}_':
+            
+            new = base_order[0:-3]
+            base = new.rstrip('1234567890')
+            new_order = int(new[len(base):len(new)]) + 1
+            new_name = base + str(new_order) + r')}_' + trailing_number
+
+            #import re
+            #order = int(re.search('{\((.*)\)}',base_order).group(1)) + 1
+            #new_name = base_order[0] + r'^{(' + str(order) + r')}_' + trailing_number
+
         else:
-            sep = '_'
-        new_name = base + sep + 'd'
+            new_name = base_order + r'dot' + trailing_number
+
+
         if ord == 1:
             return sp.Symbol(new_name, **kwargs)
         else:
@@ -2569,12 +2608,12 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
         deriv_symbols1 = [ [extended_name_symb(s, ord)
                           for s in func_symbols] for ord in range(order, 0, -1)]
 
-        # print deriv_symbols1  # -> e.g: [[a_dd, b_dd], [a_d, b_d]]
+        # print deriv_symbols1  # -> e.g: [[addot, bddot], [adot, bdot]]
     else:
         L = len(func_symbols)
         assert len(prov_deriv_symbols) == order*L
 
-        # assume a structure like [xd, yd,  xdd, ydd] (for order = 2)
+        # assume a structure like [xdot, ydot,  xddot, yddot] (for order = 2)
         # convert in a structure like in the case above
         deriv_symbols1 = []
         for ord in range(order, 0, -1):
