@@ -2552,8 +2552,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     if not kwargs:
         # assumptions for the symbols (facilitating the postprocessing)
         kwargs ={"real": True}
-        
-        
 
     def extended_name_symb(base, ord):
         if isinstance(base, sp.Symbol):
@@ -2589,7 +2587,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
             base = new.rstrip('1234567890')
             new_order = int(new[len(base):len(new)]) + 1
             new_name = base + str(new_order) + r')}_' + trailing_number
-
 
         else:
             new_name = base_order + r'dot' + trailing_number
