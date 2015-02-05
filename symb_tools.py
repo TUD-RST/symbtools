@@ -1911,15 +1911,23 @@ def zip0(*xx, **kwargs):
     returns a list of tuples like: [(x1, arg), (x2, arg), ...]
     this is very handy for substiution of equilibrium points at zero
 
+    For convenience it is also possible to pass a sequence of sequences of
+    symbols:
+    zip0([a1, a2, a3], [x1, x2])
+
     valid kwargs: arg (if a different value than zero is desired)
     """
     arg = kwargs.get('arg', 0)
 
-    # if a sequence was passed instead of single arguments
-    if hasattr(xx[0], '__len__'):
-        xx = xx[0]
+    res = []
+    for x in xx:
+        if hasattr(x, '__len__'):
+            res.extend( zip0(*x, **kwargs) )
+        else:
+            assert x.is_Symbol
+            res.append((x, arg))
 
-    return zip(xx, [arg]*len(xx))
+    return res
 
 def aux_make_tup_if_necc(arg):
     """

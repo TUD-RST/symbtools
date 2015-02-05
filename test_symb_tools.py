@@ -169,6 +169,22 @@ class SymbToolsTest(unittest.TestCase):
         p2 = st.monomial_from_signature(s2, xx)
         self.assertEqual(p2, x1**3 * x2**2 * x3 )
 
+    def test_zip0(self):
+        aa = sp.symbols('a1:5')
+        bb = sp.symbols('b1:4')
+        xx = sp.symbols('x1:3')
+
+        s1 = sum(aa)
+        self.assertEqual(s1.subs(st.zip0(aa)), 0)
+        self.assertEqual(s1.subs(st.zip0(aa, arg=3.5)), 3.5*len(aa))
+        self.assertEqual(s1.subs(st.zip0(aa, arg=xx[0])), xx[0]*len(aa))
+
+        s2 = s1 + sum(bb) + sum(xx)
+        self.assertEqual(s1.subs(st.zip0(aa, bb, xx)), 0)
+        t2 = s2.subs(st.zip0(aa, bb, xx, arg=-2.1))
+        self.assertEqual(t2, -2.1*len(aa+bb+xx))
+
+
 
 def main():
     unittest.main()
