@@ -293,6 +293,81 @@ def lie_deriv(sf, vf, x, n = 1):
     else:
         return res
 
+
+def lie_deriv_cartan(sf, vf, x, u=None, order=1, **kwargs):
+    """
+    lie_deriv of a scalar field along a cartan vector field
+    (incorporating input derivatives)
+
+    :param sf: scalar field ( e.g. h(x,u) )
+    :param vf: vector field ( f(x, u) with xdot = f(x,u) )
+    :param x:  state coordinates
+    :param u:  input variables
+    :param order: order of the lie derivative (integer)
+    :return:
+
+    see: M. Franke (PhD thesis), section 3.2.1
+    """
+    # TODO: find primary/english literature source
+
+    if isinstance(x, sp.Matrix):
+        assert x.shape[1] == 1
+        x = list(x)
+
+    assert int(order) == order and order >= 0
+    if order == 0:
+        return sf
+
+    ordinary_lie_deriv = lie_deriv(sf, vf, x, n=1)
+
+    if 0 and not u:
+        return 1/0
+
+    if u is None:
+        u = []
+
+    if _is_symbol(u):
+        # convenience
+        u = [u]
+
+    # assume u is a sequence of symbols (input variables)
+    # or a sequence of sequences of symbols (input vars and its derivatives)
+    assert hasattr(u, '__len__')
+
+    if all( [ _is_symbol(elt) for elt in u ] ):
+        # sequence of symbols
+        uu = sp.Matrix(u)
+        uu_dot_list = [perform_time_derivative(uu, uu, order=i)
+                       for i in range(order + 1)]
+
+    elif all([hasattr(elt, '__len__') for elt in u]):
+        # sequence of sequences
+        uu_dot_list = list(u)
+        L = len(uu_dot_list[0])
+        assert all([len(elt) == L for elt in uu_dot_list])
+
+        N = len(uu_dot_list[1:]) # we already have derivatives up to order N
+        # maybe we need more derivatives
+        vv = sp.Matrix(uu_dot_list[-1])
+        new_uu_dot_list = [perform_time_derivative(vv, vv, order=i)
+                           for i in range(1, order + 1)]
+        uu_dot_list.extend(new_uu_dot_list)
+
+    else:
+        msg = "Expecting u like [u1, u2] or [(u1, u2), (udot1, udot2)]"
+        raise ValueError(msg)
+
+    # actually do the calculation
+    u_res = 0
+    for i, u_symbs_list in enumerate(uu_dot_list[:-1]):
+        for j, us in enumerate(u_symbs_list):
+            us_d = uu_dot_list[i + 1][j]  # get associated derivative
+            u_res += sf.diff(us)*us_d
+
+    res = ordinary_lie_deriv + u_res
+    return lie_deriv_cartan(res, vf, x, uu_dot_list, order=order-1)
+
+
 def lie_bracket(f, g, *args, **kwargs):
     """
     f, g should be vectors (or lists)
@@ -487,8 +562,6 @@ def ratsimp(arg):
     else:
         return sp.ratsimp(arg)
 
-
-
 def uv(n, i):
     """
     unit vectors (columns)
@@ -496,6 +569,16 @@ def uv(n, i):
     uv = sp.Matrix([0]*n)
     uv[i-1] = sp.sympify(1)
     return uv
+
+
+def _is_symbol(expr):
+    """
+    :param expr: any object
+    :return: True or False
+
+    avoids the additional test whether an object has the attribute is_Symbol
+    """
+    return hasattr(expr, 'is_Symbol') and expr.is_Symbol
 
 # Todo Unittest (sp.Symbol vs. sp.cls)
 def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol):
