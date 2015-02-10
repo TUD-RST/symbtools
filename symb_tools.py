@@ -1941,7 +1941,7 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
     a2 = exp2.atoms(sp.Symbol, sp.Dummy)
 
     r = random
-    if seed != None:
+    if not seed is None:
         r.seed(seed)
 
     def get_rand():
@@ -1971,7 +1971,7 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
 
 # TODO: Funktionen und Ableitungen (aus random_equaltest rauslösen
 # und auch hier verwenden )
-def subs_random_numbers(expr):
+def subs_random_numbers(expr, seed=None):
     """
     replaces all symbols in the given expr (scalar or matrx) by random numbers
     and returns the substituted result
@@ -1980,6 +1980,9 @@ def subs_random_numbers(expr):
     """
 
     a = atoms(expr, sp.Symbol)
+
+    if not seed is None:
+        random.seed(seed)
 
     tuples = [(s, random.random()) for s in a]
 
