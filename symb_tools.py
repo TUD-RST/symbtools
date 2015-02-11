@@ -2623,6 +2623,9 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     but different sets of assumptions (real=True etc.) are handled as
     different symbols by sympy. Here we dont want this. If the name of
     func_symbols occurs in expr this is sufficient for being regarded as equal.
+
+    assumptions like 'real=True' can be passed to the symbol generation via
+    kwargs
     """
 
     if not t_symbol:
@@ -2641,9 +2644,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
 
     derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
 
-    if not kwargs:
-        # assumptions for the symbols (facilitating the postprocessing)
-        kwargs ={"real": True}
 
     def extended_name_symb(base, ord):
         if isinstance(base, sp.Symbol):
@@ -2687,7 +2687,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
 
         elif not new_name:
             new_name = base_order + r'dot' + trailing_number
-
 
         if ord == 1:
             return sp.Symbol(new_name, **kwargs)

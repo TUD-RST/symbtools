@@ -77,6 +77,28 @@ class SymbToolsTest(unittest.TestCase):
                                                  (adot, bdot)+ (addot, bddot) )
         self.assertEquals(f1d_2, f1d_2_altntv)
 
+    def test_perform_time_deriv4(self):
+        # test higher order derivatives
+
+        a, b = sp.symbols("a, b")
+
+        f1 = 8*a*b**2
+
+        res_a1 = st.perform_time_derivative(f1, (a, b), order=5)
+
+        a_str = 'a adot addot adddot adddot a_d5'
+        b_str = a_str.replace('a', 'b')
+
+        expected_symbol_names = a_str.split() + b_str.split()
+
+        res_list =  [sp.Symbol(e)
+                     in res_a1.atoms() for e in expected_symbol_names]
+
+        self.assertTrue( all(res_list) )
+
+        l1 = len( res_a1.atoms(sp.Symbol) )
+        self.assertEqual(len(expected_symbol_names), l1)
+
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a, b, c', real=True)
         a1, b1, c1 = abc1 = sp.symbols('a, b, c')
