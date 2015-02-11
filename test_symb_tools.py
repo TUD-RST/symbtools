@@ -186,6 +186,62 @@ class SymbToolsTest(unittest.TestCase):
         t2 = s2.subs(st.zip0(aa, bb, xx, arg=-2.1))
         self.assertEqual( t2, -2.1*len(aa + bb + xx) )
 
+    def test_is_number(self):
+        x1, x2, x3 = xx = sp.symbols('x1:4')
+
+        self.assertTrue(st.is_number(x1/x1))
+        self.assertTrue(st.is_number(1))
+        self.assertTrue(st.is_number(3.4))
+        self.assertTrue(st.is_number(-10.0000001))
+
+        self.assertFalse(st.is_number(x1))
+        self.assertFalse(st.is_number(x1/x2))
+        self.assertFalse(st.is_number(float('nan')))
+        self.assertFalse(st.is_number(float('inf')))
+        self.assertFalse(st.is_number(-float('inf')))
+
+    def test_rnd_number_tuples(self):
+        x1, x2, x3 = xx = sp.symbols('x1:4')
+
+        s = sum(xx)
+        res_a1 = st.rnd_number_subs_tuples(s)
+        self.assertTrue(isinstance(res_a1, list))
+        self.assertEqual(len(res_a1), len(xx))
+
+        c1 = [len(e)==2 and e[0].is_Symbol and st.is_number(e[1])
+              for e in res_a1]
+
+        self.assertTrue( all(c1) )
+
+        t = sp.Symbol('t')
+        f = sp.Function('f')(t)
+
+        fdot = f.diff(t)
+        fddot = f.diff(t, 2)
+
+        ff = sp.Matrix([f, fdot, fddot, x1*x2])
+
+        res_b1 = st.rnd_number_subs_tuples(ff)
+
+        expct_b1_set = set([f, fdot, fddot, t, x1, x2])
+        res_b1_atom_set = set( zip(*res_b1)[0] )
+
+        self.assertEqual(expct_b1_set, res_b1_atom_set)
+        self.assertEqual(res_b1[0][0], fddot)
+        self.assertEqual(res_b1[1][0], fdot)
+        self.assertTrue( all( [st.is_number(e[1]) for e in res_b1] ) )
+
+    def test_rnd_number_tuples2(self):
+        x1, x2, x3 = xx = sp.symbols('x1:4')
+
+        s = sum(xx)
+        res_a1 = st.rnd_number_subs_tuples(s, seed=1)
+        res_a2 = st.rnd_number_subs_tuples(s, seed=2)
+        self.assertNotEqual(res_a1, res_a2)
+
+        res_b1 = st.rnd_number_subs_tuples(s, seed=2)
+        self.assertEqual(res_b1, res_a2)
+
     def test_lie_deriv_cartan(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')
         u1, u2 = uu = sp.Matrix(sp.symbols('u1:3'))

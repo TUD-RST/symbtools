@@ -267,10 +267,6 @@ def integrate_pw(fnc, var, transpoints):
     return piece_wise(*pieces)
 
 
-
-
-
-
 def lie_deriv(sf, vf, x, n = 1):
     """
     lie_deriv of a scalar field along a vector field
@@ -326,7 +322,7 @@ def lie_deriv_cartan(sf, vf, x, u=None, order=1, **kwargs):
     if u is None:
         u = []
 
-    if _is_symbol(u):
+    if is_symbol(u):
         # convenience
         u = [u]
 
@@ -334,7 +330,7 @@ def lie_deriv_cartan(sf, vf, x, u=None, order=1, **kwargs):
     # or a sequence of sequences of symbols (input vars and its derivatives)
     assert hasattr(u, '__len__')
 
-    if all( [ _is_symbol(elt) for elt in u ] ):
+    if all( [ is_symbol(elt) for elt in u ] ):
         # sequence of symbols
         uu = sp.Matrix(u)
         uu_dot_list = [perform_time_derivative(uu, uu, order=i)
@@ -571,7 +567,7 @@ def uv(n, i):
     return uv
 
 
-def _is_symbol(expr):
+def is_symbol(expr):
     """
     :param expr: any object
     :return: True or False
@@ -579,6 +575,22 @@ def _is_symbol(expr):
     avoids the additional test whether an object has the attribute is_Symbol
     """
     return hasattr(expr, 'is_Symbol') and expr.is_Symbol
+
+
+def is_number(expr):
+    """
+    :param expr: any object
+    :return: True or False
+
+    avoids the additional test whether an object has the attribute is_Symbol
+    """
+    try:
+        f = float(expr)
+    except TypeError:
+        return False
+
+    return f == expr and not (f == float('nan') or abs(f) == float('inf'))
+
 
 # Todo Unittest (sp.Symbol vs. sp.cls)
 def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol):
@@ -1647,12 +1659,16 @@ def trigsimp2(expr):
     return expr.expand()
 
 
-def rev_tuple(tup):
+# TODO: rename to rev_tuple_list
+def rev_tuple(tuples):
     """
     :param tup: a sequence of 2-tuples
     :return: a list of 2-tuples where each tuple has the reversed order
+
+    this is useful for reverting variable substitution, e.g. in the context of
+    coordinate transformation etc.
     """
-    return [(t[1], t[0]) for t in tup]
+    return [(t[1], t[0]) for t in tuples]
 
 
 def gradient(scalar_field, xx):
@@ -1969,22 +1985,72 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
     raise DeprecationWarning, "use random_equaltest instead"
 
 
+
+def rnd_number_subs_tuples(expr, seed=None):
+    '''
+
+    :param expr: expression
+    :return: [(a1, r1), (a2, r2), ...]
+
+    where a1, a2, ... are the Symbols occurring in expr
+    and r1, r2, ... are random numbers
+    '''
+
+
+    derivs = list(expr.atoms(sp.Derivative))
+
+    def deriv_order(d):
+        return len(d.args[1:])
+
+    derivs.sort(key=deriv_order, reverse=True)  # highest derivatives come first
+
+    # now functions
+    # we only look for undefined functions, but not for cos(..) etc
+    # the latter would be matched by sp.Function
+    func_class = sp.function.AppliedUndef
+    funcs = list(expr.atoms(func_class))
+
+    # the challenge is to filter out all functions and derivative objects
+    # separatly and later do backsubstitution
+
+    gen = sp.numbered_symbols('ZZZ', cls=sp.Dummy)
+    # replace all functions and derivs with symbols
+    SL = [(X, gen.next()) for X in list(derivs) + list(funcs)]
+
+    expr_new = expr.subs(SL)
+
+    regular_symbol_list = list(expr.atoms(sp.Symbol)) # original Symbols
+    dummy_symbol_list = list( expr_new.atoms(sp.Dummy) )
+
+    # the order does matter (highest derivative first)
+    # inherit the order from the symb number which inherited it from deriv-order
+    dummy_symbol_list.sort(key=unicode)
+    atoms_list = dummy_symbol_list + regular_symbol_list
+
+    # for back substitution
+    reverse_dict = dict( rev_tuple(SL) +
+                         zip(regular_symbol_list, regular_symbol_list) )
+
+    if not seed is None:
+        random.seed(seed)
+
+    tuples = [(reverse_dict[s], random.random()) for s in atoms_list]
+
+    return tuples
+
 # TODO: Funktionen und Ableitungen (aus random_equaltest rauslösen
 # und auch hier verwenden )
-def subs_random_numbers(expr, seed=None):
+def subs_random_numbers(expr, *args, **kwargs):
     """
     replaces all symbols in the given expr (scalar or matrx) by random numbers
     and returns the substituted result
 
     usefull for e.g. for checking the rank at a "generic" point
+
+    :kwargs: seed: set the seed for the random module
     """
 
-    a = atoms(expr, sp.Symbol)
-
-    if not seed is None:
-        random.seed(seed)
-
-    tuples = [(s, random.random()) for s in a]
+    tuples = rnd_number_subs_tuples(expr, *args, **kwargs)
 
     return expr.subs(tuples)
 
