@@ -86,7 +86,7 @@ class SymbToolsTest(unittest.TestCase):
 
         res_a1 = st.perform_time_derivative(f1, (a, b), order=5)
 
-        a_str = 'a adot addot adddot adddot a_d5'
+        a_str = 'a adot addot adddot addddot a_d5'
         b_str = a_str.replace('a', 'b')
 
         expected_symbol_names = a_str.split() + b_str.split()
