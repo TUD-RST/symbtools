@@ -267,6 +267,45 @@ def integrate_pw(fnc, var, transpoints):
     return piece_wise(*pieces)
 
 
+def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
+    '''
+    :param funcs1: source functions f(a, b)
+    :param args: arguments of f -> (a, b)
+    :param funcs2: "arg functions a, b" (a(x), b(x))
+    :param arg2: final arg x
+    :return: the same as f.subs(...).diff(x, 2)
+
+    background: the direct computation might take too long
+    '''
+
+    if hasattr(funcs1, '__len__'):
+        #funcs1 = list(funcs1)
+        res = [deriv_2nd_order_chain_rule(f, args1, funcs2, arg2) for f in funcs1]
+
+        if isinstance(funcs1, sp.MatrixBase):
+            res = sp.Matrix(res)
+            res = res.reshape(*funcs1.shape)
+
+        return res
+
+    assert isinstance(funcs1, sp.Expr)
+    assert len(args1) == len(funcs2)
+    assert isinstance(arg2, sp.Symbol)
+    f = funcs1
+
+    funcs2 = sp.Matrix(list(funcs2))
+
+    H = sp.hessian(f, args1)
+    H1 = H.subs(zip(args1, funcs2))
+    J = gradient(f, args1)
+
+    v = funcs2.diff(arg2)
+    Hterm = (v.T*H1*v)[0]
+    J2 = (J*v).diff(arg2).subs(zip(args1, funcs2))[0]
+
+    return Hterm + J2
+
+
 def lie_deriv(sf, vf, x, n = 1):
     """
     lie_deriv of a scalar field along a vector field

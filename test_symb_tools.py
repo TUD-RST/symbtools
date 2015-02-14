@@ -297,6 +297,37 @@ class SymbToolsTest(unittest.TestCase):
 
         self.assertEqual(sp.expand(res_c2 - res_c3), 0)
 
+    def test_deriv_2nd_order_chain_rule(self):
+        a, b, x = sp.symbols('a, b, x')
+
+        f1 = a**3 + a*b**2 + 7*a*b
+        f2 = -2*a**2 + b*a*b**2/(2+a**2 * b**2) + 12*a*b
+        f3 = -3*a**2 + b*a*b**2 + 7*a*b/(2+a**2 * b**2)
+
+
+        f = f1
+        aa = sp.cos(3*x)
+        bb = sp.exp(5*x)
+
+        ab_subs = [(a, aa), (b, bb)]
+        fab = f.subs(ab_subs)
+        fab_d2 = fab.diff(x, 2)
+
+        res1 = st.deriv_2nd_order_chain_rule(f, (a,b), [aa, bb], x)
+
+        res1a = sp.simplify(res1 - fab_d2)
+        self.assertEqual(res1a, 0)
+
+        # multiple functions
+
+        ff = sp.Matrix([f1, f2, f3])
+
+        ff_ab_d2 = ff.subs(ab_subs).diff(x, 2)
+
+        res2 = st.deriv_2nd_order_chain_rule(ff, (a, b), [aa, bb], x)
+        res2a = sp.expand(res2 - ff_ab_d2)
+        self.assertEqual(res2a, res2a*0)
+
 
 def main():
     unittest.main()
