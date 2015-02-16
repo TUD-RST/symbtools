@@ -266,7 +266,7 @@ def integrate_pw(fnc, var, transpoints):
 
     return piece_wise(*pieces)
 
-
+# might be oboslete (intended use case did not carry on)
 def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
     '''
     :param funcs1: source functions f(a, b)
@@ -1520,7 +1520,8 @@ def poly_expr_coeffs(expr, variables, maxorder=2):
     result[key] = value
 
     for diff_tup, order_tup in zip(diff_list, order_tuples):
-        tmp = expr.diff(*diff_tup).subs(v0)
+        gamma = sp.Mul(*[sp.factorial(o) for o in order_tup])
+        tmp = expr.diff(*diff_tup).subs(v0) / gamma
         result[order_tup] = tmp
 
     return result
@@ -2025,7 +2026,7 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
 
 
 
-def rnd_number_subs_tuples(expr, seed=None):
+def rnd_number_subs_tuples(expr, seed=None, rational=False):
     '''
 
     :param expr: expression
@@ -2073,7 +2074,10 @@ def rnd_number_subs_tuples(expr, seed=None):
     if not seed is None:
         random.seed(seed)
 
-    tuples = [(reverse_dict[s], random.random()) for s in atoms_list]
+    if rational == True:
+        tuples = [(reverse_dict[s], clean_numbers(random.random())) for s in atoms_list]
+    else:
+        tuples = [(reverse_dict[s], random.random()) for s in atoms_list]
 
     return tuples
 
@@ -2826,6 +2830,22 @@ def match_symbols_by_name(symbols1, symbols2):
         res_symb = sdict1.get(string2, symb2)
         res.append(res_symb)
 
+    return res
+
+def update_cse(cse_subs_tup_list, new_subs):
+    '''
+
+    :param cse_subs_tup_list: list of tuples: [(x1, a+b), (x2, x1*b**2)]
+    :param new_subs: list of tuples: [(a, b + 5), (b, 3)]
+    :return: list of tuplse [(x1, 11), (x2, 99)]
+
+    usefull to substitute values in a collection returned by sympy.cse
+    (common subexpressions)
+    '''
+    res = []
+    for e1, e2 in cse_subs_tup_list:
+        new_tup = (e1, e2.subs(res + new_subs))
+        res.append(new_tup)
     return res
 
 

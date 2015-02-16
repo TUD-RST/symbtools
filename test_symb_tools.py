@@ -123,7 +123,7 @@ class SymbToolsTest(unittest.TestCase):
         x, y = sp.symbols("x, y")
 
         p1 = a*x + b*x**2 + c*y - d + 2*a*x*y
-        sample_solution = [((0, 0), -d), ((1, 0), a), ((2, 0), 2*b),
+        sample_solution = [((0, 0), -d), ((1, 0), a), ((2, 0), b),
                            ((0, 1), c), ((1, 1), 2*a), ((0, 2), 0)]
 
         # coeff-dict
@@ -327,6 +327,22 @@ class SymbToolsTest(unittest.TestCase):
         res2 = st.deriv_2nd_order_chain_rule(ff, (a, b), [aa, bb], x)
         res2a = sp.expand(res2 - ff_ab_d2)
         self.assertEqual(res2a, res2a*0)
+
+    def test_update_cse(self):
+        a, b, c, x1, x2, x3 = sp.symbols('a, b, c, x1, x2, x3')
+
+        L1 = [(x1, a + b), (x2, x1*b**2)]
+        new_subs1 = [(b, 2)]
+        new_subs2 = [(a, b + 5), (b, 3),]
+
+        res1_exp = [(x1, a + 2), (x2, (a + 2)*4)]
+        res2_exp = [(x1, 11), (x2, 99)]
+
+        res1 = st.update_cse(L1, new_subs1)
+        res2 = st.update_cse(L1, new_subs2)
+
+        self.assertEqual(res1, res1_exp)
+        self.assertEqual(res2, res2_exp)
 
 
 def main():
