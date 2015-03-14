@@ -30,6 +30,28 @@ t = sp.var('t')
 
 zf = sp.numbers.Zero()
 
+
+# These definitions allow useful shorthands in interactive mode:
+# (IPython, or IPython-Notebook):
+# <object>.s  as alias for <object>.atoms(sp.Symbol)
+# (determine from which symbols does an expression depend)
+# <object>.co as alias for count_ops(object) (with matrix support)
+# (determine how "big" an expression is without converting it to string (slow))
+
+def satoms(self):
+    return self.atoms(sp.Symbol)
+
+def sco(self):
+    return count_ops(self)
+
+sp.Expr.s = property(satoms)
+sp.ImmutableDenseMatrix.s = property(satoms)
+sp.Matrix.s = property(satoms)
+
+sp.Expr.co = property(sco)
+sp.ImmutableDenseMatrix.co = property(sco)
+sp.Matrix.co = property(sco)
+
 class equation(object):
 
     def __init__(self, lhs, rhs = 0):
@@ -2034,6 +2056,9 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False):
 
     where a1, a2, ... are the Symbols occurring in expr
     and r1, r2, ... are random numbers
+    
+    keyword args:
+    mul_pi_list: list of atoms, which should be multiplied by pi
     '''
 
 
@@ -2078,7 +2103,34 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False):
         tuples = [(reverse_dict[s], clean_numbers(random.random())) for s in atoms_list]
     else:
         tuples = [(reverse_dict[s], random.random()) for s in atoms_list]
+    
+#    # make the desired symbols a multiple of pi 
+#    if mul_pi_list:
+#        for i, (s, v) in enumerate(tuples):
+#            if s in mul_pi_list:
+#                tuples[i] = (s, v*sp.pi)
+    
+    return tuples
 
+# TODO: unit test
+def rnd_trig_tuples(symbols, seed = None):
+    """
+    assigns to each element of symbols a value m*sp.pi where m is such
+    that sp.sin(m*pi) evaluates to some "algebraic number" like (sqrt(2)/2)
+    """
+    denoms = [2, 3, 4, 5, 6, 8, 12]
+    if seed:
+        random.seed(seed)
+    
+    L = len(denoms)
+    tuples = []
+    for s in symbols:
+        i = random.randint(0, L-1)
+        den = denoms[i]
+        num = random.randint(0, den*2)*sp.pi
+        
+        tuples.append((s, num/den))
+        
     return tuples
 
 # TODO: Funktionen und Ableitungen (aus random_equaltest rauslösen
