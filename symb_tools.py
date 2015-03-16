@@ -1122,7 +1122,7 @@ def col_split(A, *indices):
     return res
 
 
-def crow_split(A, *indices):
+def row_split(A, *indices):
     """
     returns a list of rows corresponding to the passed indices
     """
@@ -1131,6 +1131,9 @@ def crow_split(A, *indices):
     res = [ A[i, :] for i in indices ]
     return res
 
+
+def crow_split(*args):
+    raise DeprecationWarning, 'use row_split(..) instead'
 
 
 # TODO: Doctest
@@ -1877,10 +1880,6 @@ def linear_input_trafo(B, row_idcs):
     res = sp.solve(leqs)
 
     return to_np(P.subs(res))
-
-
-
-
 
 def poly_scalar_field(xx, symbgen, order, poly=False):
     """
