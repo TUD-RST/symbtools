@@ -345,6 +345,66 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual(res2, res2_exp)
 
 
+class SymbToolsTest2(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_solve_scalar_ode_1sto(self):
+        a, b = sp.symbols("a, b", nonzero=True)
+        t, x1, x2 = sp.symbols("t, x1, x2")
+
+        # x1_dot = <rhs>
+        rhs1 = sp.S(0)
+        rhs2 = sp.S(2.5)
+        rhs3 = x1
+        rhs4 = sin(a*x1)
+        rhs5 = x1*(3-t)
+        rhs6 = cos(b*t)  # coeff must be nonzero to prevent case distinction
+
+        res1 = st.solve_scalar_ode_1sto(rhs1, x1, t)
+        self.assertEquals(res1.diff(t), rhs1.subs(x1, res1))
+
+        res2 = st.solve_scalar_ode_1sto(rhs2, x1, t)
+        self.assertEquals(res2.diff(t), rhs2.subs(x1, res2))
+
+        res3, iv3 = st.solve_scalar_ode_1sto(rhs3, x1, t, return_iv=True)
+        self.assertEquals(res3.diff(t), rhs3.subs(x1, res3))
+        self.assertEquals(res3, iv3*exp(t))
+
+        if 1:
+            # this test works but takes quite long
+            res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
+            test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
+            test_difference4_num = st.subs_random_numbers(test_difference4, seed=1403)
+            self.assertAlmostEqual(test_difference4_num, 0)
+
+        res5 = st.solve_scalar_ode_1sto(rhs5, x1, t)
+        test_difference5 = res5.diff(t) - rhs5.subs(x1, res5)
+        self.assertEquals(test_difference5.expand(), 0)
+
+        res6 = st.solve_scalar_ode_1sto(rhs6, x1, t)
+        self.assertEquals(res6.diff(t), rhs6.subs(x1, res6).expand())
+
+    def test_calc_flow_from_vectorfield(self):
+        a, b = sp.symbols("a, b", nonzero=True)
+        t, x1, x2, x3, x4 = sp.symbols("t, x1, x2, x3, x4")
+        xx = x1, x2, x3, x4
+
+        vf1 = sp.Matrix([0, 1, x3])
+        vf2 = sp.Matrix([0, 1, x3, sin(a*x2)])
+
+        res1, fp, iv1 = st.calc_flow_from_vectorfield(vf1, xx[:-1], flow_parameter=t)
+        vf1_sol = vf1.subs(zip(xx[:-1], res1))
+        self.assertEqual(fp, t)
+        self.assertEqual(res1.diff(t), vf1_sol)
+
+        res2, fp, iv2 = st.calc_flow_from_vectorfield(vf2, xx, flow_parameter=t)
+        vf2_sol = vf2.subs(zip(xx[:-1], res2))
+        self.assertEqual(fp, t)
+        self.assertEqual(res2.diff(t), vf2_sol)
+
+
 def main():
     unittest.main()
 

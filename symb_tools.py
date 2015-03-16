@@ -1912,6 +1912,104 @@ def poly_scalar_field(xx, symbgen, order, poly=False):
     if poly:
         res = sp.Poly(res, *xx, domain='EX')
     return res, coeff_list
+    
+
+def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
+
+    assert is_symbol(func_symb)
+    iv = kwargs.get('initial_value')
+    if iv is None:
+        iv = sp.Symbol(str(func_symb)+'_0')
+
+    sf = sp.sympify(sf)
+    func = sp.Function(str(func_symb))(flow_parameter)
+
+    eq = func.diff(flow_parameter) - sf.subs(func_symb, func)
+    old_atoms = eq.atoms(sp.Symbol)
+    res = sp.dsolve(eq, func)
+    if isinstance(res, list):
+        # multiple solutions might occur (complex case)
+        print 'Warning: got multiple solution while solving ', eq, 'continuing with the first...'
+        res = res[0]
+
+    new_atoms = res.atoms(sp.Symbol) - old_atoms
+
+    new_atoms = list(new_atoms)
+    assert len(new_atoms) in (1, 2)
+    CC = new_atoms
+
+    res0 = res.subs(flow_parameter, 0)
+    eq_ic = iv - res0.rhs
+    sol = sp.solve(eq_ic, CC, dict=True)  # gives a list of dicts
+    assert len(sol) >= 1
+    if len(sol) > 2:
+        print 'Warning: multiple solutions for initial values; taking the first.'
+    sol = sol[0].items()
+
+    # selecting the rhs of the first solution and look for other C-vars
+    free_symbols = list(sol[0][1].atoms().intersection(CC))
+    if free_symbols:
+        print 'Warning: there are still some symbols free while calculating ' \
+              'initial values; substituting them with 0.'
+
+    res = res.subs(sol).subs(zip0(free_symbols))
+
+    return_iv = kwargs.get('return_iv')
+    if return_iv:
+        return res.rhs, iv
+    else:
+        return res.rhs
+
+
+def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
+    if flow_parameter is None:
+        flow_parameter = sp.Symbol('t')
+
+    assert is_symbol(flow_parameter)
+    assert len(vf) == len(func_symbs)
+    assert all([is_symbol(fs) for fs in func_symbs])
+    assert vf.shape[1] == 1
+
+    func_symbs = sp.Matrix(func_symbs)
+
+    ### build dependency graph
+    J = vf.jacobian(func_symbs)
+
+    # find autonomous odes -> jacobian has no entry apart from diagonal
+    lines = J.tolist()
+
+    aut_indices = []
+
+    for i, line in enumerate(lines):
+        line.pop(i)
+        if not any(line):
+            aut_indices.append(i)
+
+
+    sol_subs = kwargs.get('sol_subs', [])
+    iv_list = kwargs.get('iv_list', [])
+    sol_subs_len = len(sol_subs)
+
+    for i in aut_indices:
+        rhs = vf[i]
+        fs = func_symbs[i]
+        if sol_subs and fs in zip(*sol_subs)[0]:
+            continue
+        sol, iv = solve_scalar_ode_1sto(rhs, fs, flow_parameter, return_iv = True)
+        sol_subs.append((fs, sol))
+        iv_list.append((fs, iv))
+
+    new_vf = vf.subs(sol_subs)
+
+    if len(sol_subs) == len(func_symbs):
+        return func_symbs.subs(sol_subs), flow_parameter, func_symbs.subs(iv_list)
+
+    # If there has not been any progress
+    if len(sol_subs) == sol_subs_len:
+        raise ValueError("This vectorfield cannot be symbolically integrated with this algorithm")
+
+    return calc_flow_from_vectorfield(new_vf, func_symbs, flow_parameter, sol_subs=sol_subs, iv_list=iv_list)
+
 
 def np_trunc_small_values(arr, lim = 1e-10):
     assert isinstance(arr, (np.ndarray, np.matrix))
