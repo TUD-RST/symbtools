@@ -2644,6 +2644,10 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
 
     derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
 
+    # TODO: current behavior is inconsistent:
+    # perform_time_derivative(x1, [x1], order=5) -> x_1_d5
+    # perform_time_derivative(x_2, [x_2], order=5) -> x__2_d5
+    # (respective first underscore is obsolete)
 
     def extended_name_symb(base, ord):
         if isinstance(base, sp.Symbol):

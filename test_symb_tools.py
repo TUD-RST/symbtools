@@ -99,6 +99,61 @@ class SymbToolsTest(unittest.TestCase):
         l1 = len( res_a1.atoms(sp.Symbol) )
         self.assertEqual(len(expected_symbol_names), l1)
 
+    def test_perform_time_deriv5(self):
+        # test numbered symbols
+
+        x1, x2 = xx = sp.symbols("x1, x_2")
+
+
+        res_a1 = st.perform_time_derivative(x1, xx)
+        self.assertEqual(str(res_a1), 'xdot1')
+
+        res_a2 = st.perform_time_derivative(x1, xx, order=2)
+        self.assertEqual(str(res_a2), 'xddot1')
+
+        res_a3 = st.perform_time_derivative(x1, xx, order=3)
+        self.assertEqual(str(res_a3), 'xdddot1')
+
+        res_a4 = st.perform_time_derivative(x1, xx, order=4)
+        self.assertEqual(str(res_a4), 'xddddot1')
+
+        # FIXME:
+        res_a5 = st.perform_time_derivative(x1, xx, order=5)
+        #self.assertEqual(str(res_a5), 'x1_d5')
+
+
+        res_b1 = st.perform_time_derivative(x2, xx)
+        self.assertEqual(str(res_b1), 'x_dot2')
+
+        res_b2 = st.perform_time_derivative(x2, xx, order=2)
+        self.assertEqual(str(res_b2), 'x_ddot2')
+
+        res_b3 = st.perform_time_derivative(x2, xx, order=3)
+        self.assertEqual(str(res_b3), 'x_dddot2')
+
+        res_b4 = st.perform_time_derivative(x2, xx, order=4)
+        self.assertEqual(str(res_b4), 'x_ddddot2')
+
+        # FIXME
+        res_b5 = st.perform_time_derivative(x2, xx, order=5)
+        #self.assertEqual(str(res_b5), 'x_2_d5')
+
+
+    @unittest.expectedFailure
+    def test_perform_time_deriv5f(self):
+        # test numbered symbols
+
+        x1, x2 = xx = sp.symbols("x1, x_2")
+
+        # TODO: These two assertions should pass
+        # Then the above FIXME-issues can be resolved and this test is obsolete
+
+        res_a5 = st.perform_time_derivative(x1, xx, order=5)
+        self.assertEqual(str(res_a5), 'x1_d5')
+
+        res_b5 = st.perform_time_derivative(x2, xx, order=5)
+        self.assertEqual(str(res_b5), 'x_2_d5')
+
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a, b, c', real=True)
         a1, b1, c1 = abc1 = sp.symbols('a, b, c')
