@@ -2914,6 +2914,9 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     but different sets of assumptions (real=True etc.) are handled as
     different symbols by sympy. Here we dont want this. If the name of
     func_symbols occurs in expr this is sufficient for being regarded as equal.
+
+    assumptions like 'real=True' can be passed to the symbol generation via
+    kwargs
     """
 
     if not t_symbol:
@@ -2932,18 +2935,54 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
 
     derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
 
-    if not kwargs:
-        # assumptions for the symbols (facilitating the postprocessing)
-        kwargs ={"real": True}
+    # TODO: current behavior is inconsistent:
+    # perform_time_derivative(x1, [x1], order=5) -> x_1_d5
+    # perform_time_derivative(x_2, [x_2], order=5) -> x__2_d5
+    # (respective first underscore is obsolete)
 
     def extended_name_symb(base, ord):
         if isinstance(base, sp.Symbol):
             base = base.name
-        if base.endswith('_d') or base.endswith('_dd'):
-            sep = ''
-        else:
-            sep = '_'
-        new_name = base + sep + 'd'
+
+        # remove trailing number
+        base_order = base.rstrip('1234567890')
+
+        # store trailing number
+        trailing_number = str(base[len(base_order):len(base)])
+
+        new_name = []
+
+        # check for 4th derivative
+        if base_order[-6:len(base_order)]=='ddddot' and not new_name:
+            variable_name = base_order[0:-6]
+            underscore = r'' if trailing_number == r'' else r'_'
+            new_name = variable_name + underscore + trailing_number + r'_d5'
+
+        # check for 3rd derivative
+        elif base_order[-5:len(base_order)]=='dddot':
+            variable_name = base_order[0:-5]
+            new_name = variable_name + r'ddddot' + trailing_number
+
+        # check for 2nd derivative
+        elif base_order[-4:len(base_order)]=='ddot' and not new_name:
+            variable_name = base_order[0:-4]
+            new_name = variable_name + r'dddot' + trailing_number
+
+        # check for 1st derivative
+        elif base_order[-3:len(base_order)]=='dot' and not new_name:
+            variable_name = base_order[0:-3]
+            new_name = variable_name + r'ddot' + trailing_number
+
+        # check for higher order derivative:
+        # x_d5 -> x_d6, etc.
+        # x_3_d5 -> x_3_d6 etc.
+        elif base_order[-2:len(base_order)]=='_d' and not new_name:
+            new_order = int(trailing_number) + 1
+            new_name = base_order + str(new_order)
+
+        elif not new_name:
+            new_name = base_order + r'dot' + trailing_number
+
         if ord == 1:
             return sp.Symbol(new_name, **kwargs)
         else:

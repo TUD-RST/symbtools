@@ -93,12 +93,12 @@ class SymbToolsTest(unittest.TestCase):
         a, b, t = sp.symbols("a, b, t")
         f1 = a**2 + 10*sin(b)
         f1_dot = st.perform_time_derivative(f1, (a, b))
-        self.assertEquals(str(f1_dot), "2*a*a_d + 10*b_d*cos(b)")
+        self.assertEquals(str(f1_dot), "2*a*adot + 10*bdot*cos(b)")
 
         f2 = sin(a)
         f2_dot2 = st.perform_time_derivative(f2, [a, b], order=2)
         f2_dot = st.perform_time_derivative(f2, [a])
-        f2_ddot = st.perform_time_derivative(f2_dot, [a, sp.Symbol('a_d')])
+        f2_ddot = st.perform_time_derivative(f2_dot, [a, sp.Symbol('adot')])
         self.assertEqual(f2_ddot, f2_dot2)
 
     def test_perform_time_deriv2(self):
@@ -109,13 +109,13 @@ class SymbToolsTest(unittest.TestCase):
         a, b, t = sp.symbols("a, b, t")
         x, y = sp.symbols("x, y")
 
-        ad, bd = st.perform_time_derivative( sp.Matrix([a, b]), (a, b) )
+        adot, bdot = st.perform_time_derivative( sp.Matrix([a, b]), (a, b) )
 
         A = sp.Matrix([sin(a), exp(a*b), -t**2*7*0, x + y]).reshape(2, 2)
         A_dot = st.perform_time_derivative(A, (a, b))
 
         A_dot_manual = \
-            sp.Matrix([ad*cos(a), b*ad*exp(a*b) + a*bd*exp(a*b),
+            sp.Matrix([adot*cos(a), b*adot*exp(a*b) + a*bdot*exp(a*b),
                        -t**2*7*0, 0]).reshape(2, 2)
 
         self.assertEqual(A_dot.expand(), A_dot_manual)
@@ -125,18 +125,95 @@ class SymbToolsTest(unittest.TestCase):
         test to provide deriv_symbols
         """
 
-        a, b, ad, bd, add, bdd = sp.symbols("a, b, ad, bd, add, bdd")
+        a, b, adot, bdot, addot, bddot = sp.symbols("a, b, adot, bdot, addot, bddot")
 
         f1 = 8*a*b**2
-        f1d = st.perform_time_derivative(f1, (a, b), (ad, bd))
-        self.assertEquals(f1d, 8*ad*b**2 + 16*a*bd*b)
+        f1d = st.perform_time_derivative(f1, (a, b), (adot, bdot))
+        self.assertEquals(f1d, 8*adot*b**2 + 16*a*bdot*b)
 
-        f1d_2 = st.perform_time_derivative(f1, (a, b), (ad, bd)+ (add, bdd),
+        f1d_2 = st.perform_time_derivative(f1, (a, b), (adot, bdot)+ (addot, bddot),
                                            order=2)
 
-        f1d_2_altntv = st.perform_time_derivative(f1d, (a, b, ad, bd),
-                                                 (ad, bd)+ (add, bdd) )
+        f1d_2_altntv = st.perform_time_derivative(f1d, (a, b, adot, bdot),
+                                                 (adot, bdot)+ (addot, bddot) )
         self.assertEquals(f1d_2, f1d_2_altntv)
+
+    def test_perform_time_deriv4(self):
+        # test higher order derivatives
+
+        a, b = sp.symbols("a, b")
+
+        f1 = 8*a*b**2
+
+        res_a1 = st.perform_time_derivative(f1, (a, b), order=5)
+
+        a_str = 'a adot addot adddot adddot a_d5'
+        b_str = a_str.replace('a', 'b')
+
+        expected_symbol_names = a_str.split() + b_str.split()
+
+        res_list =  [sp.Symbol(e)
+                     in res_a1 for e in expected_symbol_names]
+
+        self.assertTrue( all(res_list) )
+
+        l1 = len( res_a1.atoms(sp.Symbol) )
+        self.assertEqual(len(expected_symbol_names), l1)
+
+    def test_perform_time_deriv5(self):
+        # test numbered symbols
+
+        x1, x2 = xx = sp.symbols("x1, x_2")
+
+
+        res_a1 = st.perform_time_derivative(x1, xx)
+        self.assertEqual(str(res_a1), 'xdot1')
+
+        res_a2 = st.perform_time_derivative(x1, xx, order=2)
+        self.assertEqual(str(res_a2), 'xddot1')
+
+        res_a3 = st.perform_time_derivative(x1, xx, order=3)
+        self.assertEqual(str(res_a3), 'xdddot1')
+
+        res_a4 = st.perform_time_derivative(x1, xx, order=4)
+        self.assertEqual(str(res_a4), 'xddddot1')
+
+        # FIXME:
+        res_a5 = st.perform_time_derivative(x1, xx, order=5)
+        #self.assertEqual(str(res_a5), 'x1_d5')
+
+
+        res_b1 = st.perform_time_derivative(x2, xx)
+        self.assertEqual(str(res_b1), 'x_dot2')
+
+        res_b2 = st.perform_time_derivative(x2, xx, order=2)
+        self.assertEqual(str(res_b2), 'x_ddot2')
+
+        res_b3 = st.perform_time_derivative(x2, xx, order=3)
+        self.assertEqual(str(res_b3), 'x_dddot2')
+
+        res_b4 = st.perform_time_derivative(x2, xx, order=4)
+        self.assertEqual(str(res_b4), 'x_ddddot2')
+
+        # FIXME
+        res_b5 = st.perform_time_derivative(x2, xx, order=5)
+        #self.assertEqual(str(res_b5), 'x_2_d5')
+
+
+    @unittest.expectedFailure
+    def test_perform_time_deriv5f(self):
+        # test numbered symbols
+
+        x1, x2 = xx = sp.symbols("x1, x_2")
+
+        # TODO: These two assertions should pass
+        # Then the above FIXME-issues can be resolved and this test is obsolete
+
+        res_a5 = st.perform_time_derivative(x1, xx, order=5)
+        self.assertEqual(str(res_a5), 'x1_d5')
+
+        res_b5 = st.perform_time_derivative(x2, xx, order=5)
+        self.assertEqual(str(res_b5), 'x_2_d5')
 
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a, b, c', real=True)
