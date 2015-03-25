@@ -38,19 +38,52 @@ zf = sp.numbers.Zero()
 # <object>.co as alias for count_ops(object) (with matrix support)
 # (determine how "big" an expression is without converting it to string (slow))
 
+
+new_methods = []
+
+
+@property
 def satoms(self):
+    '''
+    convenience property for interactive usage:
+    returns self.atoms(sp.Symbol)
+    '''
     return self.atoms(sp.Symbol)
+new_methods.append(('s', satoms))
 
+@property
 def sco(self):
+    '''
+    convenience property for interactive usage:
+    returns count_ops(self)
+    '''
     return count_ops(self)
+new_methods.append(('co', sco))
 
-sp.Expr.s = property(satoms)
-sp.ImmutableDenseMatrix.s = property(satoms)
-sp.Matrix.s = property(satoms)
 
-sp.Expr.co = property(sco)
-sp.ImmutableDenseMatrix.co = property(sco)
-sp.Matrix.co = property(sco)
+def subz(self, args1, args2):
+    '''
+    convenience property for interactive usage:
+    returns self.subs(zip(args1, args2))
+    '''
+    return self.subs(zip(args1, args2))
+new_methods.append(('subz', subz))
+
+
+def subz0(self, arg):
+    '''
+    convenience property for interactive usage:
+    returns self.subs(zip0(arg))
+    '''
+    return self.subs(zip0(arg))
+new_methods.append(('subz0', subz0))
+
+
+target_classes = [sp.Expr, sp.ImmutableDenseMatrix, sp.Matrix]
+for tc in target_classes:
+    for name, meth in new_methods:
+        setattr(tc, name, meth)
+
 
 class equation(object):
 
@@ -654,12 +687,12 @@ def is_number(expr):
 
 
 # Todo Unittest (sp.Symbol vs. sp.cls)
-def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol):
+def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol, **kwargs):
     """
     create a matrix with Symbols as each element
     cls might also be sp.Dummy
     """
-    A = sp.Matrix(n,m, lambda i,j:cls( s+'%i%i'%(i+1,j+1)) )
+    A = sp.Matrix(n,m, lambda i,j:cls( s+'%i%i'%(i+1, j+1), **kwargs) )
     if symmetric == 1:
         subs_list = symmetryDict(A)
         A = A.subs(subs_list)

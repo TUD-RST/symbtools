@@ -14,6 +14,67 @@ import symb_tools as st
 from IPython import embed as IPS
 
 
+class InteractiveConvenienceTest(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_symbol_atoms(self):
+        a, b, t = sp.symbols("a, b, t")
+        x1 = a + b
+        x2 = a + b - 3 + sp.pi
+        M1 = sp.Matrix([x2, t, a**2])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        self.assertEqual(set([a]), a.s)
+        self.assertEqual(x1.atoms(), x1.s)
+        self.assertEqual(x2.atoms(sp.Symbol), x2.s)
+
+        self.assertEqual(set([a, b, t]), M1.s)
+        self.assertEqual(set([a, b, t]), M2.s)
+
+    def test_count_ops(self):
+        a, b, t = sp.symbols("a, b, t")
+        x1 = a + b
+        x2 = a + b - 3 + sp.pi
+        M1 = sp.Matrix([x2, t, a**2])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        self.assertEqual(st.count_ops(a), a.co)
+        self.assertEqual(st.count_ops(x1), x1.co)
+        self.assertEqual(st.count_ops(x2), x2.co)
+        self.assertEqual(st.count_ops(M1), M1.co)
+        self.assertEqual(st.count_ops(M2), M2.co)
+
+    def test_subz(self):
+        x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
+        y1, y2, y3 = yy = sp.symbols("y1, y2, y3")
+
+        a = x1 + 7*x2*x3
+        M1 = sp.Matrix([x2, x1*x2, x3**2])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        self.assertEqual(x1.subs(zip(xx, yy)), x1.subz(xx, yy))
+        self.assertEqual(a.subs(zip(xx, yy)), a.subz(xx, yy))
+        self.assertEqual(M1.subs(zip(xx, yy)), M1.subz(xx, yy))
+        self.assertEqual(M2.subs(zip(xx, yy)), M2.subz(xx, yy))
+
+    def test_subz0(self):
+        x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
+        y1, y2, y3 = yy = sp.symbols("y1, y2, y3")
+
+        XX = (x1, x2)
+
+        a = x1 + 7*x2*x3
+        M1 = sp.Matrix([x2, x1*x2, x3**2])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        self.assertEqual(x1.subs(st.zip0(XX)), x1.subz0(XX))
+        self.assertEqual(a.subs(st.zip0(XX)), a.subz0(XX))
+        self.assertEqual(M1.subs(st.zip0(XX)), M1.subz0(XX))
+        self.assertEqual(M2.subs(st.zip0(XX)), M2.subz0(XX))
+
+
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
