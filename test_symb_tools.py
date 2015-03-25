@@ -153,7 +153,7 @@ class SymbToolsTest(unittest.TestCase):
         expected_symbol_names = a_str.split() + b_str.split()
 
         res_list =  [sp.Symbol(e)
-                     in res_a1 for e in expected_symbol_names]
+                     in res_a1.atoms() for e in expected_symbol_names]
 
         self.assertTrue( all(res_list) )
 
