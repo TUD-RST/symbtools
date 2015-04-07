@@ -10,6 +10,10 @@ import unittest
 import sympy as sp
 from sympy import sin, cos, exp
 
+import numpy as np
+import scipy as sc
+import scipy.integrate
+
 import symb_tools as st
 from IPython import embed as IPS
 
@@ -541,6 +545,59 @@ class SymbToolsTest2(unittest.TestCase):
         vf2_sol = vf2.subs(zip(xx[:-1], res2))
         self.assertEqual(fp, t)
         self.assertEqual(res2.diff(t), vf2_sol)
+
+    def test_create_simfunction(self):
+        x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))
+        u1, u2 = uu = sp.Matrix(sp.symbols("u1, u2"))  # inputs
+        p1, p2, p3, p4 = pp = sp.Matrix(sp.symbols("p1, p2, p3, p4"))  # parameter
+        t = sp.Symbol('t')
+
+        A = A0 =  sp.randMatrix(len(xx), len(xx), -10, 10, seed=704)
+        B = B0 = sp.randMatrix(len(xx), len(uu), -10, 10, seed=705)
+
+        v1 = A[0, 0]
+        A[0, 0] = p1
+        v2 = A[2, -1]
+        A[2, -1] = p2
+        v3 = B[3, 0]
+        B[3, 0] = p3
+        v4 = B[2, 1]
+        B[2, 1] = p4
+
+        par_vals = zip(pp, [v1, v2, v3, v4])
+
+        f = A*xx
+        G = B
+
+        fxu = (f + G*uu).subs(par_vals)
+
+        x0 = st.to_np( sp.randMatrix(len(xx), 1, -10, 10, seed=706) ).squeeze()
+
+        mod = st.SimulationModel(f, G, xx, par_vals)
+        rhs0 = mod.create_simfunction()
+
+        res0_1 = rhs0(x0, 0)
+        dres0_1 = st.to_np(fxu.subs(zip(xx, x0) + st.zip0(uu))).squeeze()
+
+        bin_res01 = np.isclose(res0_1, dres0_1)  # binary array
+        self.assertTrue( np.all(bin_res01) )
+
+        # difference should be [0, 0, ..., 0]
+        self.assertFalse( np.any(rhs0(x0, 0) - rhs0(x0, 3.7) ) )
+
+        # simulate
+
+        tt = np.linspace(0, 0.5, 100)  # simulation should be short due to instability
+        res1 = sc.integrate.odeint(rhs0, x0, tt)
+
+        # proof calculation
+        # x(t) = x0*exp(A*t)
+        Anum = st.to_np(A.subs(par_vals))
+        xt = [ np.dot( sc.linalg.expm(Anum*T), x0 ) for T in tt ]
+        xt = np.array(xt)
+
+        bin_res1 = np.isclose(res1, xt)  # binary array
+        self.assertTrue( np.all(bin_res1) )
 
 
 def main():
