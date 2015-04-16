@@ -624,6 +624,31 @@ class SymbToolsTest2(unittest.TestCase):
         sol2_at_0 = sol2.subs(t, 0).doit()
         self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
 
+    def test_get_symbols_by_name(self):
+        c1, C1, x, a, t, Y = sp.symbols('c1, C1, x, a, t, Y')
+        F = sp.Function('F')
+
+        expr1 = c1*(C1+x**x)/(sp.sin(a*t))
+        expr2 = sp.Matrix([sp.Integral(F(x), x)*sp.sin(a*t) - \
+                           1/F(x).diff(x)*C1*Y])
+
+        res1 = st.get_symbols_by_name(expr1, 'c1')
+        self.assertEquals(res1, c1)
+        res2 = st.get_symbols_by_name(expr1, 'C1')
+        self.assertEquals(res2, C1)
+        res3 = st.get_symbols_by_name(expr1, *'c1 x a'.split())
+        self.assertEquals(res3, [c1, x, a])
+
+
+        self.assertRaises(ValueError, st.get_symbols_by_name, expr1, 'Y')
+        self.assertRaises(ValueError, st.get_symbols_by_name, expr1, 'c1', 'Y')
+
+        res4 = st.get_symbols_by_name(expr2, 'Y')
+        self.assertEquals(res4, Y)
+        res5 = st.get_symbols_by_name(expr2, 'C1')
+        self.assertEquals(res5, C1)
+        res6 = st.get_symbols_by_name(expr2, *'C1 x a'.split())
+        self.assertEquals(res6, [C1, x, a])
 
 def main():
     unittest.main()
