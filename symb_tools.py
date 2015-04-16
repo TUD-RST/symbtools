@@ -2043,6 +2043,35 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
 
     return calc_flow_from_vectorfield(new_vf, func_symbs, flow_parameter, sol_subs=sol_subs, iv_list=iv_list)
 
+def reformulate_integral_args(expr):
+    """
+    This function replaces any indefinite integral like Integral(F(t), t)
+     by a definite integral from zero to arg, like Integral(F(t_), (t_, 0, t))
+    :param expr: sympy expr (or matrix)
+    :return: expr (or matrix) with integrals replaced
+    """
+
+    integrals = list(atoms(expr, sp.Integral))
+    subs_list = []
+
+    for i in integrals:
+        kernel, arg_tup = i.args
+        if len(arg_tup) == 3:
+            # this is a determined integral -> ignore
+            continue
+        if len(arg_tup) == 2:
+            # unexpected value -> better raise an error
+            raise ValueError('semi evaluated integral')
+        assert len(arg_tup) == 1
+        x = arg_tup[0]
+        assert x.is_Symbol
+        x_ = sp.Dummy(x.name+'_', **x.assumptions0)
+        new_kernel = kernel.subs(x, x_)
+        new_int = sp.Integral(new_kernel, (x_, 0, x))
+        subs_list.append((i, new_int))
+
+    return expr.subs(subs_list)
+
 
 def np_trunc_small_values(arr, lim = 1e-10):
     assert isinstance(arr, (np.ndarray, np.matrix))

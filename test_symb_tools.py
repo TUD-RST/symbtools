@@ -599,6 +599,31 @@ class SymbToolsTest2(unittest.TestCase):
         bin_res1 = np.isclose(res1, xt)  # binary array
         self.assertTrue( np.all(bin_res1) )
 
+    def test_reformulate_Integral(self):
+        t = sp.Symbol('t')
+        c = sp.Symbol('c')
+        F = sp.Function('F')
+        x = sp.Function('x')(t)
+        a = sp.Function('a')
+
+        i1 = sp.Integral(F(t), t)
+        j1 = st.reformulate_integral_args(i1)
+        self.assertEquals(j1.subs(t, 0).doit(), 0)
+
+        ode = x.diff(t) + x -a(t)*x**c
+        sol = sp.dsolve(ode, x).rhs
+        # the solution contains an undetemined integral
+        self.assertTrue( len(sol.atoms(sp.Integral)) == 1)
+
+        # extract the integration constant (not necessary for test)
+        # C1 = list(sol.atoms(sp.Symbol)-ode.atoms(sp.Symbol))[0]
+
+        sol2 = st.reformulate_integral_args(sol)
+        self.assertTrue( len(sol2.atoms(sp.Integral)) == 1)
+
+        sol2_at_0 = sol2.subs(t, 0).doit()
+        self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
+
 
 def main():
     unittest.main()
