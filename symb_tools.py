@@ -1567,7 +1567,7 @@ def poly_expr_coeffs(expr, variables, maxorder=2):
 
     v0 = zip0(variables)
 
-    orders = range(1, maxorder+1)
+    orders = range(1, maxorder + 1)
 
     diff_list, order_tuples = get_diffterms(variables, orders, order_list=True)
     # -> lists like [(x1,x1), (x1, x2), ...], [(2, 0, 0), (1, 1, 0), ...]
@@ -2043,6 +2043,35 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
 
     return calc_flow_from_vectorfield(new_vf, func_symbs, flow_parameter, sol_subs=sol_subs, iv_list=iv_list)
 
+def reformulate_integral_args(expr):
+    """
+    This function replaces any indefinite integral like Integral(F(t), t)
+     by a definite integral from zero to arg, like Integral(F(t_), (t_, 0, t))
+    :param expr: sympy expr (or matrix)
+    :return: expr (or matrix) with integrals replaced
+    """
+
+    integrals = list(atoms(expr, sp.Integral))
+    subs_list = []
+
+    for i in integrals:
+        kernel, arg_tup = i.args
+        if len(arg_tup) == 3:
+            # this is a determined integral -> ignore
+            continue
+        if len(arg_tup) == 2:
+            # unexpected value -> better raise an error
+            raise ValueError('semi evaluated integral')
+        assert len(arg_tup) == 1
+        x = arg_tup[0]
+        assert x.is_Symbol
+        x_ = sp.Dummy(x.name+'_', **x.assumptions0)
+        new_kernel = kernel.subs(x, x_)
+        new_int = sp.Integral(new_kernel, (x_, 0, x))
+        subs_list.append((i, new_int))
+
+    return expr.subs(subs_list)
+
 
 def np_trunc_small_values(arr, lim = 1e-10):
     assert isinstance(arr, (np.ndarray, np.matrix))
@@ -2306,6 +2335,7 @@ def zip0(*xx, **kwargs):
 
     return res
 
+
 def aux_make_tup_if_necc(arg):
     """
     checks whether arg is iterable.
@@ -2315,8 +2345,6 @@ def aux_make_tup_if_necc(arg):
         return (arg,)
 
     return arg
-
-
 
 #TODO:
 """
@@ -2332,6 +2360,8 @@ lambdify =
 functools.partial(lambdify, modules=[{'ImmutableMatrix': numpy.array}, 'numpy']).
 For more information see #7853 and the lambdify doc string.
 """
+
+
 def expr_to_func(args, expr, modules = 'numpy', **kwargs):
     """
     wrapper for sympy.lambdify to handle constant expressions
@@ -2384,6 +2414,9 @@ def expr_to_func(args, expr, modules = 'numpy', **kwargs):
         assert len(new_expr) == 1
         new_expr = new_expr[0]
 
+    # TODO: Test how this works with np_wrapper and vectorized arguments
+    if hasattr(expr, 'shape'):
+        new_expr = sp.Matrix(new_expr).reshape(*expr.shape)
 
     # extract kwargs specific for lambdify
     printer = kwargs.get('printer', None)
@@ -3120,6 +3153,81 @@ def symbolify_matrix(M):
     return replacements, res
 
 
+class SimulationModel(object):
+    """
+    This class encapsulates all data pertaining a nonlinear state-space model
+    (parameter values, state-dimension, number of inputs)
+    """
+
+    # TODO:
+    # Decide whether a procedural interface (function instead of class)
+    # would be better.
+    def __init__(self, f, G, xx, model_parameters=None,):
+        """
+        'Constructor' method
+
+        :param f: drift vector field
+        :param G: matrix whose columns are the input vector fields
+        :param xx: the state
+        :param model_parameters: dict (or tuple-list) for the numerical values
+        of the parameters
+        """
+        self.f = sp.Matrix(f)
+        self.G = sp.Matrix(G)
+        self.mod_param_dict = dict(model_parameters)
+        assert G.shape[0] == f.shape[0]
+        self.state_dim = f.shape[0]
+        self.input_dim = G.shape[1]
+        self.xx = xx
+
+    def create_simfunction(self, input_function=None):
+        """
+        Creates the rhs function of xdot = f(x) + G(x)u
+
+        :param input_function: callable u(x, t)
+        this can be a controller function,
+        a desired trajectory (x beeing ignored -> open loop)
+        or a zero-function to simulate the autonomous system xdot = f(x).
+        As default a zero-function is used
+        """
+
+        n = self.state_dim
+        m = self.input_dim
+
+        f = self.f.subs(self.mod_param_dict)
+        G = self.G.subs(self.mod_param_dict)
+        assert atoms(f, sp.Symbol).issubset( set(self.xx) )
+        assert atoms(G, sp.Symbol).issubset( set(self.xx) )
+
+        if not input_function:
+            zero_m = np.array([0]*m)
+
+            def u_func(xx, t):
+                return zero_m
+
+        else:
+            assert hasattr(input_function, '__call__')
+            u_func = input_function
+
+        f_func = expr_to_func(self.xx, f, np_wrapper=True)
+        G_func = expr_to_func(self.xx, G, np_wrapper=True)
+
+        # f_func = sp.lambdify(self.xx, f, modules="numpy")
+        # G_func = sp.lambdify(self.xx, G, modules="numpy")
+
+        def rhs(xx, t):
+            xx = np.ravel(xx)
+            uu = np.ravel(u_func(xx, t))
+            ff = np.ravel(f_func(*xx))
+            GG = G_func(*xx)
+            # from IPython import embed as IPS
+            # IPS()
+
+            xx_dot = ff + np.dot(GG, uu)
+
+            return xx_dot
+
+        return rhs
 
 
 
