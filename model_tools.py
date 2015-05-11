@@ -107,12 +107,15 @@ class SymbolicModel(object):
         """
         calculate and return the mass matrix (without simplification)
         """
-        return self.eq_list.jacobian(self.qdds)
+        # Übergangsweise:
+        if hasattr(self, 'ttdd'):
+            return self.eq_list.jacobian(self.ttdd)
+        else:
+            return self.eq_list.jacobian(self.qdds)
 
-    MM = calc_mass_matrix # short hand
+    MM = calc_mass_matrix  # short hand
 
 
-# TODO: convert the other functions into methods
 """
 Hinweis: 2014-10-15: Verhalten wurde geändert.
  Die Gleichungen werden jetzt in den originalen Zeit-Funktionen und ihren
