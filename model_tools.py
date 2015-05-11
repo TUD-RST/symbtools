@@ -107,12 +107,15 @@ class SymbolicModel(object):
         """
         calculate and return the mass matrix (without simplification)
         """
-        return self.eq_list.jacobian(self.qdds)
+        # Übergangsweise:
+        if hasattr(self, 'ttdd'):
+            return self.eq_list.jacobian(self.ttdd)
+        else:
+            return self.eq_list.jacobian(self.qdds)
 
-    MM = calc_mass_matrix # short hand
+    MM = calc_mass_matrix  # short hand
 
 
-# TODO: convert the other functions into methods
 """
 Hinweis: 2014-10-15: Verhalten wurde geändert.
  Die Gleichungen werden jetzt in den originalen Zeit-Funktionen und ihren
@@ -202,6 +205,68 @@ def generate_model(T, U, qq, F, **kwargs):
     model1.U = U
 
     # analyse the model
+
+    return model1
+
+def generate_symbolic_model(T, U, tt, F, **kwargs):
+    """
+    T kinetic energy
+    U potential energy
+    tt sequence of independent deflection variables (theta)
+    F external forces
+
+    kwargs: might be something like 'real=True'
+    """
+
+    # if not kwargs:
+    #     # assumptions for the symbols (facilitating the postprocessing)
+    #     kwargs ={"real": True}
+    #
+    n = len(tt)
+
+    for theta_i in tt:
+        assert isinstance(theta_i, sp.Symbol)
+
+    F = sp.Matrix(F)
+    assert F.shape == (n, 1)
+
+    # introducing symbols for the derivatives
+    tt = sp.Matrix(tt)
+    ttd = st.perform_time_derivative(tt, tt, **kwargs)
+    ttdd = st.perform_time_derivative(tt, tt, order=2, **kwargs)
+
+    #Lagrange function
+    L = T - U
+
+    if not T.atoms().intersection(ttd) == set(ttd):
+        raise ValueError('Not all velocity symbols do occur in T')
+
+    # partial derivatives of L
+    L_diff_tt = st.jac(L, tt)
+    L_diff_ttd = st.jac(L, ttd)
+
+    #prov_deriv_symbols = [ttd, ttdd]
+
+    # time-depended_symbols
+    tds = list(tt) + list(ttd)
+    L_diff_ttd_dt = st.perform_time_derivative(L_diff_ttd, tds, **kwargs)
+
+    #lagrange equation 2nd kind
+    model_eq = sp.zeros(n, 1)
+    for i in range(n):
+        model_eq[i] = L_diff_ttd_dt[i] - L_diff_tt[i] - F[i]
+
+    # create object of model
+    model1 = SymbolicModel()  # model_eq, qs, f, D)
+    model1.eq_list = model_eq
+    model1.F = F
+    model1.tt = tt
+    model1.ttd = ttd
+    model1.ttdd = ttdd
+
+    # also store kinetic and potential energy
+    model1.T = T
+    model1.U = U
 
     return model1
 
