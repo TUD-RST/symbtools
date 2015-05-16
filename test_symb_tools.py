@@ -535,7 +535,12 @@ class SymbToolsTest2(unittest.TestCase):
 
         if 1:
             # this test works but takes quite long
-            res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
+            with st.warnings.catch_warnings(record=True) as cm:
+                res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
+            self.assertEqual(len(cm), 2)
+            self.assertTrue('multiple solutions' in cm[0].message.message)
+            self.assertTrue('some symbols free' in cm[1].message.message)
+
             test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
             test_difference4_num = st.subs_random_numbers(test_difference4, seed=1403)
             self.assertAlmostEqual(test_difference4_num, 0)

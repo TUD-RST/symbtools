@@ -14,7 +14,7 @@ import numpy as np
 
 from collections import Counter
 
-
+import warnings
 import random
 
 import itertools as it
@@ -1962,7 +1962,9 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
     res = sp.dsolve(eq, func)
     if isinstance(res, list):
         # multiple solutions might occur (complex case)
-        print 'Warning: got multiple solution while solving ', eq, 'continuing with the first...'
+        msg = 'Warning: got multiple solutions while solving %s.' \
+              'continuing with the first...' % eq
+        warnings.warn(msg)
         res = res[0]
 
     new_atoms = res.atoms(sp.Symbol) - old_atoms
@@ -1976,14 +1978,16 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
     sol = sp.solve(eq_ic, CC, dict=True)  # gives a list of dicts
     assert len(sol) >= 1
     if len(sol) > 2:
-        print 'Warning: multiple solutions for initial values; taking the first.'
+        msg = 'Warning: multiple solutions for initial values; taking the first.'
+        warnings.warn(msg)
     sol = sol[0].items()
 
     # selecting the rhs of the first solution and look for other C-vars
     free_symbols = list(sol[0][1].atoms().intersection(CC))
     if free_symbols:
-        print 'Warning: there are still some symbols free while calculating ' \
+        msg = 'Warning: there are still some symbols free while calculating ' \
               'initial values; substituting them with 0.'
+        warnings.warn(msg)
 
     res = res.subs(sol).subs(zip0(free_symbols))
 
