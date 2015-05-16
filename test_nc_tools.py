@@ -24,7 +24,6 @@ class NonCommToolsTest(unittest.TestCase):
     def setUp(self):
         pass
 
-
     def test_right_shift(self):
         a, b = sp.symbols("a, b")
         f1 = sp.Function('f1')(t)
@@ -99,8 +98,6 @@ class NonCommToolsTest(unittest.TestCase):
         self.assertEquals(res1, ex1)
 
         test = s*f2*f2d
-        # IPS()
-        print test
         res2 = nct.right_shift(test, s, t)
         ex2 = f2d**2 + f2*f2dd + f2*f2d*s
 
@@ -113,6 +110,34 @@ class NonCommToolsTest(unittest.TestCase):
         f1d = f1.diff(t)
         f2 = sp.Function('f2')(t)
 
+    @unittest.expectedFailure
+    def test_nc_sp_multiplication_bug(self):
+    # This seems to be a sympy bug
+        a, b = sp.symbols("a, b", commutative = False)
+        E = sp.eye(2)
+
+        Mb = b*E
+        Mab = a*b*E
+
+        res = a*Mb - Mab
+
+        self.assertEqual(res, 0*E)
+
+    def test_nc_multiplication(self):
+        a, b = sp.symbols("a, b", commutative = False)
+        E = sp.eye(2)
+
+        Mb = b*E
+        Mab = a*b*E
+
+        res = nct.nc_mul(a, Mb) - Mab
+        self.assertEqual(res, 0*E)
+
+        res2 = nct.nc_mul(a*E, b*E)
+        self.assertEqual(res2, Mab)
+
+        res3 = nct.nc_mul(Mb, Mab)
+        self.assertEqual(res3, b*a*b*E)
 
 
 def main():

@@ -69,7 +69,7 @@ def right_shift(mul, s, t, max_pow = 4):
         elif isinstance(mul, sp.Pow) and mul.args[0] == s:
             return mul
         else:
-            raise ValueError, 'Expected Mul, Symbol or Pow (like s**2), not ' +  str(Mul)
+            raise ValueError, 'Expected Mul, Symbol or Pow (like s**2), not ' +  str(mul)
     assert isinstance(mul, sp.Mul)
     assert s.is_commutative == False
 
@@ -162,6 +162,55 @@ def make_all_symbols_commutative(expr, appendix='_c'):
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
 
 
+
+def nc_mul(L, R):
+    """
+    This function performs matrix multiplication while respecting the multiplication
+    order of noncommutative symbols
+
+    :param L:
+    :param R:
+    :return:
+    """
+
+    if isinstance(L, sp.Expr) and isinstance(R, sp.Expr):
+        return L*R
+    elif isinstance(L, sp.Expr):
+        assert isinstance(R, sp.Matrix)
+        res = R.applyfunc(lambda x: L*x)
+    elif isinstance(R, sp.Expr):
+        assert isinstance(L, sp.Matrix)
+        res = L.applyfunc(lambda x: x*R)
+    elif isinstance(L, sp.Matrix) and isinstance(R, sp.Matrix):
+        nrL, ncL = L.shape
+        nrR, ncR = R.shape
+
+        assert ncL == nrR
+
+        res = sp.zeros(nrL, ncR)
+
+        for i in xrange(nrL):  # iterate over the rows of L
+            for j in xrange(ncR):  # iterate over the columns of R
+
+                res_elt = 0
+                # dot product of row and column
+                for k in xrange(ncL):
+                    res_elt += L[i, k] * R[k, j]
+
+                res[i, j] = res_elt
+    else:
+        msg = "at least one invalid type: %s, %s" %(type(L), type(R))
+        raise TypeError(msg)
+
+    return res
+
+def _method_mul(self, other):
+    return nc_mul(other, self)
+
+# TODO: Tests!!!
+
+
+
 if __name__ == "__main__":
     p = sp.Function("p")(t)
     f = cos(p)
@@ -170,5 +219,3 @@ if __name__ == "__main__":
 
     r = right_shift(w, s, t)
 
-
-    ()
