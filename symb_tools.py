@@ -2961,7 +2961,7 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     # replace the func_symbols by the symbols from expr to make sure the the
     # correct symbols are used.
     expr_symbols = atoms(expr, sp.Symbol)
-    func_symbols = match_symbols_by_name(expr_symbols, func_symbols)
+    func_symbols = match_symbols_by_name(expr_symbols, func_symbols, strict=False)
 
     # convert symbols to functions
     funcs = [ symbs_to_func(s, [s], t) for s in func_symbols ]
@@ -3062,27 +3062,40 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     return expr3
 
 
-def match_symbols_by_name(symbols1, symbols2):
+def match_symbols_by_name(symbols1, symbols2, strict=True):
     '''
     :param symbols1:
-    :param symbols2: (might be a sequence of strings as well)
-    :return: a list of symbols which are those objects from symbols1 where
-     the name occurs in symbols2
+    :param symbols2: (might also be a string or a sequence of strings)
+    :param strict: determines whether an error is caused if a symbol is not found
+                   default: True
+    :return: a list of symbols which are those objects from ´symbols1´ where
+     the name occurs in ´symbols2´
+
+     ordering is determined by ´symbols2´
     '''
+
+    if isinstance(symbols2, basestring):
+        assert " " not in symbols2
+        symbols2 = [symbols2]
+
+    if isinstance(symbols1, (sp.Expr, sp.MatrixBase)):
+        symbols1 = atoms(symbols1, sp.Symbol)
 
     str_list1 = [str(s.name) for s in symbols1]
     sdict1 = dict( zip(str_list1, symbols1) )
 
     str_list2 = [str(s) for s in symbols2]
-    symb_list2 = sp.symbols(str_list2)  # in case symbols2 contained other types
-
     # sympy expects str here (unicode not allowed)
 
     res = []
 
-    for string2, symb2 in zip(str_list2, symb_list2):
-        res_symb = sdict1.get(string2, symb2)
-        res.append(res_symb)
+    for string2 in str_list2:
+        res_symb = sdict1.get(string2)
+        if res_symb:
+            res.append(res_symb)
+        elif strict:
+            msg = "Could not find the symbol " + string2
+            raise ValueError(msg)
 
     return res
 

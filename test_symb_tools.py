@@ -220,8 +220,8 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual(str(res_b5), 'x_2_d5')
 
     def test_match_symbols_by_name(self):
-        a, b, c = abc0 = sp.symbols('a, b, c', real=True)
-        a1, b1, c1 = abc1 = sp.symbols('a, b, c')
+        a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
+        a1, b1, c1 = abc1 = sp.symbols('a5, b, c')
 
         self.assertFalse(a == a1 or b == b1 or c == c1)
 
@@ -229,10 +229,29 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEquals(abc0, tuple(abc2))
 
         input3 = [a1, b, "c", "x"]
-        a3, b3, c3, x3 = st.match_symbols_by_name(abc0, input3)
+        res = st.match_symbols_by_name(abc0, input3, strict=False)
+        self.assertEquals(abc0, tuple(res))
 
-        self.assertEquals(abc0, (a3, b3, c3))
-        self.assertEquals(x3, sp.Symbol('x'))
+        with self.assertRaises(ValueError) as cm:
+            res = st.match_symbols_by_name(abc0, input3)  # implies strict=True
+
+        self.assertTrue('symbol x' in cm.exception.message)
+
+        self.assertEquals(abc0, tuple(res))
+
+        r = st.match_symbols_by_name(abc0, 'a5')
+        self.assertEquals(len(r), 1)
+        self.assertEquals(r[0], a)
+
+        # test expression as first argument
+
+        expr = a*b**c + 5
+        r3 = st.match_symbols_by_name(expr, ['c', 'a5'])
+        self.assertEquals(r3, [c, a])
+
+
+
+
 
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
