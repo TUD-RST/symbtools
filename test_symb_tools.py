@@ -84,6 +84,27 @@ class SymbToolsTest(unittest.TestCase):
     def setUp(self):
         pass
 
+    def test_depends_on_t1(self):
+        a, b, t = sp.symbols("a, b, t")
+
+        res1 = st.depends_on_t(a+b, t, [])
+        self.assertEqual(res1, False)
+
+        res2 = st.depends_on_t(a + b, t, [a,])
+        self.assertEqual(res2, True)
+
+        res3 = st.depends_on_t(a(t) + b, t, [])
+        self.assertEqual(res3, True)
+
+        res4 = st.depends_on_t(a(t) + b, t, [b])
+        self.assertEqual(res4, True)
+
+        res5 = st.depends_on_t(t, t, [])
+        self.assertEqual(res5, True)
+
+        adot = st.perform_time_derivative(a, [a])
+        res5 = st.depends_on_t(adot, t, [])
+        self.assertEqual(res5, True)
 
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
@@ -203,7 +224,6 @@ class SymbToolsTest(unittest.TestCase):
         res_b5 = st.perform_time_derivative(x2, xx, order=5)
         #self.assertEqual(str(res_b5), 'x_2_d5')
 
-
     @unittest.expectedFailure
     def test_perform_time_deriv5f(self):
         # test numbered symbols
@@ -218,6 +238,41 @@ class SymbToolsTest(unittest.TestCase):
 
         res_b5 = st.perform_time_derivative(x2, xx, order=5)
         self.assertEqual(str(res_b5), 'x_2_d5')
+
+    def test_perform_time_derivative7(self):
+        a, b, t = sp.symbols("a, b, t", commutative=False)
+
+        f1 = sp.Function('f1')(t)
+        f2 = sp.Function('f2')(t)
+
+        res1 = st.perform_time_derivative(f1, [a])
+        self.assertEqual(res1, f1.diff(t))
+
+        res2 = st.perform_time_derivative(f1, [])
+        self.assertEqual(res2, f1.diff(t))
+
+        res3 = st.perform_time_derivative(a*f1, [a, b])
+        adot = st.perform_time_derivative(a, [a])
+        self.assertEqual(res3, a*f1.diff(t) + f1*adot)
+
+    def test_perform_time_derivative8(self):
+
+        y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
+
+        ydot1 = st.perform_time_derivative(y1, yy)
+        ydot2 = st.perform_time_derivative(y2, yy)
+
+        yddot1 = st.perform_time_derivative(y1, yy, order=2)
+        ydddot1 = st.perform_time_derivative(y1, yy, order=3)
+
+        res1 = st.perform_time_derivative(ydot1, yy)
+        self.assertEqual(res1, yddot1)
+
+        res2 = st.perform_time_derivative(ydot1, yy, order=2)
+        self.assertEqual(res2, ydddot1)
+
+        res3 = st.perform_time_derivative(yddot1, yy)
+        self.assertEqual(res3, ydddot1)
 
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a5, b, c', real=True)

@@ -7,7 +7,6 @@ useful functions on basis of sympy
 
 """
 
-
 import sympy as sp
 import numpy as np
 
@@ -2964,7 +2963,49 @@ def simplify_derivs(expr):
     return expr.subs(SUBS)
 
 
-def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
+def depends_on_t(expr, t, dependent_symbols=[]):
+    """
+    Returns whether or not an expression depends (implicitly) on the independed variable t
+
+    :param expr: the expression to be analysed
+    :param t: symbol of independet variable
+    :param dependendt_symbols: sequence of implicit time dependent symbols
+
+    :return: True or False
+    """
+
+    satoms = atoms(expr, sp.Symbol)
+
+    if t in satoms:
+        return True
+
+    res = False
+    for a in satoms:
+        if a in dependent_symbols:
+            return True
+        if is_derivative_symbol(a):
+            return True
+
+    return False
+
+
+def is_derivative_symbol(expr, t=None):
+    """
+    Returns whether expr is a derivative symbol (w.r.t. t)
+
+    :param expr:
+    :param t:
+    :return: True or False
+    """
+
+    if t is not None:
+        # we currently do not distinguish between different independent variables
+        raise NotImplementedError
+
+    return hasattr(expr, 'difforder')
+
+
+def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
                             t_symbol=None, order=1, **kwargs):
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
@@ -2987,13 +3028,28 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     """
 
     if not t_symbol:
-        t = sp.Symbol("t")
+        # try to extract t_symbol from expression
+        tmp = match_symbols_by_name(expr.atoms(sp.Symbol), 't', strict=False)
+        if len(tmp) > 0:
+            assert len(tmp) == 1
+            t = tmp[0]
+        else:
+            t = sp.Symbol("t")
     else:
         t = t_symbol
 
-    func_symbols = list(func_symbols)  # we work with lists here
+    func_symbols = list(func_symbols)  # convert to list
+
+    # expr might contain derivative symbols -> add them to func_symbols
+    deriv_symbols0 = [symb for symb in expr.atoms() if is_derivative_symbol(symb)]
+
+    for ds in deriv_symbols0:
+        if not ds in prov_deriv_symbols and not ds in func_symbols:
+            func_symbols.append(ds)
+
+
     # replace the func_symbols by the symbols from expr to make sure the the
-    # correct symbols are used.
+    # correct symbols (with correct assumptions) are used.
     expr_symbols = atoms(expr, sp.Symbol)
     func_symbols = match_symbols_by_name(expr_symbols, func_symbols, strict=False)
 
@@ -3056,7 +3112,10 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
                 new_order = base.difforder + order
             else:
                 new_order = order
+
+            # dynamically setting attribute
             new_symbol.difforder = new_order
+
             return new_symbol
         else:
             return extended_name_symb(new_name, ord - 1)
