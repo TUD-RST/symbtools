@@ -85,6 +85,12 @@ for tc in target_classes:
         setattr(tc, name, meth)
 
 
+class ExtendedSymbol(sp.Symbol):
+    """ Helper class to use attributes on symbols
+    """
+    pass
+
+
 class equation(object):
 
     def __init__(self, lhs, rhs = 0):
@@ -3021,7 +3027,13 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
             new_name = base_order + r'dot' + trailing_number
 
         if ord == 1:
-            return sp.Symbol(new_name, **kwargs)
+            new_symbol = ExtendedSymbol(new_name, **kwargs)
+            if hasattr(base,"difforder"):
+                new_order = base.difforder + order
+            else:
+                new_order = order
+            new_symbol.difforder = new_order
+            return new_symbol
         else:
             return extended_name_symb(new_name, ord - 1)
 

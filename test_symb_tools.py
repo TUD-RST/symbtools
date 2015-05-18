@@ -151,13 +151,13 @@ class SymbToolsTest(unittest.TestCase):
 
         res_a1 = st.perform_time_derivative(f1, (a, b), order=5)
 
-        a_str = 'a adot addot adddot adddot a_d5'
+        a_str = 'a adot addot adddot addddot a_d5'
         b_str = a_str.replace('a', 'b')
 
         expected_symbol_names = a_str.split() + b_str.split()
 
         res_list =  [sp.Symbol(e)
-                     in res_a1 for e in expected_symbol_names]
+                     in res_a1.atoms() for e in expected_symbol_names]
 
         self.assertTrue( all(res_list) )
 
@@ -647,6 +647,11 @@ class SymbToolsTest2(unittest.TestCase):
 
         sol2_at_0 = sol2.subs(t, 0).doit()
         self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
+
+    def test_extended_symbol(self):
+        x1 = st.ExtendedSymbol('x1')
+        xdot1 = st.perform_time_derivative(x1, [x1], order=4)
+        self.assertEquals(xdot1.difforder, 4)
 
 
 def main():
