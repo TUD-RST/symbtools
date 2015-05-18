@@ -263,6 +263,13 @@ class SymbToolsTest(unittest.TestCase):
 
         self.assertEqual(sp.expand(res_c2 - res_c3), 0)
 
+    def test_extended_symbol(self):
+        x1 = st.ExtendedSymbol('x1')
+        xdot1 = st.perform_time_derivative(x1, [x1], order=4)
+        self.assertEquals(xdot1.difforder, 4)
+
+        
+
 
 def main():
     unittest.main()
