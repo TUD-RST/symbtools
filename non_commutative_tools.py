@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
 
-
+from functools import partial
 import sympy as sp
-from sympy import Matrix, sin, cos
-from model_tools import generate_model, Rz
-from symb_tools import symbs_to_func, zip0
 import symb_tools as st
 
-import pickle
 
 from ipHelp import IPS, Tracer, ip_syshook, sys
 
@@ -18,34 +14,36 @@ from ipHelp import IPS, Tracer, ip_syshook, sys
 Collection of Code for noncommutative calculations ("s = d/dt")
 """
 
-# time
-t = sp.Symbol('t', commutative = False)
 
-# Laplace-Variable (d/dt)
-s = sp.Symbol('s', commutative = False)
+gC = st.Container()  # global Container
+t = gC.t = sp.Symbol('t', commutative=False)  # time
+s = gC.s = sp.Symbol('s', commutative=False)  # Laplace-Variable (d/dt)
 
 
-def apply_deriv(term, power, s, t):
+def apply_deriv(term, power, s, t, func_symbols=[]):
     res = 0
     assert int(power) == power
     if power == 0:
         return term
 
+    if isinstance(term, sp.Add):
+        res = sum(apply_deriv(a, power, s, t, func_symbols) for a in term.args)
 
-    # !!stimmt das??
-    res = 0
-    for i in range(power):
-        tmp = term.diff(t) + term*s
-        res += apply_deriv(tmp, power-1, t, s).expand()
+        return res
 
-    tmp = term.diff(t) + term*s
-    res = apply_deriv(tmp, power-1, s, t).expand()
+    tmp = st.perform_time_derivative(term, func_symbols) + term*s
+    res = apply_deriv(tmp, power-1, s, t, func_symbols).expand()
 
     return res
 
 
-def right_shift(mul, s, t, max_pow = 4):
+def right_shift(mul, s=None, t=None, func_symbols=None, max_pow=4):
     """
+    mul:            the expression to be worked on
+    s:              Laplace variable (optional)
+    t:              time variable (optional)
+    func_symbols:   sequence of time dependend symbols
+                    (see `perform_time_derivative`)
     Vorgehen:
         index des ersten Auftauchens einer s-Potenz finden
         -> mul = L *s**p * X* R0
@@ -53,6 +51,13 @@ def right_shift(mul, s, t, max_pow = 4):
         -> Auf diese wird die Funktion rekursiv angewendet
         -> Rückgabewert ist Mul oder Add von Muls wo die s-Terme ganz rechts stehen
     """
+
+    if s is None:
+        s = gC.s
+    if t is None:
+        t = gC.t
+    if func_symbols is None:
+        func_symbols = []
 
     assert isinstance(s, sp.Symbol)
 
@@ -71,12 +76,15 @@ def right_shift(mul, s, t, max_pow = 4):
         else:
             raise ValueError, 'Expected Mul, Symbol or Pow (like s**2), not ' +  str(mul)
     assert isinstance(mul, sp.Mul)
-    assert s.is_commutative == False
+    assert not s.is_commutative
 
+    # TODO: Why
     s_terms = [s**(i+1) for i in range(max_pow)]
     args = mul.args
 
-    if not t in mul:
+    depends_on_time = partial(st.depends_on_t, t=t, dependent_symbols=func_symbols)
+
+    if not depends_on_time(mul):
         # aggregate all s-Terms at the right margin
         # handle: s*a*s**2*b*s*c -> a*b*c*s**4
         s_terms = []
@@ -88,35 +96,33 @@ def right_shift(mul, s, t, max_pow = 4):
         new_args = rest + s_terms
         return sp.Mul(*new_args)
 
-    idx = min([args.index(st) for st in s_terms if st in args])
+    idx = min([args.index(sterm) for sterm in s_terms if sterm in args])
 
-    if not idx < len(args)-1:
+    if not idx < len(args) - 1:
         # s already is at the right
         return mul
 
-    L = sp.Mul(*args[:idx]) # left term
-    C = args[idx] # current term
-    N = args[idx+1] # next term
-    R0 = sp.Mul(*args[idx+2:]) # all right terms
-    if not t in N:
-        assert t in R0
-        return L*N*right_shift(C*R0, s, t)
+    L = sp.Mul(*args[:idx])  # left term
+    C = args[idx]  # current term
+    N = args[idx+1]  # next term
+    R0 = sp.Mul(*args[idx+2:])  # all right terms
+    if not depends_on_time(N):
+        assert depends_on_time(R0)
+        return L*N*right_shift(C*R0, s, t, func_symbols, max_pow)
 
     exponent = C.as_base_exp()[1]
-    N_new = apply_deriv(N, exponent, s, t)
+    N_new = apply_deriv(N, exponent, s, t, func_symbols)
     assert isinstance(N_new, sp.Add)
 
     res = 0
     for a in N_new.args:
-        if not a.count_ops() == a.expand().count_ops():
-            IPS()
-        tmp = L*right_shift(a*R0, s, t, max_pow)
-        res+= tmp.expand()
+        assert a.count_ops() == a.expand().count_ops()
+        tmp = L*right_shift(a*R0, s, t, func_symbols, max_pow)
+        res += tmp.expand()
 
     return res
 
-
-def right_shift_all(sum_exp, s, t, max_pow=4):
+def right_shift_all(sum_exp, s=None, t=None, max_pow=4):
     """
     applies the right_shift to all arguments of a sum
     if sum only consists of one arg this is also accepted
@@ -140,7 +146,6 @@ def right_shift_all(sum_exp, s, t, max_pow=4):
     for a in args:
         assert isinstance(a, (sp.Mul, sp.Atom))
         res += right_shift(a, s, t, max_pow)
-
 
     return res
 
@@ -207,15 +212,4 @@ def nc_mul(L, R):
 def _method_mul(self, other):
     return nc_mul(other, self)
 
-# TODO: Tests!!!
-
-
-
-if __name__ == "__main__":
-    p = sp.Function("p")(t)
-    f = cos(p)
-
-    w = s**2*f
-
-    r = right_shift(w, s, t)
 
