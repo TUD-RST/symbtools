@@ -156,8 +156,8 @@ class SymbToolsTest(unittest.TestCase):
 
         expected_symbol_names = a_str.split() + b_str.split()
 
-        res_list =  [sp.Symbol(e)
-                     in res_a1.atoms() for e in expected_symbol_names]
+        res_list = [sp.Symbol(e)
+                     in res_a1 for e in expected_symbol_names]
 
         self.assertTrue( all(res_list) )
 
@@ -534,7 +534,7 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertEquals(res3, iv3*exp(t))
 
         if 1:
-            # this test works but takes quite long
+            # this test works but is slow
             with st.warnings.catch_warnings(record=True) as cm:
                 res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
             self.assertEqual(len(cm), 2)
@@ -648,8 +648,8 @@ class SymbToolsTest2(unittest.TestCase):
         sol2_at_0 = sol2.subs(t, 0).doit()
         self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
 
-    def test_extended_symbol(self):
-        x1 = st.ExtendedSymbol('x1')
+    def test_difforder_attribute(self):
+        x1 = sp.Symbol('x1')
         xdot1 = st.perform_time_derivative(x1, [x1], order=4)
         self.assertEquals(xdot1.difforder, 4)
 

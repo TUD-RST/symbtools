@@ -7,7 +7,6 @@ useful functions on basis of sympy
 
 """
 
-#from ipHelp import IPS, ST
 
 import sympy as sp
 import numpy as np
@@ -85,10 +84,35 @@ for tc in target_classes:
         setattr(tc, name, meth)
 
 
-class ExtendedSymbol(sp.Symbol):
-    """ Helper class to use attributes on symbols
-    """
-    pass
+# because sympy does not allow to dynamically attach attributes to symbols
+# we set up our own infrastructure for storing them
+
+sp._attribute_store = {}
+
+
+def new_setattr(self, name, value):
+    try:
+        self.__orig_setattr__(name, value)
+    except AttributeError:
+        sp._attribute_store[(self, name)] = value
+
+
+def new_getattr(self, name):
+    try:
+        res = self.__getattribute__(name)
+    except AttributeError, AE:
+        try:
+            res = sp._attribute_store[(self, name)]
+        except KeyError:
+            # raise the original AttributeError
+            raise AE
+    return res
+
+
+sp.Symbol.__orig_setattr__ = sp.Symbol.__setattr__
+sp.Symbol.__setattr__ = new_setattr
+
+sp.Symbol.__getattr__ = new_getattr
 
 
 class equation(object):
@@ -3027,7 +3051,7 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
             new_name = base_order + r'dot' + trailing_number
 
         if ord == 1:
-            new_symbol = ExtendedSymbol(new_name, **kwargs)
+            new_symbol = sp.Symbol(new_name, **kwargs)
             if hasattr(base,"difforder"):
                 new_order = base.difforder + order
             else:
