@@ -708,6 +708,20 @@ class SymbToolsTest2(unittest.TestCase):
         xdot1 = st.perform_time_derivative(x1, [x1], order=4)
         self.assertEquals(xdot1.difforder, 4)
 
+    def test_user_attributes(self):
+        x1 = sp.Symbol('x1')
+        x1b = sp.Symbol('x1')
+        # These symbols are equal and should share any new attribute
+
+        self.assertTrue(x1 is x1b)
+
+        def tmp():
+            return x1.abc_xyz
+        self.assertRaises(AttributeError, tmp)
+
+        x1.abc_xyz = 85
+        self.assertEqual(tmp(), x1b.abc_xyz)
+
 
 def main():
     unittest.main()
