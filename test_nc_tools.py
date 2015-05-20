@@ -61,6 +61,13 @@ class NonCommToolsTest(unittest.TestCase):
         res2 = nct.apply_deriv(y1, 3, s, t, func_symbols=yy)
         self.assertEqual(res2, ydddot1 + 3*yddot1*s + 3*ydot1*s**2 + y1*s**3)
 
+    def test_apply_deriv3(self):
+        a, b = sp.symbols("a, b", commutative=False)
+
+        res1 = nct.apply_deriv(a, 1, s, t, func_symbols=[a, b])
+        adot = res1.subs(s,0)
+        self.assertFalse(adot.is_commutative)
+
     def test_right_shift(self):
         a, b = sp.symbols("a, b")
         f1 = sp.Function('f1')(t)
@@ -90,27 +97,23 @@ class NonCommToolsTest(unittest.TestCase):
         self.assertRaises( ValueError, nct.right_shift, s*f1*(f2+1), s, t )
 
     def test_right_shift2(self):
-        a, b = sp.symbols("a, b", commutative = False)
+        a, b = sp.symbols("a, b", commutative=False)
         f1 = sp.Function('f1')(t)
         f1d = f1.diff(t)
         f2 = sp.Function('f2')(t)
 
         res1 = nct.right_shift(s*t, s, t)
-        ex1 = 1 + t*s
-
-        self.assertEquals(res1, ex1)
+        self.assertEquals(res1, 1 + t*s)
 
         res2 = nct.right_shift(s, s, t)
-        ex2 = s
-        self.assertEquals(res2, ex2)
+        self.assertEquals(res2, s)
 
         res3 = nct.right_shift(s**4, s, t)
-        ex3 = s**4
-        self.assertEquals(res3, ex3)
+        self.assertEquals(res3, s**4)
 
         res4 = nct.right_shift(s**4*a*b, s, t)
-        ex4 = a*b*s**4
-        self.assertEquals(res4, ex4)
+        self.assertEquals(res4, a*b*s**4)
+
 
         res5 = nct.right_shift(s**2*a*s*b*s, s, t)
         ex5 = a*b*s**4
@@ -119,6 +122,9 @@ class NonCommToolsTest(unittest.TestCase):
         res6 = nct.right_shift(s**2*(a*t**3), s, t)
         ex6 = a*(6*t + 6*t**2*s + t**3*s**2)
         self.assertEquals(res6, ex6)
+
+        res7 = nct.right_shift(f1*s*a*s*b, s, t)
+        self.assertEquals(res7, f1*a*b*s**2)
 
     def test_right_shift3(self):
         a, b = sp.symbols("a, b", commutative = False)
@@ -140,7 +146,8 @@ class NonCommToolsTest(unittest.TestCase):
 
         self.assertEquals(res2, ex2)
 
-    def _test_right_shift4(self):
+    # Hier gehts weiter
+    def test_right_shift4(self):
 
         y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
 
@@ -149,12 +156,59 @@ class NonCommToolsTest(unittest.TestCase):
 
         self.assertEqual(res1, ydot1 + y1*s)
 
-    def _test_right_shift_all(self):
-        1/0
-        a, b = sp.symbols("a, b")
+    def test_right_shift5(self):
+        a, b = sp.symbols("a, b", commutative = False)
         f1 = sp.Function('f1')(t)
+        f2 = sp.Function('y2')(t)
+
+        res1 = nct.right_shift(f1**-1, s, t)
+        self.assertEqual(res1, 1/f1)
+
+        res2 = nct.right_shift((f1 + f2)**-1, s, t)
+        self.assertEqual(res2, 1/(f1 + f2))
+
+        ff = (f1 + f2)**-1
+        res3 = nct.right_shift(s*ff, s, t) - (ff.diff(t) + ff*s)
+        res3 = res3.simplify()
+        self.assertEqual(res3, 0)
+
+    def test_right_shift_all(self):
+        a, b = sp.symbols("a, b", commutative=False)
+        f1 = sp.Function('f1', commutative=False)(t)
+        f2 = sp.Function('f2', commutative=False)(t)
         f1d = f1.diff(t)
-        f2 = sp.Function('f2')(t)
+        f2d = f2.diff(t)
+
+        p1 = s*(f1 + f2)
+
+        ab = sp.Matrix([a, b])
+        adot, bdot = st.perform_time_derivative(ab, ab)
+
+        res1 = nct.right_shift_all(p1)
+        self.assertEqual(res1, f1d + f1*s + f2d + f2*s)
+
+        res2 = nct.right_shift_all(f1**-1, s, t)
+        self.assertEqual(res2, 1/f1)
+
+        res3 = nct.right_shift_all(s*a + s*a*b, s, t, [])
+        self.assertEqual(res3, a*s + a*b*s)
+
+        res4 = nct.right_shift_all(s*a + s*a*b, s, t, [a, b])
+        self.assertEqual(res4, a*s + a*b*s + adot + a*bdot + adot*b)
+
+    def test_right_shift_all2(self):
+        a, b = sp.symbols("a, b", commutative=False)
+
+
+        ab = sp.Matrix([a, b])
+        ab_dot = st.perform_time_derivative(ab, ab)
+
+        sab = sp.Matrix([s*a, s*b])
+
+        res1 = nct.right_shift_all(sab, func_symbols=ab)
+        res2 = ab_dot + ab*s
+
+        self.assertEqual(res1, res2)
 
     @unittest.expectedFailure
     def test_nc_sympy_multiplication_bug(self):
@@ -170,7 +224,7 @@ class NonCommToolsTest(unittest.TestCase):
         self.assertEqual(res, 0*E)
 
     def test_nc_multiplication(self):
-        a, b = sp.symbols("a, b", commutative = False)
+        a, b = sp.symbols("a, b", commutative=False)
         E = sp.eye(2)
 
         Mb = b*E
@@ -184,6 +238,26 @@ class NonCommToolsTest(unittest.TestCase):
 
         res3 = nct.nc_mul(Mb, Mab)
         self.assertEqual(res3, b*a*b*E)
+
+    def test_make_all_symbols_commutative(self):
+
+        a, b, c= sp.symbols("a, b, c", commutative=False)
+        x, y = sp.symbols("x, y")
+
+        exp1 = a*b*x + b*c*y
+        exp2 = b*a*x + c*y*b
+
+        diff = exp1 - exp2
+
+        self.assertFalse(diff == 0)
+        diff_c, subs_tuples = nct.make_all_symbols_commutative(diff)
+        exp1_c, subs_tuples = nct.make_all_symbols_commutative(exp1)
+
+        self.assertTrue( all([r.is_commutative for r in exp1_c.atoms()]) )
+
+
+
+
 
 
 def main():

@@ -37,7 +37,7 @@ def apply_deriv(term, power, s, t, func_symbols=[]):
     return res
 
 
-def right_shift(mul, s=None, t=None, func_symbols=None, max_pow=4):
+def right_shift(mul, s=None, t=None, func_symbols=[]):
     """
     mul:            the expression to be worked on
     s:              Laplace variable (optional)
@@ -56,8 +56,6 @@ def right_shift(mul, s=None, t=None, func_symbols=None, max_pow=4):
         s = gC.s
     if t is None:
         t = gC.t
-    if func_symbols is None:
-        func_symbols = []
 
     assert isinstance(s, sp.Symbol)
 
@@ -78,23 +76,16 @@ def right_shift(mul, s=None, t=None, func_symbols=None, max_pow=4):
     assert isinstance(mul, sp.Mul)
     assert not s.is_commutative
 
-    # TODO: Why
-    s_terms = [s**(i+1) for i in range(max_pow)]
+    # find out which s-terms occur:
+    linear_term = list(mul.atoms().intersection([s]))
+    powers = [p for p in mul.atoms(sp.Pow) if p.args[0] == s ]
+    s_terms = linear_term + powers
+    assert len(s_terms) > 0
+
     args = mul.args
 
     depends_on_time = partial(st.depends_on_t, t=t, dependent_symbols=func_symbols)
 
-    if not depends_on_time(mul):
-        # aggregate all s-Terms at the right margin
-        # handle: s*a*s**2*b*s*c -> a*b*c*s**4
-        s_terms = []
-        rest = []
-        for a in args:
-            if s in a:
-                s_terms.append(a)
-            else: rest.append(a)
-        new_args = rest + s_terms
-        return sp.Mul(*new_args)
 
     idx = min([args.index(sterm) for sterm in s_terms if sterm in args])
 
@@ -106,9 +97,23 @@ def right_shift(mul, s=None, t=None, func_symbols=None, max_pow=4):
     C = args[idx]  # current term
     N = args[idx+1]  # next term
     R0 = sp.Mul(*args[idx+2:])  # all right terms
+
+    if not depends_on_time(N*R0):
+        # aggregate all s-Terms at the right margin
+        # handle: f(t)*s*a*s**2*b*s*c -> f(t)*a*b*c*s**4
+        s_terms = []
+        rest = []
+        for a in args:
+            if s in a:
+                s_terms.append(a)
+            else:
+                rest.append(a)
+        new_args = rest + s_terms
+        return sp.Mul(*new_args)
+
     if not depends_on_time(N):
         assert depends_on_time(R0)
-        return L*N*right_shift(C*R0, s, t, func_symbols, max_pow)
+        return L*N*right_shift(C*R0, s, t, func_symbols)
 
     exponent = C.as_base_exp()[1]
     N_new = apply_deriv(N, exponent, s, t, func_symbols)
@@ -117,55 +122,64 @@ def right_shift(mul, s=None, t=None, func_symbols=None, max_pow=4):
     res = 0
     for a in N_new.args:
         assert a.count_ops() == a.expand().count_ops()
-        tmp = L*right_shift(a*R0, s, t, func_symbols, max_pow)
+        tmp = L*right_shift(a*R0, s, t, func_symbols)
         res += tmp.expand()
 
     return res
 
-def right_shift_all(sum_exp, s=None, t=None, max_pow=4):
+def right_shift_all(expr, s=None, t=None, func_symbols=[]):
     """
-    applies the right_shift to all arguments of a sum
-    if sum only consists of one arg this is also accepted
+    applies the right_shift to all arguments of a sum (`expr`)
+    if expr only consists of one arg this is also accepted
+
+    :func_symbols: sequence of implicitly dependent symbols
     """
 
-    if isinstance(sum_exp, sp.Matrix):
+    expr = expr.expand()
+
+    if isinstance(expr, sp.Matrix):
         def fnc(a):
-            return right_shift_all(a, s, t, max_pow)
-        return sum_exp.applyfunc(fnc)
+            return right_shift_all(a, s, t, func_symbols)
+        return expr.applyfunc(fnc)
 
-    assert isinstance(sum_exp, sp.Basic)
+    assert isinstance(expr, sp.Basic)
 
-    if isinstance(sum_exp, sp.Add):
-        args = sum_exp.args
-    elif isinstance(sum_exp, (sp.Mul, sp.Atom)):
-        args = (sum_exp,)
+    if isinstance(expr, sp.Add):
+        args = expr.args
+    elif isinstance(expr, (sp.Mul, sp.Atom)):
+        args = (expr,)
+    elif isinstance(expr, sp.Pow):
+        base, expo = expr.args
+        assert int(expo) == expo
+        assert expo < 0
+        args = (expr,)
+
     else:
-        raise ValueError, "unexpected type: %s" %type(sum_exp)
+        raise ValueError, "unexpected type: %s" %type(expr)
 
     res = 0
     for a in args:
-        assert isinstance(a, (sp.Mul, sp.Atom))
-        res += right_shift(a, s, t, max_pow)
+        assert isinstance(a, (sp.Mul, sp.Atom, sp.Pow))
+        res += right_shift(a, s, t, func_symbols)
 
     return res
 
+
 def make_all_symbols_commutative(expr, appendix='_c'):
-    '''
+    """
     :param expr:
     :return: expr (with all symbols commutative) and
               a subs_tuple_list [(s1_c, s1_nc), ... ]
-    '''
+    """
 
     symbs = st.atoms(expr, sp.Symbol)
-
-    nc_symbols = [s for s in symbs if s.is_commutative == False]
+    nc_symbols = [s for s in symbs if not s.is_commutative]
 
     new_symbols = [sp.Symbol(s.name+appendix, commutative=True)
-                   for s in symbs]
+                   for s in nc_symbols]
 
     tup_list = zip(new_symbols, nc_symbols)
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
-
 
 
 def nc_mul(L, R):
