@@ -106,6 +106,14 @@ class SymbToolsTest(unittest.TestCase):
         res5 = st.depends_on_t(adot, t, [])
         self.assertEqual(res5, True)
 
+        x1, x2 = xx = sp.symbols("x1, x2")
+        x1dot = st.perform_time_derivative(x1, xx)
+        self.assertTrue(st.depends_on_t(x1dot, t))
+
+        y1, y2 = yy = sp.Matrix(sp.symbols("y1, y2", commutative=False))
+        yydot = st.perform_time_derivative(yy, yy, order=1, commutative=False)
+        self.assertTrue(st.depends_on_t(yydot, t))
+
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
         x = a + b
@@ -253,7 +261,7 @@ class SymbToolsTest(unittest.TestCase):
 
         res3 = st.perform_time_derivative(a*f1, [a, b])
         adot = st.perform_time_derivative(a, [a])
-        self.assertEqual(res3, a*f1.diff(t) + f1*adot)
+        self.assertEqual(res3, a*f1.diff(t) + adot*f1)
 
     def test_perform_time_derivative8(self):
 

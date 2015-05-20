@@ -86,7 +86,7 @@ for tc in target_classes:
 # because sympy does not allow to dynamically attach attributes to symbols
 # we set up our own infrastructure for storing them
 
-sp._attribute_store = {}
+
 
 
 def new_setattr(self, name, value):
@@ -112,6 +112,9 @@ def new_getattr(self, name):
 if not hasattr(sp.Symbol, '__orig_setattr__'):
     sp.Symbol.__orig_setattr__ = sp.Symbol.__setattr__
     sp.Symbol.__setattr__ = new_setattr
+
+if not hasattr(sp, '_attribute_store'):
+    sp._attribute_store = {}
 
 sp.Symbol.__getattr__ = new_getattr
 
@@ -3032,8 +3035,7 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
     different symbols by sympy. Here we dont want this. If the name of
     func_symbols occurs in expr this is sufficient for being regarded as equal.
 
-    assumptions like 'real=True' can be passed to the symbol generation via
-    kwargs
+    for new created symbols the assumptions are copied from the parent symbol
     """
 
     if not t_symbol:
@@ -3072,9 +3074,10 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
     # perform_time_derivative(x_2, [x_2], order=5) -> x__2_d5
     # (respective first underscore is obsolete)
 
-    def extended_name_symb(base, ord):
+    def extended_name_symb(base, ord, assumptions={}):
         if isinstance(base, sp.Symbol):
             base = base.name
+        assert isinstance(base, str)
 
         # remove trailing number
         base_order = base.rstrip('1234567890')
@@ -3116,7 +3119,7 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
             new_name = base_order + r'dot' + trailing_number
 
         if ord == 1:
-            new_symbol = sp.Symbol(new_name, **kwargs)
+            new_symbol = sp.Symbol(new_name, **assumptions)
             if hasattr(base,"difforder"):
                 new_order = base.difforder + order
             else:
@@ -3127,12 +3130,12 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
 
             return new_symbol
         else:
-            return extended_name_symb(new_name, ord - 1)
+            return extended_name_symb(new_name, ord - 1, assumptions)
 
     # the user may want to provide their own symbols for the derivatives
     if not prov_deriv_symbols:
-        deriv_symbols1 = [ [extended_name_symb(s, ord)
-                          for s in func_symbols] for ord in range(order, 0, -1)]
+        deriv_symbols1 = [ [extended_name_symb(s, ord, s.assumptions0)
+                            for s in func_symbols] for ord in range(order, 0, -1)]
 
         # print deriv_symbols1  # -> e.g: [[a_dd, b_dd], [a_d, b_d]]
     else:
