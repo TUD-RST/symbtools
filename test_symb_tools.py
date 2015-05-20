@@ -84,6 +84,35 @@ class SymbToolsTest(unittest.TestCase):
     def setUp(self):
         pass
 
+    def test_depends_on_t1(self):
+        a, b, t = sp.symbols("a, b, t")
+
+        res1 = st.depends_on_t(a+b, t, [])
+        self.assertEqual(res1, False)
+
+        res2 = st.depends_on_t(a + b, t, [a,])
+        self.assertEqual(res2, True)
+
+        res3 = st.depends_on_t(a(t) + b, t, [])
+        self.assertEqual(res3, True)
+
+        res4 = st.depends_on_t(a(t) + b, t, [b])
+        self.assertEqual(res4, True)
+
+        res5 = st.depends_on_t(t, t, [])
+        self.assertEqual(res5, True)
+
+        adot = st.perform_time_derivative(a, [a])
+        res5 = st.depends_on_t(adot, t, [])
+        self.assertEqual(res5, True)
+
+        x1, x2 = xx = sp.symbols("x1, x2")
+        x1dot = st.perform_time_derivative(x1, xx)
+        self.assertTrue(st.depends_on_t(x1dot, t))
+
+        y1, y2 = yy = sp.Matrix(sp.symbols("y1, y2", commutative=False))
+        yydot = st.perform_time_derivative(yy, yy, order=1, commutative=False)
+        self.assertTrue(st.depends_on_t(yydot, t))
 
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
@@ -151,12 +180,12 @@ class SymbToolsTest(unittest.TestCase):
 
         res_a1 = st.perform_time_derivative(f1, (a, b), order=5)
 
-        a_str = 'a adot addot adddot adddot a_d5'
+        a_str = 'a adot addot adddot addddot a_d5'
         b_str = a_str.replace('a', 'b')
 
         expected_symbol_names = a_str.split() + b_str.split()
 
-        res_list =  [sp.Symbol(e)
+        res_list = [sp.Symbol(e)
                      in res_a1 for e in expected_symbol_names]
 
         self.assertTrue( all(res_list) )
@@ -203,7 +232,6 @@ class SymbToolsTest(unittest.TestCase):
         res_b5 = st.perform_time_derivative(x2, xx, order=5)
         #self.assertEqual(str(res_b5), 'x_2_d5')
 
-
     @unittest.expectedFailure
     def test_perform_time_deriv5f(self):
         # test numbered symbols
@@ -219,9 +247,44 @@ class SymbToolsTest(unittest.TestCase):
         res_b5 = st.perform_time_derivative(x2, xx, order=5)
         self.assertEqual(str(res_b5), 'x_2_d5')
 
+    def test_perform_time_derivative7(self):
+        a, b, t = sp.symbols("a, b, t", commutative=False)
+
+        f1 = sp.Function('f1')(t)
+        f2 = sp.Function('f2')(t)
+
+        res1 = st.perform_time_derivative(f1, [a])
+        self.assertEqual(res1, f1.diff(t))
+
+        res2 = st.perform_time_derivative(f1, [])
+        self.assertEqual(res2, f1.diff(t))
+
+        res3 = st.perform_time_derivative(a*f1, [a, b])
+        adot = st.perform_time_derivative(a, [a])
+        self.assertEqual(res3, a*f1.diff(t) + adot*f1)
+
+    def test_perform_time_derivative8(self):
+
+        y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
+
+        ydot1 = st.perform_time_derivative(y1, yy)
+        ydot2 = st.perform_time_derivative(y2, yy)
+
+        yddot1 = st.perform_time_derivative(y1, yy, order=2)
+        ydddot1 = st.perform_time_derivative(y1, yy, order=3)
+
+        res1 = st.perform_time_derivative(ydot1, yy)
+        self.assertEqual(res1, yddot1)
+
+        res2 = st.perform_time_derivative(ydot1, yy, order=2)
+        self.assertEqual(res2, ydddot1)
+
+        res3 = st.perform_time_derivative(yddot1, yy)
+        self.assertEqual(res3, ydddot1)
+
     def test_match_symbols_by_name(self):
-        a, b, c = abc0 = sp.symbols('a, b, c', real=True)
-        a1, b1, c1 = abc1 = sp.symbols('a, b, c')
+        a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
+        a1, b1, c1 = abc1 = sp.symbols('a5, b, c')
 
         self.assertFalse(a == a1 or b == b1 or c == c1)
 
@@ -229,10 +292,29 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEquals(abc0, tuple(abc2))
 
         input3 = [a1, b, "c", "x"]
-        a3, b3, c3, x3 = st.match_symbols_by_name(abc0, input3)
+        res = st.match_symbols_by_name(abc0, input3, strict=False)
+        self.assertEquals(abc0, tuple(res))
 
-        self.assertEquals(abc0, (a3, b3, c3))
-        self.assertEquals(x3, sp.Symbol('x'))
+        with self.assertRaises(ValueError) as cm:
+            res = st.match_symbols_by_name(abc0, input3)  # implies strict=True
+
+        self.assertTrue('symbol x' in cm.exception.message)
+
+        self.assertEquals(abc0, tuple(res))
+
+        r = st.match_symbols_by_name(abc0, 'a5')
+        self.assertEquals(len(r), 1)
+        self.assertEquals(r[0], a)
+
+        # test expression as first argument
+
+        expr = a*b**c + 5
+        r3 = st.match_symbols_by_name(expr, ['c', 'a5'])
+        self.assertEquals(r3, [c, a])
+
+
+
+
 
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
@@ -384,6 +466,24 @@ class SymbToolsTest(unittest.TestCase):
         res_b1 = st.rnd_number_subs_tuples(s, seed=2)
         self.assertEqual(res_b1, res_a2)
 
+    def test_rnd_number_tuples3(self):
+        a, b = sp.symbols('a, b', commutative=False)
+
+        term1 = a*b - b*a
+        st.warnings.simplefilter("always")
+        with st.warnings.catch_warnings(record=True) as cm:
+            st.rnd_number_subs_tuples(term1)
+
+        self.assertEqual(len(cm), 1)
+        self.assertTrue('not commutative' in str(cm[0].message))
+
+
+        with st.warnings.catch_warnings(record=True) as cm2:
+            st.subs_random_numbers(term1)
+
+        self.assertEqual(len(cm2), 1)
+        self.assertTrue('not commutative' in str(cm2[0].message))
+
     def test_lie_deriv_cartan(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')
         u1, u2 = uu = sp.Matrix(sp.symbols('u1:3'))
@@ -515,8 +615,13 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertEquals(res3, iv3*exp(t))
 
         if 1:
-            # this test works but takes quite long
-            res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
+            # this test works but is slow
+            with st.warnings.catch_warnings(record=True) as cm:
+                res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
+            self.assertEqual(len(cm), 2)
+            self.assertTrue('multiple solutions' in str(cm[0].message))
+            self.assertTrue('some symbols free' in str(cm[1].message))
+
             test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
             test_difference4_num = st.subs_random_numbers(test_difference4, seed=1403)
             self.assertAlmostEqual(test_difference4_num, 0)
@@ -649,6 +754,26 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertEquals(res5, C1)
         res6 = st.get_symbols_by_name(expr2, *'C1 x a'.split())
         self.assertEquals(res6, [C1, x, a])
+
+    def test_difforder_attribute(self):
+        x1 = sp.Symbol('x1')
+        xdot1 = st.perform_time_derivative(x1, [x1], order=4)
+        self.assertEquals(xdot1.difforder, 4)
+
+    def test_user_attributes(self):
+        x1 = sp.Symbol('x1')
+        x1b = sp.Symbol('x1')
+        # These symbols are equal and should share any new attribute
+
+        self.assertTrue(x1 is x1b)
+
+        def tmp():
+            return x1.abc_xyz
+        self.assertRaises(AttributeError, tmp)
+
+        x1.abc_xyz = 85
+        self.assertEqual(tmp(), x1b.abc_xyz)
+
 
 def main():
     unittest.main()

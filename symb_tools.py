@@ -7,14 +7,12 @@ useful functions on basis of sympy
 
 """
 
-#from ipHelp import IPS, ST
-
 import sympy as sp
 import numpy as np
 
 from collections import Counter
 
-
+import warnings
 import random
 
 import itertools as it
@@ -83,6 +81,42 @@ target_classes = [sp.Expr, sp.ImmutableDenseMatrix, sp.Matrix]
 for tc in target_classes:
     for name, meth in new_methods:
         setattr(tc, name, meth)
+
+
+# because sympy does not allow to dynamically attach attributes to symbols
+# we set up our own infrastructure for storing them
+
+
+
+
+def new_setattr(self, name, value):
+    try:
+        self.__orig_setattr__(name, value)
+    except AttributeError:
+        sp._attribute_store[(self, name)] = value
+
+
+def new_getattr(self, name):
+    try:
+        res = self.__getattribute__(name)
+    except AttributeError, AE:
+        try:
+            res = sp._attribute_store[(self, name)]
+        except KeyError:
+            # raise the original AttributeError
+            raise AE
+    return res
+
+
+# prevent Problems when reloading the module
+if not hasattr(sp.Symbol, '__orig_setattr__'):
+    sp.Symbol.__orig_setattr__ = sp.Symbol.__setattr__
+    sp.Symbol.__setattr__ = new_setattr
+
+if not hasattr(sp, '_attribute_store'):
+    sp._attribute_store = {}
+
+sp.Symbol.__getattr__ = new_getattr
 
 
 class equation(object):
@@ -1963,7 +1997,9 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
     res = sp.dsolve(eq, func)
     if isinstance(res, list):
         # multiple solutions might occur (complex case)
-        print 'Warning: got multiple solution while solving ', eq, 'continuing with the first...'
+        msg = 'Warning: got multiple solutions while solving %s.' \
+              'continuing with the first...' % eq
+        warnings.warn(msg)
         res = res[0]
 
     new_atoms = res.atoms(sp.Symbol) - old_atoms
@@ -1977,14 +2013,16 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
     sol = sp.solve(eq_ic, CC, dict=True)  # gives a list of dicts
     assert len(sol) >= 1
     if len(sol) > 2:
-        print 'Warning: multiple solutions for initial values; taking the first.'
+        msg = 'Warning: multiple solutions for initial values; taking the first.'
+        warnings.warn(msg)
     sol = sol[0].items()
 
     # selecting the rhs of the first solution and look for other C-vars
     free_symbols = list(sol[0][1].atoms().intersection(CC))
     if free_symbols:
-        print 'Warning: there are still some symbols free while calculating ' \
+        msg = 'Warning: there are still some symbols free while calculating ' \
               'initial values; substituting them with 0.'
+        warnings.warn(msg)
 
     res = res.subs(sol).subs(zip0(free_symbols))
 
@@ -2066,7 +2104,7 @@ def reformulate_integral_args(expr):
         assert len(arg_tup) == 1
         x = arg_tup[0]
         assert x.is_Symbol
-        x_ = sp.Dummy(x.name+"'", **x.assumptions0)
+        x_ = sp.Dummy(x.name+'_', **x.assumptions0)
         new_kernel = kernel.subs(x, x_)
         new_int = sp.Integral(new_kernel, (x_, 0, x))
         subs_list.append((i, new_int))
@@ -2240,12 +2278,21 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False):
 
     gen = sp.numbered_symbols('ZZZ', cls=sp.Dummy)
     # replace all functions and derivs with symbols
-    SL = [(X, gen.next()) for X in list(derivs) + list(funcs)]
+    SL = []
+    dummy_symbol_list = []
+    for X in list(derivs) + list(funcs):
+        dummy = gen.next()
+        SL.append( (X, dummy) )
+        dummy_symbol_list.append(dummy)
 
-    expr_new = expr.subs(SL)
+    regular_symbol_list = list(expr.atoms(sp.Symbol))  # original Symbols
 
-    regular_symbol_list = list(expr.atoms(sp.Symbol)) # original Symbols
-    dummy_symbol_list = list( expr_new.atoms(sp.Dummy) )
+    for atom in list(derivs) + list(funcs) + regular_symbol_list:
+        if not atom.is_commutative:
+            msg = "At least one atom is not commutative." \
+                  "Substituting with numbers might be misleading."
+            warnings.warn(msg)
+            break
 
     # the order does matter (highest derivative first)
     # inherit the order from the symb number which inherited it from deriv-order
@@ -2293,8 +2340,6 @@ def rnd_trig_tuples(symbols, seed = None):
         
     return tuples
 
-# TODO: Funktionen und Ableitungen (aus random_equaltest rauslösen
-# und auch hier verwenden )
 def subs_random_numbers(expr, *args, **kwargs):
     """
     replaces all symbols in the given expr (scalar or matrx) by random numbers
@@ -2931,7 +2976,49 @@ def simplify_derivs(expr):
     return expr.subs(SUBS)
 
 
-def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
+def depends_on_t(expr, t, dependent_symbols=[]):
+    """
+    Returns whether or not an expression depends (implicitly) on the independed variable t
+
+    :param expr: the expression to be analysed
+    :param t: symbol of independet variable
+    :param dependendt_symbols: sequence of implicit time dependent symbols
+
+    :return: True or False
+    """
+
+    satoms = atoms(expr, sp.Symbol)
+
+    if t in satoms:
+        return True
+
+    res = False
+    for a in satoms:
+        if a in dependent_symbols:
+            return True
+        if is_derivative_symbol(a):
+            return True
+
+    return False
+
+
+def is_derivative_symbol(expr, t=None):
+    """
+    Returns whether expr is a derivative symbol (w.r.t. t)
+
+    :param expr:
+    :param t:
+    :return: True or False
+    """
+
+    if t is not None:
+        # we currently do not distinguish between different independent variables
+        raise NotImplementedError
+
+    return hasattr(expr, 'difforder')
+
+
+def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
                             t_symbol=None, order=1, **kwargs):
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
@@ -2949,20 +3036,34 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     different symbols by sympy. Here we dont want this. If the name of
     func_symbols occurs in expr this is sufficient for being regarded as equal.
 
-    assumptions like 'real=True' can be passed to the symbol generation via
-    kwargs
+    for new created symbols the assumptions are copied from the parent symbol
     """
 
     if not t_symbol:
-        t = sp.Symbol("t")
+        # try to extract t_symbol from expression
+        tmp = match_symbols_by_name(expr.atoms(sp.Symbol), 't', strict=False)
+        if len(tmp) > 0:
+            assert len(tmp) == 1
+            t = tmp[0]
+        else:
+            t = sp.Symbol("t")
     else:
         t = t_symbol
 
-    func_symbols = list(func_symbols)  # we work with lists here
+    func_symbols = list(func_symbols)  # convert to list
+
+    # expr might contain derivative symbols -> add them to func_symbols
+    deriv_symbols0 = [symb for symb in expr.atoms() if is_derivative_symbol(symb)]
+
+    for ds in deriv_symbols0:
+        if not ds in prov_deriv_symbols and not ds in func_symbols:
+            func_symbols.append(ds)
+
+
     # replace the func_symbols by the symbols from expr to make sure the the
-    # correct symbols are used.
+    # correct symbols (with correct assumptions) are used.
     expr_symbols = atoms(expr, sp.Symbol)
-    func_symbols = match_symbols_by_name(expr_symbols, func_symbols)
+    func_symbols = match_symbols_by_name(expr_symbols, func_symbols, strict=False)
 
     # convert symbols to functions
     funcs = [ symbs_to_func(s, [s], t) for s in func_symbols ]
@@ -2974,9 +3075,10 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
     # perform_time_derivative(x_2, [x_2], order=5) -> x__2_d5
     # (respective first underscore is obsolete)
 
-    def extended_name_symb(base, ord):
+    def extended_name_symb(base, ord, assumptions={}):
         if isinstance(base, sp.Symbol):
             base = base.name
+        assert isinstance(base, str)
 
         # remove trailing number
         base_order = base.rstrip('1234567890')
@@ -3018,14 +3120,23 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=None,
             new_name = base_order + r'dot' + trailing_number
 
         if ord == 1:
-            return sp.Symbol(new_name, **kwargs)
+            new_symbol = sp.Symbol(new_name, **assumptions)
+            if hasattr(base,"difforder"):
+                new_order = base.difforder + order
+            else:
+                new_order = order
+
+            # dynamically setting attribute
+            new_symbol.difforder = new_order
+
+            return new_symbol
         else:
-            return extended_name_symb(new_name, ord - 1)
+            return extended_name_symb(new_name, ord - 1, assumptions)
 
     # the user may want to provide their own symbols for the derivatives
     if not prov_deriv_symbols:
-        deriv_symbols1 = [ [extended_name_symb(s, ord)
-                          for s in func_symbols] for ord in range(order, 0, -1)]
+        deriv_symbols1 = [ [extended_name_symb(s, ord, s.assumptions0)
+                            for s in func_symbols] for ord in range(order, 0, -1)]
 
         # print deriv_symbols1  # -> e.g: [[a_dd, b_dd], [a_d, b_d]]
     else:
@@ -3088,27 +3199,47 @@ def get_symbols_by_name(expr, *names):
 
 
 
-def match_symbols_by_name(symbols1, symbols2):
+def match_symbols_by_name(symbols1, symbols2, strict=True):
     '''
+<<<<<<< HEAD
     :param symbols1: list of symbols
     :param symbols2: (might be a sequence of strings as well)
     :return: a list of symbols which are those objects from symbols1 where
      the name occurs in symbols2
+=======
+    :param symbols1:
+    :param symbols2: (might also be a string or a sequence of strings)
+    :param strict: determines whether an error is caused if a symbol is not found
+                   default: True
+    :return: a list of symbols which are those objects from ´symbols1´ where
+     the name occurs in ´symbols2´
+
+     ordering is determined by ´symbols2´
+>>>>>>> develop
     '''
+
+    if isinstance(symbols2, basestring):
+        assert " " not in symbols2
+        symbols2 = [symbols2]
+
+    if isinstance(symbols1, (sp.Expr, sp.MatrixBase)):
+        symbols1 = atoms(symbols1, sp.Symbol)
 
     str_list1 = [str(s.name) for s in symbols1]
     sdict1 = dict( zip(str_list1, symbols1) )
 
     str_list2 = [str(s) for s in symbols2]
-    symb_list2 = sp.symbols(str_list2)  # in case symbols2 contained other types
-
     # sympy expects str here (unicode not allowed)
 
     res = []
 
-    for string2, symb2 in zip(str_list2, symb_list2):
-        res_symb = sdict1.get(string2, symb2)
-        res.append(res_symb)
+    for string2 in str_list2:
+        res_symb = sdict1.get(string2)
+        if res_symb:
+            res.append(res_symb)
+        elif strict:
+            msg = "Could not find the symbol " + string2
+            raise ValueError(msg)
 
     return res
 
