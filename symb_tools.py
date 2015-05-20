@@ -108,8 +108,10 @@ def new_getattr(self, name):
     return res
 
 
-sp.Symbol.__orig_setattr__ = sp.Symbol.__setattr__
-sp.Symbol.__setattr__ = new_setattr
+# prevent Problems when reloading the module
+if not hasattr(sp.Symbol, '__orig_setattr__'):
+    sp.Symbol.__orig_setattr__ = sp.Symbol.__setattr__
+    sp.Symbol.__setattr__ = new_setattr
 
 sp.Symbol.__getattr__ = new_getattr
 
@@ -2272,12 +2274,21 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False):
 
     gen = sp.numbered_symbols('ZZZ', cls=sp.Dummy)
     # replace all functions and derivs with symbols
-    SL = [(X, gen.next()) for X in list(derivs) + list(funcs)]
+    SL = []
+    dummy_symbol_list = []
+    for X in list(derivs) + list(funcs):
+        dummy = gen.next()
+        SL.append( (X, dummy) )
+        dummy_symbol_list.append(dummy)
 
-    expr_new = expr.subs(SL)
+    regular_symbol_list = list(expr.atoms(sp.Symbol))  # original Symbols
 
-    regular_symbol_list = list(expr.atoms(sp.Symbol)) # original Symbols
-    dummy_symbol_list = list( expr_new.atoms(sp.Dummy) )
+    for atom in list(derivs) + list(funcs) + regular_symbol_list:
+        if not atom.is_commutative:
+            msg = "At least one atom is not commutative." \
+                  "Substituting with numbers might be misleading."
+            warnings.warn(msg)
+            break
 
     # the order does matter (highest derivative first)
     # inherit the order from the symb number which inherited it from deriv-order
@@ -2325,8 +2336,6 @@ def rnd_trig_tuples(symbols, seed = None):
         
     return tuples
 
-# TODO: Funktionen und Ableitungen (aus random_equaltest rauslösen
-# und auch hier verwenden )
 def subs_random_numbers(expr, *args, **kwargs):
     """
     replaces all symbols in the given expr (scalar or matrx) by random numbers

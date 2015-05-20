@@ -458,6 +458,24 @@ class SymbToolsTest(unittest.TestCase):
         res_b1 = st.rnd_number_subs_tuples(s, seed=2)
         self.assertEqual(res_b1, res_a2)
 
+    def test_rnd_number_tuples3(self):
+        a, b = sp.symbols('a, b', commutative=False)
+
+        term1 = a*b - b*a
+        st.warnings.simplefilter("always")
+        with st.warnings.catch_warnings(record=True) as cm:
+            st.rnd_number_subs_tuples(term1)
+
+        self.assertEqual(len(cm), 1)
+        self.assertTrue('not commutative' in str(cm[0].message))
+
+
+        with st.warnings.catch_warnings(record=True) as cm2:
+            st.subs_random_numbers(term1)
+
+        self.assertEqual(len(cm2), 1)
+        self.assertTrue('not commutative' in str(cm2[0].message))
+
     def test_lie_deriv_cartan(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')
         u1, u2 = uu = sp.Matrix(sp.symbols('u1:3'))
@@ -593,8 +611,8 @@ class SymbToolsTest2(unittest.TestCase):
             with st.warnings.catch_warnings(record=True) as cm:
                 res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
             self.assertEqual(len(cm), 2)
-            self.assertTrue('multiple solutions' in cm[0].message.message)
-            self.assertTrue('some symbols free' in cm[1].message.message)
+            self.assertTrue('multiple solutions' in str(cm[0].message))
+            self.assertTrue('some symbols free' in str(cm[1].message))
 
             test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
             test_difference4_num = st.subs_random_numbers(test_difference4, seed=1403)
