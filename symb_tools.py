@@ -3173,9 +3173,34 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
 
     return expr3
 
+def get_symbols_by_name(expr, *names):
+    '''
+    convenience function to extract symbols from expressions by their name
+    :param expr: expression or matrix
+    :param *names: names of the desired symbols
+    :return: a list of)symbols matching the names
+    (if len == 1, only return the symbol)
+    '''
+
+    symbols = atoms(expr, sp.Symbol)
+    items = [(s.name, s) for s in symbols]
+    d = dict(items)
+
+    res_list = []
+    for n in names:
+        res = d.get(n)
+        if not res:
+            raise ValueError("no Symbol with name %s in expr: %s" % (n, expr))
+        res_list.append(res)
+
+    if len(res_list) == 1:
+        return res_list[0]
+    return res_list
+
+
 
 def match_symbols_by_name(symbols1, symbols2, strict=True):
-    '''
+    """
     :param symbols1:
     :param symbols2: (might also be a string or a sequence of strings)
     :param strict: determines whether an error is caused if a symbol is not found
@@ -3184,7 +3209,7 @@ def match_symbols_by_name(symbols1, symbols2, strict=True):
      the name occurs in ´symbols2´
 
      ordering is determined by ´symbols2´
-    '''
+    """
 
     if isinstance(symbols2, basestring):
         assert " " not in symbols2
