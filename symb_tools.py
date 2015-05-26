@@ -2007,6 +2007,7 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
     assert len(new_atoms) in (1, 2)
     CC = new_atoms
 
+    # handling initial conditions (ic)
     res0 = res.subs(flow_parameter, 0)
     eq_ic = iv - res0.rhs
     sol = sp.solve(eq_ic, CC, dict=True)  # gives a list of dicts
