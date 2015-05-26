@@ -60,7 +60,7 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
     assert isinstance(s, sp.Symbol)
 
     # nothing to do
-    if s not in mul:
+    if not mul.has(s):
         return mul
 
     if not mul.expand().count_ops() == mul.count_ops():
@@ -104,7 +104,7 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
         s_terms = []
         rest = []
         for a in args:
-            if s in a:
+            if a.has(s):
                 s_terms.append(a)
             else:
                 rest.append(a)

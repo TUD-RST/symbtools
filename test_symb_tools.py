@@ -185,8 +185,7 @@ class SymbToolsTest(unittest.TestCase):
 
         expected_symbol_names = a_str.split() + b_str.split()
 
-        res_list = [sp.Symbol(e)
-                     in res_a1 for e in expected_symbol_names]
+        res_list = [res_a1.has(sp.Symbol(e)) for e in expected_symbol_names]
 
         self.assertTrue( all(res_list) )
 
@@ -600,7 +599,6 @@ class SymbToolsTest2(unittest.TestCase):
         rhs1 = sp.S(0)
         rhs2 = sp.S(2.5)
         rhs3 = x1
-        rhs4 = sin(a*x1)
         rhs5 = x1*(3-t)
         rhs6 = cos(b*t)  # coeff must be nonzero to prevent case distinction
 
@@ -614,24 +612,31 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertEquals(res3.diff(t), rhs3.subs(x1, res3))
         self.assertEquals(res3, iv3*exp(t))
 
-        if 1:
-            # this test works but is slow
-            with st.warnings.catch_warnings(record=True) as cm:
-                res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
-            self.assertEqual(len(cm), 2)
-            self.assertTrue('multiple solutions' in str(cm[0].message))
-            self.assertTrue('some symbols free' in str(cm[1].message))
-
-            test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
-            test_difference4_num = st.subs_random_numbers(test_difference4, seed=1403)
-            self.assertAlmostEqual(test_difference4_num, 0)
-
         res5 = st.solve_scalar_ode_1sto(rhs5, x1, t)
         test_difference5 = res5.diff(t) - rhs5.subs(x1, res5)
         self.assertEquals(test_difference5.expand(), 0)
 
         res6 = st.solve_scalar_ode_1sto(rhs6, x1, t)
         self.assertEquals(res6.diff(t), rhs6.subs(x1, res6).expand())
+
+
+    def test_solve_scalar_ode_1sto_2(self):
+        a, b = sp.symbols("a, b", nonzero=True)
+        t, x1, x2 = sp.symbols("t, x1, x2")
+        rhs4 = sin(a*x1)
+
+
+        # this test works but is slow
+        with st.warnings.catch_warnings(record=True) as cm:
+            res4 = st.solve_scalar_ode_1sto(rhs4, x1, t)
+
+        self.assertEqual(len(cm), 1)
+        self.assertTrue('multiple solutions' in str(cm[0].message))
+
+        test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
+
+        self.assertEqual(test_difference4.simplify(), 0)
+
 
     def test_calc_flow_from_vectorfield(self):
         a, b = sp.symbols("a, b", nonzero=True)
