@@ -1820,19 +1820,18 @@ def trig_term_poly(expr, s):
     return poly
 
 
-def atoms(expr, *args, **kwargs):
-    if isinstance(expr, (sp.Matrix, list)):
-        return matrix_atoms(expr, *args, **kwargs)
-    else:
-        return expr.atoms(*args, **kwargs)
-
-
-
 def matrix_atoms(M, *args, **kwargs):
     sets = [m.atoms(*args, **kwargs) for m in list(M)]
     S = set().union(*sets)
 
     return S
+
+
+def atoms(expr, *args, **kwargs):
+    if isinstance(expr, (sp.Matrix, list)):
+        return matrix_atoms(expr, *args, **kwargs)
+    else:
+        return expr.atoms(*args, **kwargs)
 
 
 def matrix_count_ops(M, visual=False):
@@ -3201,13 +3200,7 @@ def get_symbols_by_name(expr, *names):
 
 
 def match_symbols_by_name(symbols1, symbols2, strict=True):
-    '''
-<<<<<<< HEAD
-    :param symbols1: list of symbols
-    :param symbols2: (might be a sequence of strings as well)
-    :return: a list of symbols which are those objects from symbols1 where
-     the name occurs in symbols2
-=======
+    """
     :param symbols1:
     :param symbols2: (might also be a string or a sequence of strings)
     :param strict: determines whether an error is caused if a symbol is not found
@@ -3216,8 +3209,7 @@ def match_symbols_by_name(symbols1, symbols2, strict=True):
      the name occurs in ´symbols2´
 
      ordering is determined by ´symbols2´
->>>>>>> develop
-    '''
+    """
 
     if isinstance(symbols2, basestring):
         assert " " not in symbols2
