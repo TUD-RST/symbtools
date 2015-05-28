@@ -3324,7 +3324,11 @@ class SimulationModel(object):
         """
         self.f = sp.Matrix(f)
         self.G = sp.Matrix(G)
-        self.mod_param_dict = dict(model_parameters)
+        if model_parameters is None:
+            self.mod_param_dict = {}
+        else:
+            self.mod_param_dict = dict(model_parameters)
+
         assert G.shape[0] == f.shape[0]
         self.state_dim = f.shape[0]
         self.input_dim = G.shape[1]

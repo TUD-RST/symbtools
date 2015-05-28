@@ -681,8 +681,10 @@ class SymbToolsTest2(unittest.TestCase):
 
         fxu = (f + G*uu).subs(par_vals)
 
+        # som random initial values
         x0 = st.to_np( sp.randMatrix(len(xx), 1, -10, 10, seed=706) ).squeeze()
 
+        # create the model and the rhs-function
         mod = st.SimulationModel(f, G, xx, par_vals)
         rhs0 = mod.create_simfunction()
 
@@ -696,18 +698,26 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertFalse( np.any(rhs0(x0, 0) - rhs0(x0, 3.7) ) )
 
         # simulate
-
         tt = np.linspace(0, 0.5, 100)  # simulation should be short due to instability
         res1 = sc.integrate.odeint(rhs0, x0, tt)
 
         # proof calculation
         # x(t) = x0*exp(A*t)
         Anum = st.to_np(A.subs(par_vals))
+        Bnum = st.to_np(G.subs(par_vals))
         xt = [ np.dot( sc.linalg.expm(Anum*T), x0 ) for T in tt ]
         xt = np.array(xt)
 
         bin_res1 = np.isclose(res1, xt)  # binary array
         self.assertTrue( np.all(bin_res1) )
+
+        # test handling of parameter free models:
+
+        mod2 = st.SimulationModel(Anum*xx, Bnum, xx)
+        rhs2 = mod2.create_simfunction()
+        res2 = sc.integrate.odeint(rhs2, x0, tt)
+        bool_res = res1 == res2
+        self.assertTrue(bool_res.all())
 
     def test_reformulate_Integral(self):
         t = sp.Symbol('t')
