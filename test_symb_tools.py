@@ -6,6 +6,7 @@ Created on Wed Oct 22 11:35:00 2014
 """
 
 import unittest
+import sys
 
 import sympy as sp
 from sympy import sin, cos, exp
@@ -17,6 +18,17 @@ import scipy.integrate
 import symb_tools as st
 from IPython import embed as IPS
 
+
+if 'all' in sys.argv:
+    FLAG_all = True
+    sys.argv.remove('all')
+else:
+    FLAG_all = False
+
+
+# own decorator for skipping slow tests
+def skip_slow(func):
+    return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
 class InteractiveConvenienceTest(unittest.TestCase):
 
@@ -619,7 +631,7 @@ class SymbToolsTest2(unittest.TestCase):
         res6 = st.solve_scalar_ode_1sto(rhs6, x1, t)
         self.assertEquals(res6.diff(t), rhs6.subs(x1, res6).expand())
 
-
+    @skip_slow
     def test_solve_scalar_ode_1sto_2(self):
         a, b = sp.symbols("a, b", nonzero=True)
         t, x1, x2 = sp.symbols("t, x1, x2")
@@ -636,7 +648,6 @@ class SymbToolsTest2(unittest.TestCase):
         test_difference4 = res4.diff(t) - rhs4.subs(x1, res4)
 
         self.assertEqual(test_difference4.simplify(), 0)
-
 
     def test_calc_flow_from_vectorfield(self):
         a, b = sp.symbols("a, b", nonzero=True)
@@ -793,5 +804,6 @@ class SymbToolsTest2(unittest.TestCase):
 def main():
     unittest.main()
 
+# see also the skip_slow logic at the beginning of the file
 if __name__ == '__main__':
     main()
