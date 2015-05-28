@@ -727,8 +727,44 @@ class SymbToolsTest2(unittest.TestCase):
         mod2 = st.SimulationModel(Anum*xx, Bnum, xx)
         rhs2 = mod2.create_simfunction()
         res2 = sc.integrate.odeint(rhs2, x0, tt)
-        bool_res = res1 == res2
-        self.assertTrue(bool_res.all())
+        self.assertTrue(np.allclose(res1, res2))
+
+        # test input functions
+        des_input = st.piece_wise((0, t <= 1 ), (t, t < 2), (0.5, t < 3), (1, True))
+        des_input_func_scalar = st.expr_to_func(t, des_input)
+        des_input_func_vec = st.expr_to_func(t, sp.Matrix([des_input, des_input]) )
+
+        with self.assertRaises(TypeError) as cm:
+            mod2.create_simfunction(input_function=des_input_func_scalar)
+
+        rhs3 = mod2.create_simfunction(input_function=des_input_func_vec)
+        res3_0 = rhs3(x0, 0)
+
+    def test_expr_to_func(self):
+
+        x1, x2 = xx = sp.Matrix(sp.symbols("x1, x2"))
+        r_ = np.r_
+
+        f1 = st.expr_to_func(x1, 2*x1)
+        self.assertEqual(f1(5.1), 10.2)
+
+        XX1 = np.r_[1, 2, 3.7]
+        res1 = f1(XX1) == 2*XX1
+        self.assertTrue(res1.all)
+
+        f2 = st.expr_to_func(x1, sp.Matrix([x1*2, x1+5, 4]))
+        res2 = f2(3) == r_[6, 8, 4]
+        self.assertTrue(res2.all())
+
+        # res2b = f2(r_[3, 10, 0]) == np.array([[6, 8, 4], [20, 15, 4], [0, 5, 4]])
+        # self.assertTrue(res2b.all())
+
+        f3 = st.expr_to_func(xx, sp.Matrix([x1*2, x2+5, 4]))
+        res3 = f3(-3.1, 4) == r_[-6.2, 9, 4]
+        self.assertTrue(res3.all())
+
+
+
 
     def test_reformulate_Integral(self):
         t = sp.Symbol('t')
@@ -754,6 +790,11 @@ class SymbToolsTest2(unittest.TestCase):
 
         sol2_at_0 = sol2.subs(t, 0).doit()
         self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
+
+class SymbToolsTest3(unittest.TestCase):
+
+    def setUp(self):
+        pass
 
     def test_get_symbols_by_name(self):
         c1, C1, x, a, t, Y = sp.symbols('c1, C1, x, a, t, Y')

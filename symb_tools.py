@@ -217,7 +217,7 @@ def condition_poly(var, *conditions):
 
 
     # preparations
-    cond_lengths = [len(c)-1 for c in conditions] # -1: first entry is t
+    cond_lengths = [len(c)-1 for c in conditions]  # -1: first entry is t
     condNbr = sum(cond_lengths)
     cn = max(cond_lengths)
 
@@ -250,8 +250,6 @@ def condition_poly(var, *conditions):
     sol_poly = poly.subs(sol)
 
     return sol_poly
-
-
 
 
 def trans_poly(var, cn, left, right):
@@ -309,7 +307,7 @@ def trans_poly(var, cn, left, right):
 
 def make_pw(var, transpoints, fncs):
     transpoints = list(transpoints)
-    upper_borders =  list(zip(*transpoints)[0])
+    upper_borders = list(zip(*transpoints)[0])
 
     var = sp.sympify(var)
 
@@ -354,6 +352,7 @@ def integrate_pw(fnc, var, transpoints):
     pieces = zip(new_fncs, conds)
 
     return piece_wise(*pieces)
+
 
 # might be oboslete (intended use case did not carry on)
 def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
@@ -2427,14 +2426,12 @@ def expr_to_func(args, expr, modules = 'numpy', **kwargs):
         the return-value of the resulting function is passed through
         to_np(..) before returning
 
-    eltw_vectorize: allows to handle vectors of piecewise expression
+    eltw_vectorize: allows to handle vectors of piecewise expression (default=True)
 
     """
 
     # TODO: sympy-Matrizen mit Stückweise definierten Polynomen
     # numpy fähig (d.h. vektoriell) auswerten
-
-    # TODO: Unittest
 
     expr = sp.sympify(expr)
     expr = ensure_mutable(expr)
@@ -2456,9 +2453,9 @@ def expr_to_func(args, expr, modules = 'numpy', **kwargs):
 
         new_expr.append(e)
 
-    if not hasattr(expr, '__len__'):
-        assert len(new_expr) == 1
-        new_expr = new_expr[0]
+    # if not hasattr(expr, '__len__'):
+    #     assert len(new_expr) == 1
+    #     new_expr = new_expr[0]
 
     # TODO: Test how this works with np_wrapper and vectorized arguments
     if hasattr(expr, 'shape'):
@@ -2475,17 +2472,7 @@ def expr_to_func(args, expr, modules = 'numpy', **kwargs):
     else:
         func1 = func
 
-    if kwargs.get('special_vectorize', False):
-        # !! this was introduced for a very special application
-        # should be removed from the general code
-        def func2(*allargs):
-            return to_np(func(*allargs))
-
-        f = np.float
-        func3 = np.vectorize(func2, otypes = [f,f,f, f,f,f])
-        return func3
-
-    if kwargs.get('eltw_vectorize', False):
+    if kwargs.get('eltw_vectorize', True):
         # elementwise vectorization to handle piecewise expressions
         # each function returns a 1d-array
         assert len(new_expr) >=1 # elementwise only makes sense for sequences
@@ -2500,7 +2487,10 @@ def expr_to_func(args, expr, modules = 'numpy', **kwargs):
             results = [to_np(f(*allargs)) for f in funcs]
 
             # transpose, such that the input axis (e.g. time) is the first one
-            return to_np(results).T.squeeze()
+            res = to_np(results).T.squeeze()
+            if not hasattr(res, '__len__'):
+                res = float(res)  # scalar results: array(5.0) -> 5.0
+            return res
 
         return func2
 
@@ -3334,15 +3324,22 @@ class SimulationModel(object):
         self.input_dim = G.shape[1]
         self.xx = xx
 
-    def create_simfunction(self, input_function=None):
+    def create_simfunction(self, **kwargs):
         """
         Creates the rhs function of xdot = f(x) + G(x)u
 
-        :param input_function: callable u(x, t)
+        :kwargs:
+
+        :param controller_function: callable u(x, t)
         this can be a controller function,
         a desired trajectory (x beeing ignored -> open loop)
         or a zero-function to simulate the autonomous system xdot = f(x).
         As default a zero-function is used
+
+        :param input_function: callable u(t)
+        shortcut to pass only open-loop control
+
+        Note: input_function and controller_function mutually exclude each other
         """
 
         n = self.state_dim
@@ -3353,29 +3350,40 @@ class SimulationModel(object):
         assert atoms(f, sp.Symbol).issubset( set(self.xx) )
         assert atoms(G, sp.Symbol).issubset( set(self.xx) )
 
-        if not input_function:
+        input_function = kwargs.get('input_function')
+        controller_function = kwargs.get('controller_function')
+
+        if input_function is None and controller_function is None:
             zero_m = np.array([0]*m)
 
             def u_func(xx, t):
                 return zero_m
-
-        else:
+        elif not input_function is None:
             assert hasattr(input_function, '__call__')
-            u_func = input_function
+            assert controller_function is None
+
+            def u_func(xx, t):
+                return input_function(t)
+        else:
+            assert hasattr(controller_function, '__call__')
+            assert input_function is None
+
+            u_func = controller_function
+
+        tmp = u_func([0]*n, 0)
+        tmp = np.atleast_1d(tmp)
+        if not len(tmp) == m:
+            msg = "Invalid result dimension of controller/input_function."
+            raise TypeError(msg)
 
         f_func = expr_to_func(self.xx, f, np_wrapper=True)
-        G_func = expr_to_func(self.xx, G, np_wrapper=True)
-
-        # f_func = sp.lambdify(self.xx, f, modules="numpy")
-        # G_func = sp.lambdify(self.xx, G, modules="numpy")
+        G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
 
         def rhs(xx, t):
             xx = np.ravel(xx)
             uu = np.ravel(u_func(xx, t))
             ff = np.ravel(f_func(*xx))
             GG = G_func(*xx)
-            # from IPython import embed as IPS
-            # IPS()
 
             xx_dot = ff + np.dot(GG, uu)
 
@@ -3384,12 +3392,10 @@ class SimulationModel(object):
         return rhs
 
 
-
 # eigene Trigsimp-Versuche
 # mit der aktuellen sympy-Version (2013-03-29)
 # eigentlich überflüssig
 # TODO: in Schnipsel-Archiv überführen
-
 def sort_trig_terms(expr):
 
     expr = expr.expand()
