@@ -1385,7 +1385,7 @@ def is_left_coprime(Ap, Bp=None, eps = 1e-10):
 
     minors = [col_minor(M, *cols) for cols in combinations]
 
-    nonzero_const_minors = [m for m in minors if (m !=0) and (symb not in m)]
+    nonzero_const_minors = [m for m in minors if (m !=0) and not m.has(symb)]
 
     if len(nonzero_const_minors) > 0:
         return True
@@ -1393,7 +1393,7 @@ def is_left_coprime(Ap, Bp=None, eps = 1e-10):
     #zero_minors = [m for m in minors if m == 0]
 
     # polymionors (rows belong together)
-    all_roots = [roots(m) for m in minors if symb in m]
+    all_roots = [roots(m) for m in minors if m.has(symb)]
 
     # obviously all minors where zeros
     if len(all_roots) == 0:
@@ -1766,7 +1766,7 @@ def trigsimp2(expr):
     # gucken, ob cos auch vorkommt
     for tts in trigterms_sin:
         arg = tts.args[0]
-        if sp.cos(arg) in trigterms_cos:
+        if trigterms_cos.has(sp.cos(arg)):
             trigterm_args.append(arg)
 
 
@@ -2609,7 +2609,7 @@ def get_col_reduced_right(A, symb, T = None, return_internals = False):
     else:
         assert T.shape == (n, m)
         d = T.berkowitz_det().expand()
-        assert d != 0 and not symb in d
+        assert d != 0 and not d.has(symb)
 
 
     A_work = trunc_small_values(sp.expand(A*T))
@@ -3272,12 +3272,11 @@ def symbolify_matrix(M):
     new_symbol = []
     result = []
 
-
     for e in L:
         if e.is_Atom:
             # leave the entry unchanged
             ns = e
-        elif e in replaced:
+        elif replaced.has(e):
             # get the old symbol
             ns = new_symbol[replaced.index(e)]
         else:
