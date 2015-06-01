@@ -3391,6 +3391,83 @@ class SimulationModel(object):
 
         return rhs
 
+    def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
+        """
+
+        This functions accepts 3 arrays (time, state input) and tests, whether they are
+        compatible with the systems dynamics of self
+
+        :param tt: time array
+        :param xx: state array
+        :param uu: input array
+        :param rtol: relative tolerance w.r.t abs_max of xdot_num
+
+        further kwargs:
+        'full_output': also return the array of residual values
+        """
+
+        assert tt.ndim == 1
+        assert xx.ndim == 2
+        if uu.ndim == 1:
+            uu = uu.reshape(-1, 1)
+        assert xx.shape[0] == uu.shape[0] == len(tt)
+        assert xx.shape[1] == self.state_dim
+        assert uu.shape[1] == self.input_dim
+
+        dt = tt[1] - tt[0]
+        xdot_num = np.diff(xx, axis=0)/dt
+
+        threshold = np.max(np.abs(xdot_num))*rtol * self.state_dim
+
+        f = self.f.subs(self.mod_param_dict)
+        G = self.G.subs(self.mod_param_dict)
+
+        f_func = expr_to_func(self.xx, f, np_wrapper=True)
+        G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
+
+        N = len(tt) - 1
+
+        res = np.zeros(N)
+        eqnerr_arr = np.zeros((N, 2))
+
+        for i in xrange(N):
+            x = xx[i,:]
+            xd = xdot_num[i,:]
+            u = uu[i, :]
+
+            ff = np.ravel(f_func(*x))
+            GG = G_func(*x)
+
+            # calculate the equation error (should be near zero)
+            eqnerr = xd - ff - np.dot(GG, u)
+            assert eqnerr.ndim == 1 and len(eqnerr) == self.state_dim
+
+            #tmp
+            eqnerr_arr[i,:] = eqnerr
+
+            res[i] = np.linalg.norm(eqnerr)
+
+        # two conditions must be fulfilled:
+        # 1.: less than 10% of the residum values are "medium big"
+        medium_residua_bool = res > threshold*0.1  # boolean array
+        nbr_medium_residua = sum(medium_residua_bool)
+        cond1 = nbr_medium_residua < N*0.1
+
+        # 2.: less than 1% of the residum values are "big"
+        big_residua_bool = res > threshold  # boolean array
+        nbr_big_residua = sum(big_residua_bool)
+        cond2 = nbr_big_residua < N*0.01
+
+        cond_res = cond1 and cond2
+
+        from IPython import embed as IPS
+        IPS()
+
+        if kwargs.get('full_output'):
+            return cond_res, res
+        else:
+            return cond_res
+
 
 # eigene Trigsimp-Versuche
 # mit der aktuellen sympy-Version (2013-03-29)

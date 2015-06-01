@@ -692,7 +692,7 @@ class SymbToolsTest2(unittest.TestCase):
 
         fxu = (f + G*uu).subs(par_vals)
 
-        # som random initial values
+        # some random initial values
         x0 = st.to_np( sp.randMatrix(len(xx), 1, -10, 10, seed=706) ).squeeze()
 
         # create the model and the rhs-function
@@ -740,9 +740,45 @@ class SymbToolsTest2(unittest.TestCase):
         rhs3 = mod2.create_simfunction(input_function=des_input_func_vec)
         res3_0 = rhs3(x0, 0)
 
+    def test_num_trajectory_compatibility_test(self):
+        x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))
+        u1, u2 = uu = sp.Matrix(sp.symbols("u1, u2"))  # inputs
+
+        t = sp.Symbol('t')
+
+        # we want to create a random but stable matrix
+
+        np.random.seed(2805)
+        diag = np.diag( np.random.random(len(xx))*-10 )
+        T = sp.randMatrix(len(xx), len(xx), -10, 10, seed=704)
+        Tinv = T.inv()
+
+        A = Tinv*diag*T
+
+        B = B0 = sp.randMatrix(len(xx), len(uu), -10, 10, seed=705)
+
+        x0 = st.to_np( sp.randMatrix(len(xx), 1, -10, 10, seed=706) ).squeeze()
+        tt = np.linspace(0, 5, 2000)
+
+        des_input = st.piece_wise((2-t, t <= 1 ), (t, t < 2), (2*t-2, t < 3), (4, True))
+        des_input_func_vec = st.expr_to_func(t, sp.Matrix([des_input, des_input]) )
+
+        mod2 = st.SimulationModel(A*xx, B, xx)
+        rhs3 = mod2.create_simfunction(input_function=des_input_func_vec)
+        XX = sc.integrate.odeint(rhs3, x0, tt)
+        UU = des_input_func_vec(tt)
+
+        res1 = mod2.num_trajectory_compatibility_test(tt, XX, UU)
+        self.assertTrue(res1)
+
+        # slightly different input signal -> other results
+        res2 = mod2.num_trajectory_compatibility_test(tt, XX, UU*1.1)
+        self.assertFalse(res2)
+
     def test_expr_to_func(self):
 
         x1, x2 = xx = sp.Matrix(sp.symbols("x1, x2"))
+        t, = sp.symbols("t,")
         r_ = np.r_
 
         f1 = st.expr_to_func(x1, 2*x1)
@@ -756,14 +792,28 @@ class SymbToolsTest2(unittest.TestCase):
         res2 = f2(3) == r_[6, 8, 4]
         self.assertTrue(res2.all())
 
-        # res2b = f2(r_[3, 10, 0]) == np.array([[6, 8, 4], [20, 15, 4], [0, 5, 4]])
-        # self.assertTrue(res2b.all())
+        res2b = f2(r_[3, 10, 0]) == np.array([[6, 8, 4], [20, 15, 4], [0, 5, 4]])
+        self.assertTrue(res2b.all())
 
         f3 = st.expr_to_func(xx, sp.Matrix([x1*2, x2+5, 4]))
         res3 = f3(-3.1, 4) == r_[-6.2, 9, 4]
         self.assertTrue(res3.all())
 
+        # test compatibility with Piecewise Expressions
+        des_input = st.piece_wise((0, t <= 1 ), (t, t < 2), (0.5, t < 3), (1, True))
+        f4s = st.expr_to_func(t, des_input)
+        f4v = st.expr_to_func(t, sp.Matrix([des_input, des_input]) )
 
+        self.assertEqual(f4s(2.7), 0.5)
+
+        sol = r_[0, 1.6, 0.5, 1, 1]
+        res4a = f4s(r_[0.3, 1.6, 2.2, 3.1, 500]) == sol
+        self.assertTrue(res4a.all())
+
+        res4b = f4v(r_[0.3, 1.6, 2.2, 3.1, 500])
+        col1, col2 = res4b.T
+        self.assertTrue(np.array_equal(col1, sol))
+        self.assertTrue(np.array_equal(col2, sol))
 
 
     def test_reformulate_Integral(self):
