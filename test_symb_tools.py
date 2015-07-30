@@ -323,10 +323,6 @@ class SymbToolsTest(unittest.TestCase):
         r3 = st.match_symbols_by_name(expr, ['c', 'a5'])
         self.assertEquals(r3, [c, a])
 
-
-
-
-
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
         x, y = sp.symbols("x, y")
@@ -596,6 +592,62 @@ class SymbToolsTest(unittest.TestCase):
 
         self.assertEqual(res1, res1_exp)
         self.assertEqual(res2, res2_exp)
+
+    def test_solve_linear_system1(self):
+        M = sp.randMatrix(3, 8, seed=1131)
+        xx = sp.Matrix(sp.symbols('x1:9'))
+        bb = sp.Matrix(sp.symbols('b1:4'))
+
+        eqns = M*xx + bb
+
+        sol1 = sp.solve(eqns, xx)
+        sol2 = st.solve_linear_system(eqns, xx)
+
+        self.assertEqual(xx.subs(sol1) - xx.subs(sol2), xx*0)
+
+        # symbolic coefficient matrix
+        # this is (currently) not possible with sp.solve
+        # (additionally add a zero line)
+        M2 = st.symbMatrix(4, 8)
+        bb2 = sp.Matrix(sp.symbols('b1:5'))
+        eqns = M2*xx + bb2
+
+        eqns[-1, :] *= 0
+        sol3 = st.solve_linear_system(eqns, xx)
+
+        res = eqns.subs(sol3)
+        res.simplify()
+
+        self.assertEqual(res, res*0)
+
+    def test_solve_linear_system2(self):
+        par = sp.symbols('phi0, phi1, phi2, phidot0, phidot1, phidot2, phiddot0, phiddot1,'
+                         'phiddot2, m0, m1, m2, l0, l1, l2, J0, J1, J2, L1, L2')
+
+        phi0, phi1, phi2, phidot0, phidot1, phidot2, phiddot0, phiddot1, \
+        phiddot2, m0, m1, m2, l0, l1, l2, J0, J1, J2, L1, L2 = par
+
+        k1, k2, k3, k4, k5, k6 = kk = sp.symbols('k1:7')
+
+        eqns = sp.Matrix([[L1*l0*m2*sin(phi1) + k1*(-2*l2*m2*phidot2*(L1*sin(phi1 - phi2) -
+                           l0*sin(phi2))*(J1 + L1**2*m2 + L1*l0*m2*cos(phi1) +
+                           L1*l2*m2*cos(phi1 - phi2) + l0*l1*m1*cos(phi1) + l1**2*m1) -
+                           2*phidot1*(L1*l0*m2*sin(phi1) + L1*l2*m2*sin(phi1 - phi2) +
+                           l0*l1*m1*sin(phi1))*(J2 + L1*l2*m2*cos(phi1 - phi2) + l0*l2*m2*cos(phi2) +
+                           l2**2*m2) - 2*(-L1*l0*m2*phidot1*sin(phi1) - L1*l2*m2*(phidot1 -
+                           phidot2)*sin(phi1 - phi2) - l0*l1*m1*phidot1*sin(phi1))*(J2 + L1*l2*m2*cos(phi1 - phi2) +
+                           l0*l2*m2*cos(phi2) + l2**2*m2)) - k2*(-2*l2*m2*phidot2*(L1*sin(phi1 - phi2) -
+                           l0*sin(phi2))*(J0 + l0**2*m0 + l0*m1*(l0 + l1*cos(phi1)) + l0*m2*(L1*cos(phi1) +
+                           l0 + l2*cos(phi2))) - 2*(-l0*l1*m1*phidot1*sin(phi1) + l0*m2*(-L1*phidot1*sin(phi1) - l2*phidot2*sin(phi2)))*(J2 + L1*l2*m2*cos(phi1 - phi2) + l0*l2*m2*cos(phi2) + l2**2*m2)) + k4*(J1 + L1**2*m2 + L1*l0*m2*cos(phi1) + L1*l2*m2*cos(phi1 - phi2) + l0*l1*m1*cos(phi1) + l1**2*m1) - k5*(J0 + l0**2*m0 + l0*m1*(l0 + l1*cos(phi1)) + l0*m2*(L1*cos(phi1) + l0 + l2*cos(phi2))) + l0*l1*m1*sin(phi1)],
+                          [-2*k1*(-L1*l2*m2*(phidot1 - phidot2)*sin(phi1 - phi2) - l0*l2*m2*phidot2*sin(phi2))*(J2 + L1*l2*m2*cos(phi1 - phi2) + l0*l2*m2*cos(phi2) + l2**2*m2) - k3*(-2*l2*m2*phidot2*(L1*sin(phi1 - phi2) - l0*sin(phi2))*(J0 + l0**2*m0 + l0*m1*(l0 + l1*cos(phi1)) + l0*m2*(L1*cos(phi1) + l0 + l2*cos(phi2))) - 2*(-l0*l1*m1*phidot1*sin(phi1) + l0*m2*(-L1*phidot1*sin(phi1) - l2*phidot2*sin(phi2)))*(J2 + L1*l2*m2*cos(phi1 - phi2) + l0*l2*m2*cos(phi2) + l2**2*m2)) + k4*(J2 + L1*l2*m2*cos(phi1 - phi2) + l0*l2*m2*cos(phi2) + l2**2*m2) - k6*(J0 + l0**2*m0 + l0*m1*(l0 + l1*cos(phi1)) + l0*m2*(L1*cos(phi1) + l0 + l2*cos(phi2))) + l0*l2*m2*sin(phi2)]])
+
+        sol_subs = st.solve_linear_system(eqns, kk)
+
+        res = eqns.subs(sol_subs)
+        res.simplify()
+
+        self.assertEqual(res, res*0)
+        #IPS()
 
 
 class SymbToolsTest2(unittest.TestCase):

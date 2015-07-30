@@ -19,6 +19,9 @@ import itertools as it
 import collections as col
 
 
+# placeholder to inject a custom simplify function for the enullspace function
+nullspace_simplify_func = None
+
 # convenience
 np.set_printoptions(8, linewidth=300)
 
@@ -718,7 +721,11 @@ def is_number(expr):
 
     return f == expr and not (f == float('nan') or abs(f) == float('inf'))
 
+    
+def symb_vector(*args, **kwargs):
+    return sp.Matrix(sp.symbols(*args, **kwargs))
 
+    
 # Todo Unittest (sp.Symbol vs. sp.cls)
 def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol, **kwargs):
     """
@@ -1014,6 +1021,131 @@ def lin_solve_eqns_jac(eqns, vars):
     sol = sp.solve_linear_system(sysmatrix, *vars)
 
     return sol
+
+
+def solve_linear_system(eqns, vars):
+    """
+    Tries to solve symbolic equations of the form
+    A*x + b = 0
+    """
+
+    eqns = sp.Matrix([e for e in eqns if not e == 0])
+    vars = sp.Matrix(vars)
+
+    if len(eqns) == 0:
+        return []  # no restrictions for vars
+
+    assert eqns.shape[1] == 1
+
+    A = eqns.jacobian(vars)
+
+    if atoms(A).intersection(vars):
+        raise ValueError, "The equations seem to be non-linear."
+
+    b = eqns.subs(zip0(vars))
+
+    ns1 = sp.numbered_symbols('aa')
+    ns2 = sp.numbered_symbols('bb')
+
+    replm1, (A_cse, ) = sp.cse(A, ns1)
+    replm2, (b_cse, ) = sp.cse(b, ns2)
+
+    # from IPython import embed as IPS
+
+    if eqns.shape[0] < len(vars):
+        # assuming full rank there are infinitely many solution
+        # we have to find a regular submatrix of A_cse
+        # Heuristics: try the "simplest" combination of columns (w.r.t. _extended_count_ops)
+
+        M, N, idcs1, idcs2 = _simplest_regular_submatrix(A_cse)
+
+        y, z = [], []
+        for i, v in enumerate(vars):
+            if i in idcs1:
+                y.append(v)
+            else:
+                assert i in idcs2
+                z.append(v)
+
+        y, z = sp.Matrix(y), sp.Matrix(z)
+
+        rest = N*z + b_cse
+
+        k = M.shape[0] + 1
+        rr = sp.Matrix(sp.symbols('r1:%i' % k))
+
+        subs_rest = zip(rr, rest)
+
+        EQNs_yz = M*y + rr
+
+    sol = sp.solve(EQNs_yz, y)
+
+    assert isinstance(sol, dict)
+
+    replm1.reverse()
+    replm2.reverse()
+
+    y_sol = y.subs(sol).subs(subs_rest + replm1 + replm2)
+
+    return zip(y, y_sol)
+
+
+def _simplest_regular_submatrix(A):
+    """Background: underdetermined system of linear equations
+    A*x + b = 0
+
+    We want to find a representation
+
+    M*y + N*z + b = 0
+
+    where M is a combination of columns and a regular Matrix.
+    We look for M as simple as possible (w.r.t. _extended_count_ops)
+
+    returns M, N, indices_M, indices_N
+    """
+
+    m, n = A.shape
+    Anum = subs_random_numbers(A, seed=28)
+    if m == n:
+        # quick check for generic rank
+        assert Anum.rank() == n
+        return A
+
+    co = A.applyfunc(_extended_count_ops)
+    col_sums = np.sum(to_np(co), axis=0)
+
+    sum_tuples = zip(col_sums, range(n))
+    # [(sum0, 0), (sum1, 1), ...]
+
+    # combinations of tuples
+    combs = list( it.combinations(sum_tuples, m) )
+
+    # [ ( (sum0, 0), (sum1, 1) ),   ( (sum0, 0), (sum2, 2) ), ...]
+
+    # now we sort this list of m-tuples of 2-tuples
+
+    def comb_sum(comb):
+        # unpack the column sums
+        col_sums = zip(*comb)[0]
+        return sum(col_sums)
+
+    combs.sort(key=comb_sum)
+
+    # now take the first column combination which leads to a regular matrix
+    for comb in combs:
+        idcs = zip(*comb)[1]
+        M = col_select(A, *idcs)
+
+        M_num = subs_random_numbers(M, seed=1107)
+        if M_num.rank() == m:
+            other_idcs = [i for i in range(n) if not i in idcs]
+            N = col_select(A, *other_idcs)
+            return M, N, idcs, other_idcs
+
+    raise ValueError("No regular submatrix has been found")
+
+
+
 
 #def lin_solve_eqns(eqns, vars):
 #    """
@@ -2245,7 +2377,7 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
 
 
 
-def rnd_number_subs_tuples(expr, seed=None, rational=False):
+def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False):
     '''
 
     :param expr: expression
@@ -2256,6 +2388,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False):
     
     keyword args:
     mul_pi_list: list of atoms, which should be multiplied by pi
+    prime: 
     '''
 
 
@@ -2305,10 +2438,18 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False):
     if not seed is None:
         random.seed(seed)
 
+    if prime:
+        N = len(atoms_list)
+        list_of_primes = prime_list(2*N) # more numbers than needed
+        random.shuffle(list_of_primes)
+        tuples = [(reverse_dict[s], list_of_primes.pop()) for s in atoms_list]
+        return tuples
+
     if rational == True:
         tuples = [(reverse_dict[s], clean_numbers(random.random())) for s in atoms_list]
     else:
         tuples = [(reverse_dict[s], random.random()) for s in atoms_list]
+        
     
 #    # make the desired symbols a multiple of pi 
 #    if mul_pi_list:
@@ -2817,6 +2958,7 @@ def pinv(M):
     #print res
     return pinv
 
+
 def nullspaceMatrix(M, *args, **kwargs):
     """
     wrapper for the sympy-nullspace method
@@ -2857,8 +2999,14 @@ def enullspace(M, *args, **kwargs):
     vectors = M.nullspace(*args, **kwargs)
 
     if kwargs.get('simplify', True):
-        vectors = [sp.simplify(v) for v in vectors]
+        custom_simplify = nullspace_simplify_func
+        if custom_simplify is None:
+            custom_simplify = sp.simplify
+        else:
+            assert custom_simplify(sp.cos(1)**2 + sp.sin(1)**2) == 1
 
+        print "simplifying %i vectors" % len(vectors)
+        vectors = [custom_simplify(v) for v in vectors]
 
     new_vectors = []
     for v in vectors:
@@ -2866,7 +3014,7 @@ def enullspace(M, *args, **kwargs):
         denoms = [ c.as_numer_denom()[1] for c in v]
         #denom_tuples = [(d.count_ops(), d) for d in denoms]
         #denom_tuples.sort()
-        denoms.sort(key = _extended_count_ops)
+        denoms.sort( key=_extended_count_ops )
 
         d = denoms[-1]
         # convert to mutable matrix
@@ -2973,9 +3121,15 @@ def depends_on_t(expr, t, dependent_symbols=[]):
     :param expr: the expression to be analysed
     :param t: symbol of independet variable
     :param dependendt_symbols: sequence of implicit time dependent symbols
+                            default: []
+                            if it is set to None this function returns always False
 
     :return: True or False
     """
+
+    # This is usefull for "naively" perform right_shifting, i.e. ignoring any time_dependence
+    if dependent_symbols is None:
+        return False
 
     satoms = atoms(expr, sp.Symbol)
 
@@ -3539,6 +3693,49 @@ def my_trig_simp(expr):
     subslist.reverse()
 
     return expr.subs(subslist), subslist
+    
+def gen_primes():
+    """ Generate an infinite sequence of prime numbers.
+    """
+# Source:
+# http://stackoverflow.com/questions/1628949/to-find-first-n-prime-numbers-in-python    
+
+    # Maps composites to primes witnessing their compositeness.
+    # This is memory efficient, as the sieve is not "run forward"
+    # indefinitely, but only as long as required by the current
+    # number being tested.
+    #
+    D = {}  
+
+    # The running integer that's checked for primeness
+    q = 2  
+
+    while True:
+        if q not in D:
+            # q is a new prime.
+            # Yield it and mark its first multiple that isn't
+            # already marked in previous iterations
+            # 
+            yield q        
+            D[q * q] = [q]
+        else:
+            # q is composite. D[q] is the list of primes that
+            # divide it. Since we've reached q, we no longer
+            # need it in the map, but we'll mark the next 
+            # multiples of its witnesses to prepare for larger
+            # numbers
+            # 
+            for p in D[q]:
+                D.setdefault(p + q, []).append(p)
+            del D[q]
+
+        q += 1
+
+        
+def prime_list(n):
+    a = gen_primes()
+    res = [a.next() for i in xrange(n)]
+    return res
 
 
 
