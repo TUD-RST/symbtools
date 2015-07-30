@@ -199,21 +199,42 @@ class NonCommToolsTest(unittest.TestCase):
     def test_right_shift_all2(self):
         a, b = sp.symbols("a, b", commutative=False)
 
-
         ab = sp.Matrix([a, b])
         ab_dot = st.perform_time_derivative(ab, ab)
 
         sab = sp.Matrix([s*a, s*b])
 
         res1 = nct.right_shift_all(sab, func_symbols=ab)
-        res2 = ab_dot + ab*s
+        res2 = ab_dot + nct.nc_mul(ab, s)
 
         self.assertEqual(res1, res2)
+
+    def test_right_shift_all_naive(self):
+        a, b = sp.symbols("a, b", commutative=False)
+
+        ab = sp.Matrix([a, b])
+        adot, bdot = ab_dot = st.perform_time_derivative(ab, ab)
+        addot, bddot = ab_ddot = st.perform_time_derivative(ab, ab, order=2)
+
+        sab = sp.Matrix([s*a, s*b])
+        abs = sp.Matrix([a*s, b*s])
+
+        res1 = nct.right_shift_all(sab, func_symbols=None)
+        self.assertEqual(res1, abs)
+
+        # normally derivatives are recognized as time dependent automatically
+        res2 = nct.right_shift_all(s*adot)
+        self.assertEqual(res2, addot + adot*s)
+
+        # if func_symbols=None derivatives are like constants
+        res3 = nct.right_shift_all(s*adot, func_symbols=None)
+        self.assertEqual(res3, adot*s)
+
 
     @unittest.expectedFailure
     def test_nc_sympy_multiplication_bug(self):
     # This seems to be a sympy bug
-        a, b = sp.symbols("a, b", commutative = False)
+        a, b = sp.symbols("a, b", commutative=False)
         E = sp.eye(2)
 
         Mb = b*E
@@ -241,7 +262,7 @@ class NonCommToolsTest(unittest.TestCase):
 
     def test_make_all_symbols_commutative(self):
 
-        a, b, c= sp.symbols("a, b, c", commutative=False)
+        a, b, c = sp.symbols("a, b, c", commutative=False)
         x, y = sp.symbols("x, y")
 
         exp1 = a*b*x + b*c*y
@@ -255,7 +276,24 @@ class NonCommToolsTest(unittest.TestCase):
 
         self.assertTrue( all([r.is_commutative for r in exp1_c.atoms()]) )
 
+    def test_nc_coeffs(self):
 
+        a, b, c, s = sp.symbols("a, b, c, s", commutative=False)
+
+        p0 = a
+        p1 = a + b*s + c*s
+        p2 = a + (b**2 - c)*s - a*b*a*s**2 - s
+        p8 = a + (b**2 - c)*s - a*b*a*s**2 - c*s**8
+
+        c0 = nct.nc_coeffs(p0, s)
+        c1 = nct.nc_coeffs(p1, s)
+        c2 = nct.nc_coeffs(p2, s)
+        c8 = nct.nc_coeffs(p8, s)
+
+        self.assertEqual(c0, [a] + [0]*10)
+        self.assertEqual(c1, [a, b + c] + [0]*9)
+        self.assertEqual(c2, [a, b**2 - c - 1, -a*b*a] + [0]*8)
+        self.assertEqual(c8, [a, b**2 - c, -a*b*a, ] + [0]*5 + [-c] + [0]*2)
 
 
 

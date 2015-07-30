@@ -127,6 +127,7 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
 
     return res
 
+
 def right_shift_all(expr, s=None, t=None, func_symbols=[]):
     """
     applies the right_shift to all arguments of a sum (`expr`)
@@ -155,7 +156,7 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
         args = (expr,)
 
     else:
-        raise ValueError, "unexpected type: %s" %type(expr)
+        raise ValueError, "unexpected type: %s" % type(expr)
 
     res = 0
     for a in args:
@@ -180,6 +181,58 @@ def make_all_symbols_commutative(expr, appendix='_c'):
 
     tup_list = zip(new_symbols, nc_symbols)
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
+
+
+def nc_coeffs(poly, var, max_deg=10, order='increasing'):
+    """Returns a list of the coeffs w.r.t. var (expecting a monovariate polynomial)
+
+    sympy.Poly can not handle non-commutative variables.
+    This function mitigates that problem.
+
+    :param poly:
+    :param var:
+    :param max_deg:     maximum degree to look for
+    :param order:       increasing / decreasing
+
+    :return: list of coeffs
+
+    Caveat: This function expects all factors of `var` to be in one place.
+    Terms like a*x*b*x**2 will not be handled correctly.
+    """
+
+    # TODO: elegant way to find out the degree
+    # workarround: pass the maximum expected degree as kwarg
+
+    D0 = sp.Dummy('D0')
+    poly = poly.expand() + D0  # ensure class add
+
+    assert isinstance(poly, sp.Add)
+    res = []
+    # special case: 0-th power of var
+    coeff = 0
+    for a in poly.args:
+        if not a.has(var):
+            coeff += a
+    res.append(coeff.subs(D0, 0))
+
+    # special case: first power of var
+    coeff = poly.diff(var).subs(var, 0)
+    res.append(coeff)
+
+    # powers > 1:
+    for i in xrange(1, max_deg):
+        coeff = 0
+        for a in poly.args:
+            if a.has(var**(i + 1)):
+                term = a.subs(var, 1)
+                coeff += term
+        res.append(coeff)
+
+    if order == "decreasing":
+        res.reverse()
+
+    return res
+
 
 
 def nc_mul(L, R):
@@ -222,6 +275,7 @@ def nc_mul(L, R):
         raise TypeError(msg)
 
     return res
+
 
 def _method_mul(self, other):
     return nc_mul(other, self)
