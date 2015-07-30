@@ -16,6 +16,7 @@ import scipy as sc
 import scipy.integrate
 
 import symb_tools as st
+import inspect
 from IPython import embed as IPS
 
 
@@ -30,10 +31,22 @@ else:
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
+
 class InteractiveConvenienceTest(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def test_no_IPS_call(self):
+        srclines = inspect.getsourcelines(st)[0]
+        def filter_func(tup):
+            idx, line = tup
+            return 'IPS()' in line and not line.strip()[0] == '#'
+
+        res = filter(filter_func, enumerate(srclines, 1))
+
+        self.assertEqual(res, [])
+
 
     def test_symbol_atoms(self):
         a, b, t = sp.symbols("a, b, t")
@@ -688,7 +701,6 @@ class SymbToolsTest2(unittest.TestCase):
         a, b = sp.symbols("a, b", nonzero=True)
         t, x1, x2 = sp.symbols("t, x1, x2")
         rhs4 = sin(a*x1)
-
 
         # this test works but is slow
         with st.warnings.catch_warnings(record=True) as cm:

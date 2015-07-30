@@ -18,6 +18,13 @@ import random
 import itertools as it
 import collections as col
 
+try:
+    # usefull for debugging but not mandatory
+    from IPython import embed as IPS
+    #from ipHelp import IPS
+except ImportError:
+    pass
+
 
 # placeholder to inject a custom simplify function for the enullspace function
 nullspace_simplify_func = None
@@ -3545,9 +3552,7 @@ class SimulationModel(object):
         return rhs
 
     def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
-        """
-
-        This functions accepts 3 arrays (time, state input) and tests, whether they are
+        """ This functions accepts 3 arrays (time, state, input) and tests, whether they are
         compatible with the systems dynamics of self
 
         :param tt: time array
@@ -3595,9 +3600,6 @@ class SimulationModel(object):
             eqnerr = xd - ff - np.dot(GG, u)
             assert eqnerr.ndim == 1 and len(eqnerr) == self.state_dim
 
-            #tmp
-            eqnerr_arr[i,:] = eqnerr
-
             res[i] = np.linalg.norm(eqnerr)
 
         # two conditions must be fulfilled:
@@ -3612,9 +3614,6 @@ class SimulationModel(object):
         cond2 = nbr_big_residua < N*0.01
 
         cond_res = cond1 and cond2
-
-        from IPython import embed as IPS
-        IPS()
 
         if kwargs.get('full_output'):
             return cond_res, res
