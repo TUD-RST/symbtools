@@ -5,7 +5,7 @@ import sympy as sp
 import symb_tools as st
 
 
-from ipHelp import IPS, Tracer, ip_syshook, sys
+#from ipHelp import IPS, Tracer, ip_syshook, sys
 
 #ip_syshook(1)
 

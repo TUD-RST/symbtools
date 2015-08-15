@@ -87,6 +87,25 @@ def subz0(self, arg):
 new_methods.append(('subz0', subz0))
 
 
+@property
+def srn(self):
+    """
+    Convenience property for interactive usage:
+    returns subs_random_numbers(self, **kwargs)
+    """
+    return subs_random_numbers(self)
+new_methods.append(('srn', srn))
+
+@property
+def srnp(self):
+    """
+    Convenience property for interactive usage:
+    returns subs_random_numbers(self, **kwargs)
+    """
+    return subs_random_numbers(self, prime=True).evalf()
+new_methods.append(('srnp', srnp))
+
+
 target_classes = [sp.Expr, sp.ImmutableDenseMatrix, sp.Matrix]
 for tc in target_classes:
     for name, meth in new_methods:
@@ -518,28 +537,27 @@ def lie_bracket(f, g, *args, **kwargs):
 
     assert len(args) > 0
 
-
     if isinstance(args[0], sp.Matrix):
         assert args[0].shape[1] == 1
         args = list(args[0])
 
     if hasattr(args[0], '__len__'):
         args = args[0]
-    n = kwargs.get('n', 1) # wenn n nicht gegeben, dann n=1
+    n = kwargs.get('n', 1)  # wenn n nicht gegeben, dann n=1
 
     if n == 0:
         return g
 
-    assert n > 0 #and isinstance(n, int)
+    assert n > 0
+    assert int(n) == n
     assert len(args) == len(list(f))
 
-    # Umwandeld in sympy-Matrizen
+    # casting
     f = sp.Matrix(f)
     g = sp.Matrix(g)
 
     jf = f.jacobian(args)
     jg = g.jacobian(args)
-
 
     res = jg * f - jf * g
 
@@ -603,6 +621,105 @@ def lie_deriv_covf(w, f, args, **kwargs):
         res = lie_deriv_covf(res, f, args, n = n-1)
 
     return res
+
+
+def involutivity_test(dist, xx, **kwargs):
+    """
+    Test whether a distribution is closed w.r.t the lie_bracket.
+    This is done via substituting random numbers and checking the rank
+
+    :param dist:    Matrix whose columns span the distribution
+    :param xx:      coordinates
+    :param kwargs:
+    :return:        True or False and the first failing combination for cols
+    """
+
+    assert isinstance(dist, sp.Matrix)
+    nr, nc = dist.shape
+    assert len(xx) == nr
+    combs = it.combinations(range(nc), 2)
+
+    rnst = rnd_number_subs_tuples(dist, prime=True)
+    rank0 = dist.subs(rnst).evalf().rank()
+
+    res = True
+    fail = []
+
+    # if the distribution already spans the whole space
+    if rank0 == nr:
+        return res, fail
+
+    for c in combs:
+        f1, f2 = col_split(col_select(dist, *c))
+        lb = lie_bracket(f1, f2, xx)
+
+        tmp = col_stack(dist, lb)
+
+        # augmented matrix
+        tmp2 = tmp.subs(rnst).evalf()
+        all_atoms = atoms(tmp2)
+        number_atoms = atoms(tmp2, sp.Number)
+        assert len(all_atoms) == len(number_atoms)
+
+        if tmp2.rank() != rank0:
+            res = False
+            fail = c
+            break
+
+    return res, fail
+
+
+def system_pronlongation(f, gg, xx, prl_list, **kwargs):
+    """
+
+    :param f:        drift vector field
+    :param gg:       matrix of input vfs
+    :param xx:       coordinates
+    :param prl_list: list of tuples (input_number, prolongation_order)
+    :return:         fnew, Gnew, xxnew
+    """
+
+    nr, nc = gg.shape
+    assert len(f) == nr == len(xx)
+    # resort the prolongation_list
+    idcs, orders = zip(*prl_list)
+    for idx, order in prl_list:
+        assert 0 <= idx < nc
+        assert 0 <= order == int(order)
+
+    state_symbol = kwargs.get('state_symbol', 'z')
+    Nz = sum(orders)
+    max_idx = str(Nz + 1)
+    # create new state_variables:
+    zz = symb_vector(state_symbol + '1:' + max_idx)
+
+    fnew = row_stack( f, sp.zeros(Nz, 1) )
+    ggnew = row_stack( gg, sp.zeros(Nz, nc) )
+    xxnew = row_stack(xx, zz)
+
+    k = 0
+    for idx, order in prl_list:
+        if order == 0:
+            continue
+        for j in range(order):
+            k += 1
+            if j == 0:
+                # we convert an input to a state component
+                # add the column (*z_k) to the drift vf
+                fnew += ggnew[:, idx]*zz[k-1]
+
+                # we can now already finish the column of ggnew
+                # subtraction reasons -1 because k has already been incremented
+                # uv uses 1-indexing, i.e.: uv(3, 1) = [1, 0, 0]
+                matching_unit_vector = uv(n=nr + Nz, i=nr + k + order - 1)
+                ggnew[:, idx] = matching_unit_vector
+            else:
+                assert k >= 2
+                # we just add an integrator:
+                # zz[k-2]_dot = zz[k-1] (i.e. zdot1 = z2, etc.)
+                fnew[nr + k - 2, 0] = zz[k-1]
+
+    return fnew, ggnew, xxnew
 
 
 def multi_taylor(expr, args, x0 = None, order=1):
@@ -2383,7 +2500,6 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
     raise DeprecationWarning, "use random_equaltest instead"
 
 
-
 def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False):
     '''
 
@@ -2486,6 +2602,7 @@ def rnd_trig_tuples(symbols, seed = None):
         tuples.append((s, num/den))
         
     return tuples
+
 
 def subs_random_numbers(expr, *args, **kwargs):
     """

@@ -104,10 +104,59 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(M2.subs(st.zip0(XX)), M2.subz0(XX))
 
 
+class LieToolsTest(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_involutivity_test(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        st.make_global(xx, 1)
+
+        # not involutive
+        f1 = sp.Matrix([x2*x3 + x1**2, 3*x1, 4 + x2*x3])
+        f2 = sp.Matrix([x3 - 2*x1*x3, x2 - 5, 3 + x1*x2])
+
+        dist1 = st.col_stack(f1, f2)
+
+        # involutive
+        f3 = sp.Matrix([-x2, x1, 0])
+        f4 = sp.Matrix([0, -x3, x2])
+
+        dist2 = st.col_stack(f3, f4)
+
+        res, fail = st.involutivity_test(dist1, xx)
+
+        self.assertFalse(res)
+        self.assertEqual(fail, (0, 1))
+
+        res2, fail2 = st.involutivity_test(dist2, xx)
+
+        self.assertTrue(res2)
+        self.assertEqual(fail2, [])
+
+
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def test_system_prolongation(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        z1, z2, z3 = zz = st.symb_vector('z1:4')
+        a1, a2, a3 = aa = st.symb_vector('a1:4')
+
+        f = sp.Matrix([x2, 0, 0])
+        gg = sp.Matrix([[0, 0], [a1, a2], [0, a3]])
+
+        fnew, ggnew, xxnew = st.system_pronlongation(f, gg, xx, [(0, 2), (1, 1)])
+
+        fnew_ref = sp.Matrix([x2, a1*z1 + a2*z3, a3*z3,  z2, 0, 0])
+        ggnew_ref = sp.eye(6)[:, -2:]
+
+        self.assertEqual(fnew, fnew_ref)
+        self.assertEqual(ggnew, ggnew_ref)
+
 
     def test_depends_on_t1(self):
         a, b, t = sp.symbols("a, b, t")
