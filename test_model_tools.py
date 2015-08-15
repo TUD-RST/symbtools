@@ -10,6 +10,7 @@ import sympy as sp
 from sympy import sin, cos, Matrix
 import symb_tools as st
 import model_tools as mt
+from model_tools import Rz
 
 
 from IPython import embed as IPS
@@ -46,7 +47,7 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(mod.eq_list[0], eq)
 
         # test the application of the @property
-        M = mod.calc_mass_matrix
+        M = mod.MM
         self.assertEqual(M[0], m)
 
     def test_cart_pole(self):
@@ -88,6 +89,73 @@ class ModelToolsTest(unittest.TestCase):
         rest_ref = Matrix([[g*l1*m1*sin(p1)], [-F1 - l1*m1*pdot1**2*sin(p1)]])
 
         self.assertEqual(M, M_ref)
+
+        mod.calc_state_eq(simplify=True)
+        mod.calc_coll_part_lin_state_eq(simplify=True)
+
+        pdot1, qdot1 = mod.ttd
+
+        ff_ref = sp.Matrix([[pdot1],[qdot1], [-g*sin(p1)/l1], [0]])
+        gg_ref = sp.Matrix([[0], [0], [-cos(p1)/l1], [1]])
+
+        self.assertEqual(mod.ff, ff_ref)
+        self.assertEqual(mod.gg, gg_ref)
+
+    def test_simple_pendulum_with_actuated_mountpoint(self):
+
+        np = 1
+        nq = 2
+        n = np + nq
+        pp = st.symb_vector("p1:{0}".format(np+1))
+        qq = st.symb_vector("q1:{0}".format(nq+1))
+
+        theta = st.row_stack(pp, qq)
+        mu = st.perform_time_derivative(theta, theta)
+        mud = st.perform_time_derivative(theta, theta, order=2)
+        st.make_global(theta, 1)
+        st.make_global(mu, 1)
+
+        params = sp.symbols('l3, l4, s3, s4, J3, J4, m1, m2, m3, m4, g')
+        st.make_global(params, 1)
+
+        Q1, Q2 = QQ = st.symb_vector("Q1, Q2")
+
+        ## Geometry
+
+        ex = sp.Matrix([1,0])
+        ey = sp.Matrix([0,1])
+
+        # Koordinaten der Schwerpunkte und Gelenke
+        S1 = ex*q1
+        S2 = ex*q1 + ey*q2
+        G3 = S2 # Gelenk
+
+        # Schwerpunkt des Pendels #zeigt nach oben
+        S3 = G3 + Rz(p1)*ey*s3
+
+        # Zeitableitungen der Schwerpunktskoordinaten
+        Sd1, Sd2, Sd3  = st.col_split(st.perform_time_derivative(st.col_stack(S1, S2, S3), theta)) ##
+
+        # Energy
+        T_rot = ( J3*pdot1**2 )/2
+        T_trans = ( m1*Sd1.T*Sd1  +  m2*Sd2.T*Sd2 + m3*Sd3.T*Sd3 )/2
+        T = T_rot + T_trans[0]
+        V = m1*g*S1[1] + m2*g*S2[1] + m3*g*S3[1]
+
+        external_forces = [0, Q1, Q2]
+        assert not any(external_forces[:np])
+        mod = mt.generate_symbolic_model(T, V, theta, external_forces)
+        mod.calc_coll_part_lin_state_eq(simplify=True)
+
+        #pdot1, qdot1, qdot2 = mod.ttd
+
+        ff_ref = sp.Matrix([[pdot1], [qdot1], [qdot2], [g*m3*s3*sin(p1)/(J3 + m3*s3**2)], [0], [0]])
+        gg_ref_part = sp.Matrix([m3*s3*cos(p1)/(J3 + m3*s3**2), m3*s3*sin(p1)/(J3 + m3*s3**2)]).T
+
+        self.assertEqual(mod.ff, ff_ref)
+        self.assertEqual(mod.gg[-3, :], gg_ref_part)
+
+
 
     def test_triple_pendulum(self):
 

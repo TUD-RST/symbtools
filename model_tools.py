@@ -75,9 +75,17 @@ class SymbolicModel(object):
         self.qs = None  #var_list
         self.extforce_list = None  #extforce_list
         self.disforce_list = None  #disforce_list
+
+        # for the classical state representation
         self.f = None
-        self.u = None
         self.g = None
+        self.tau = None
+
+        # for the collocated partial linearization
+        self.ff = None
+        self.gg = None
+        self.aa = None
+
         self.solved_eq = None
         self.zero_equilibrium = None
         self.state_eq = None
@@ -86,6 +94,7 @@ class SymbolicModel(object):
         self.x = None
         self.xd = None
         self.h = None
+        self.M = None
 
     def substitute_ext_forces(self, old_F, new_F, new_F_symbols):
         """
@@ -102,19 +111,101 @@ class SymbolicModel(object):
         self.eq_list = self.eq_list.subs(subslist)
         self.extforce_list = new_F_symbols
 
-    @property
     def calc_mass_matrix(self):
         """
         calculate and return the mass matrix (without simplification)
         """
+
+        if isinstance(self.M, sp.Matrix):
+            assert self.M.is_square
+            return self.M
         # Übergangsweise:
         if hasattr(self, 'ttdd'):
-            return self.eq_list.jacobian(self.ttdd)
+            self.M = self.eq_list.jacobian(self.ttdd)
         else:
-            return self.eq_list.jacobian(self.qdds)
+            self.M =  self.eq_list.jacobian(self.qdds)
 
-    MM = calc_mass_matrix  # short hand
+        return self.M
 
+    MM = property(calc_mass_matrix)  # short hand
+
+    def solve_for_acc(self, simplify=False):
+        self.calc_mass_matrix()
+        if simplify:
+            self.M.simplify()
+        M = self.M
+
+        rhs = self.eq_list.subs(st.zip0(self.ttdd)) * -(1)
+        d = M.berkowitz_det()
+        adj = M.adjugate()
+        if simplify:
+            d = d.simplify()
+            adj.simplify()
+        Minv = adj/d
+        res = Minv*rhs
+
+        return res
+
+    def calc_state_eq(self, **kwargs):
+        """
+        reformulate the second order model to a first order statespace model
+        xd = f(x)+g(x)*u
+        """
+        simplify = kwargs.get('simplify', False)
+
+        self.x = st.row_stack(self.tt, self.ttd)
+
+        eq2nd_order = self.solve_for_acc(**kwargs)
+        self.state_eq = st.row_stack(self.ttd, eq2nd_order)
+
+        self.f = self.state_eq.subs(st.zip0(self.tau))
+        self.g = self.state_eq.jacobian(self.tau)
+
+        if simplify:
+            self.f.simplify()
+            self.g.simplify()
+
+    def calc_coll_part_lin_state_eq(self, **kwargs):
+        """
+        calc vectorfields ff, and gg of collocated linearization
+        """
+        simplify = kwargs.get('simplify', False)
+        self.x = st.row_stack(self.tt, self.ttd)
+        nq = len(self.tau)
+        np = len(self.tt) - nq
+        B = self.eq_list.jacobian(self.tau)
+        cond1 = B[:np, :] == sp.zeros(np, nq)
+        cond2 = B[np:, :] == -sp.eye(nq)
+        if not cond1 and cond2:
+            msg = "The jacobian of the equations of motion do not have the expected structure: %s"
+            raise NotImplementedError(msg % str(B))
+
+        # set the actuated accelearations as new inputs
+        self.aa = self.ttdd[-nq:, :]
+
+        self.calc_mass_matrix()
+        if simplify:
+            self.M.simplify()
+        M11 = self.M[:np, :np]
+        M12 = self.M[:np, np:]
+
+        d = M11.berkowitz_det()
+        adj = M11.adjugate()
+        if simplify:
+            d = d.simplify()
+            adj.simplify()
+        M11inv = adj/d
+
+        # setting input and acceleration to 0
+        C1K1 = self.eq_list[:np, :].subs(st.zip0(self.ttdd, self.tau))
+        #eq_passive = -M11inv*C1K1 - M11inv*M12*self.aa
+
+        self.ff = st.row_stack(self.ttd, -M11inv*C1K1, self.aa*0)
+        self.gg = st.row_stack(sp.zeros(np + nq, nq), -M11inv*M12, sp.eye(nq))
+
+        if simplify:
+            self.ff.simplify()
+            self.gg.simplify()
 
 """
 Hinweis: 2014-10-15: Verhalten wurde geändert.
@@ -124,6 +215,7 @@ Hinweis: 2014-10-15: Verhalten wurde geändert.
 
 
 def generate_model(T, U, qq, F, **kwargs):
+    raise DeprecationWarning('generate_symbolic_model should be used')
     """
     T kinetic co-energy
     U potential energy
@@ -196,6 +288,8 @@ def generate_model(T, U, qq, F, **kwargs):
     model1.eq_list = model_eq
     model1.qs = qs
     model1.extforce_list = f
+    model1.tau = f
+
     model1.qds = qds
     model1.qdds = qdds
 
@@ -208,11 +302,12 @@ def generate_model(T, U, qq, F, **kwargs):
 
     return model1
 
+
 def generate_symbolic_model(T, U, tt, F, **kwargs):
     """
     T kinetic energy
     U potential energy
-    tt sequence of independent deflection variables (theta)
+    tt sequence of independent deflection variables ("theta")
     F external forces
 
     kwargs: might be something like 'real=True'
@@ -257,18 +352,24 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
         model_eq[i] = L_diff_ttd_dt[i] - L_diff_tt[i] - F[i]
 
     # create object of model
-    model1 = SymbolicModel()  # model_eq, qs, f, D)
-    model1.eq_list = model_eq
-    model1.F = F
-    model1.tt = tt
-    model1.ttd = ttd
-    model1.ttdd = ttdd
+    mod = SymbolicModel()  # model_eq, qs, f, D)
+    mod.eq_list = model_eq
+
+    mod.extforce_list = F
+    reduced_F = sp.Matrix([s for s in F if st.is_symbol(s)])
+    mod.F = reduced_F
+    mod.tau = reduced_F
+
+    # coordinates velocities and accelerations
+    mod.tt = tt
+    mod.ttd = ttd
+    mod.ttdd = ttdd
 
     # also store kinetic and potential energy
-    model1.T = T
-    model1.U = U
+    mod.T = T
+    mod.U = U
 
-    return model1
+    return mod
 
 
 def solve_eq(model):
@@ -293,50 +394,6 @@ def is_zero_equilibrium(model):
     model.zero_equilibrium = all(eq_1)
 
 
-def state_eq(model):
-    """
-    from n equation order m to m*n equation 1st order
-    xd = f(x)+g(x)*u
-    """
-    model.xd = symbColVector(2 * len(model.qs), 'xd')
-    model.x = symbColVector(2 * len(model.qs), 'x')
-    eq1 = 0 * model.x
-    # equations by definition (xd1 = x2)
-    for i in range(len(model.qs)):
-        eq1[i * 2] = sp.Eq(model.xd[i * 2], model.x[i * 2 + 1])
-    #model equations solved for acceleration
-    for i in range(len(model.qs)):
-        eq1[i * 2 + 1] = model.solved_eq[i]
-    #substitute "q" vars with "x" vars
-    for i in range(len(model.qs)):  #delete elements with odd index
-        model.xd.row_del(i)
-
-    qsubs = model.qs.col_insert(1, model.qds)  #matrix with cols [qs,qds]
-    subslist = zip(model.qdds, model.xd) + zip(qsubs, model.x)
-
-    #state equations
-    eq1 = eq1.subs(subslist)
-
-    #rhs of state equations
-    eq1_rhs = 0 * eq1
-    for i in range(len(eq1)):
-        eq1_rhs[i] = eq1[i].rhs
-
-    # overwrite xd because some rows xd were deleted above
-    model.xd = symbColVector(2 * len(model.qs), 'xd')
-
-
-    #get input u from list
-    model.u = st.sortedUniqueSymbList(model.extforce_list)
-    #vectorfield f(x)
-    subslist = st.zip0(model.u)
-    model.f = eq1_rhs.subs(subslist)
-
-    #vectorfield g(x)
-    model.g = eq1_rhs.jacobian(model.u)
-
-    #model state equation
-    model.state_eq = eq1
 
 
 
