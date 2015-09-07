@@ -365,6 +365,10 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
     mod.ttd = ttd
     mod.ttdd = ttdd
 
+    mod.qs = tt
+    mod.qds = ttd
+    mod.qdds = ttdd
+
     # also store kinetic and potential energy
     mod.T = T
     mod.U = U

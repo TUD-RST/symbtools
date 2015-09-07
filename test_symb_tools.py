@@ -38,7 +38,11 @@ class InteractiveConvenienceTest(unittest.TestCase):
         pass
 
     def test_no_IPS_call(self):
+        """
+        test whether there is some call to interactive IPython (leagacy from debugging)
+        """
         srclines = inspect.getsourcelines(st)[0]
+
         def filter_func(tup):
             idx, line = tup
             return 'IPS()' in line and not line.strip()[0] == '#'
@@ -552,6 +556,29 @@ class SymbToolsTest(unittest.TestCase):
 
         self.assertEqual(len(cm2), 1)
         self.assertTrue('not commutative' in str(cm2[0].message))
+
+    def test_rnd_number_rank1(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        M1 = sp.Matrix([[x1, 0], [0, x2]])
+        M2 = sp.Matrix([[1, 0], [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1]])  # singular
+        M3 = sp.Matrix([[1, 0], [1, sin(x1)**50]])  # regular
+
+        M4 = sp.Matrix([[1, 0, 0], [1, sin(x1)**50, 1], [0, 0, 0]])  # rank 2
+
+        if 1:
+            res1 = st.rnd_number_rank(M1)
+            self.assertEqual(res1, 2)
+
+            res2 = st.rnd_number_rank(M2)
+            self.assertEqual(res2, 1)
+
+        res3 = st.rnd_number_rank(M3, seed=1814)
+        self.assertEqual(res3, 2)
+
+        self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
+
+
 
     def test_lie_deriv_cartan(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')

@@ -2618,8 +2618,90 @@ def subs_random_numbers(expr, *args, **kwargs):
 
     return expr.subs(tuples)
 
+
+def rnd_number_rank(M, eps=1e-40, **kwargs):
+    """
+    evaluates the rank of the matrix m by substituting a random number for each symbol, etc.
+
+    :param M:       Matrix of interest
+    :param eps:
+    :param kwargs:  prime(=True by default), seed, ...
+    :return:        the rank (w.r.t. the numeric tolerance eps)
+
+    see also: rnd_number_subs_tuples
+    """
+
+    assert isinstance(M, sp.Matrix)
+
+    def iszero(x):
+        if x.is_Number:
+            res = sp.Abs(x) < eps
+        else:
+            res = x.is_zero
+
+        assert res in (True, False)
+        return res
+
+    # using random prime numbers by default
+    prime = kwargs.get('prime', True)
+    kwargs.update(prime=prime)
+
+    number_of_digits1 = 20
+    number_of_digits2 = 40
+
+    # rank is equal to the number of singular values > 0
+    # Problem: How to robustly determine if x > 0
+    # (e.g. should sin(3)**100 > 0 be True or False?)
+    # Solution evaluate the expressions with different precisions
+    # expressions different from zero will merely change,
+    # while expressions near zero will result in heavy changes (factor 10 or beyond)
+
+
+    rnst = rnd_number_subs_tuples(M, **kwargs)
+    M1 = M.subs(rnst).evalf(prec=number_of_digits1)
+    M2 = M.subs(rnst).evalf(prec=number_of_digits2)
+
+    svd1 = np.linalg.svd(to_np(M1, np.float))[1]
+    svd2 = np.linalg.svd(to_np(M2, np.float))[1]
+
+    Rmax = len(svd1)
+
+    zero_candidates1 = [val for val in svd1 if val < eps]
+    zero_candidates2 = [val for val in svd2 if val < eps]
+
+    # remove exact zeros
+    while 0 in zero_candidates1:
+        z = zero_candidates1.pop()
+        assert z == 0
+
+    while 0 in zero_candidates2:
+        z = zero_candidates2.pop()
+        assert z == 0
+        Rmax -= 1  # every zero marks a rank drop by 1
+
+    # now determine, if some of the zero_candidates have changed only a little
+    # Problem the order and even the number of zero candidates may be different
+
+    different_from_zero_flags = [False]*len(zero_candidates2)
+
+    for i, zc2 in enumerate(zero_candidates2):
+        for c1 in zero_candidates1:
+            # subjective choice: factor 10 distinguishes small changes from large changes
+            if abs(np.log10(zc2/c1)) < 1:
+                different_from_zero_flags[i] = True
+                break
+
+    non_zero_number = np.sum(different_from_zero_flags)
+
+    r = Rmax - len(zero_candidates2) + non_zero_number
+
+    #r = M1.rank(iszerofunc=iszero)
+
+    return r
+
+
 def matrix_random_numbers(M):
-    raise DeprecationWarning, "use subs_random_numbers"
+    raise DeprecationWarning("use subs_random_numbers")
 
 
 def zip0(*xx, **kwargs):
@@ -3129,7 +3211,6 @@ def enullspace(M, *args, **kwargs):
         else:
             assert custom_simplify(sp.cos(1)**2 + sp.sin(1)**2) == 1
 
-        print "simplifying %i vectors" % len(vectors)
         vectors = [custom_simplify(v) for v in vectors]
 
     new_vectors = []
@@ -3441,6 +3522,7 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
 
     return expr3
 
+
 def get_symbols_by_name(expr, *names):
     '''
     convenience function to extract symbols from expressions by their name
@@ -3464,7 +3546,6 @@ def get_symbols_by_name(expr, *names):
     if len(res_list) == 1:
         return res_list[0]
     return res_list
-
 
 
 def match_symbols_by_name(symbols1, symbols2, strict=True):
@@ -3503,6 +3584,7 @@ def match_symbols_by_name(symbols1, symbols2, strict=True):
             raise ValueError(msg)
 
     return res
+
 
 def update_cse(cse_subs_tup_list, new_subs):
     '''
