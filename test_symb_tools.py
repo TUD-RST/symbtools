@@ -491,6 +491,9 @@ class SymbToolsTest(unittest.TestCase):
         self.assertTrue(st.is_number(3.4))
         self.assertTrue(st.is_number(-10.0000001))
 
+        z = sp.Rational('0.019914856674816989123456787654321').evalf(40)
+        self.assertTrue(st.is_number(z))
+
         self.assertFalse(st.is_number(x1))
         self.assertFalse(st.is_number(x1/x2))
         self.assertFalse(st.is_number(float('nan')))
@@ -566,7 +569,11 @@ class SymbToolsTest(unittest.TestCase):
 
         M4 = sp.Matrix([[1, 0, 0], [1, sin(x1)**50, 1], [0, 0, 0]])  # rank 2
 
-        if 1:
+        M5 = sp.Matrix([[-x2,   0, -x3],
+                        [ x1, -x3,   0],
+                        [  0,  x2,  x1]])
+
+        if 0:
             res1 = st.rnd_number_rank(M1)
             self.assertEqual(res1, 2)
 
@@ -576,7 +583,10 @@ class SymbToolsTest(unittest.TestCase):
         res3 = st.rnd_number_rank(M3, seed=1814)
         self.assertEqual(res3, 2)
 
-        self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
+        #self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
+
+
+        #self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
 
 
 
@@ -736,7 +746,6 @@ class SymbToolsTest(unittest.TestCase):
         res.simplify()
 
         self.assertEqual(res, res*0)
-        #IPS()
 
 
 class SymbToolsTest2(unittest.TestCase):

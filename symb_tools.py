@@ -639,8 +639,7 @@ def involutivity_test(dist, xx, **kwargs):
     assert len(xx) == nr
     combs = it.combinations(range(nc), 2)
 
-    rnst = rnd_number_subs_tuples(dist, prime=True)
-    rank0 = dist.subs(rnst).evalf().rank()
+    rank0 = rnd_number_rank(dist)
 
     res = True
     fail = []
@@ -655,17 +654,12 @@ def involutivity_test(dist, xx, **kwargs):
 
         tmp = col_stack(dist, lb)
 
-        # augmented matrix
-        tmp2 = tmp.subs(rnst).evalf()
-        all_atoms = atoms(tmp2)
-        number_atoms = atoms(tmp2, sp.Number)
-        assert len(all_atoms) == len(number_atoms)
-
-        if tmp2.rank() != rank0:
+        if rnd_number_rank(tmp) != rank0:
             res = False
             fail = c
             break
 
+    #IPS()
     return res, fail
 
 
@@ -830,22 +824,41 @@ def is_symbol(expr):
     """
     return hasattr(expr, 'is_Symbol') and expr.is_Symbol
 
-
+# TODO: rename is_real_number
 def is_number(expr):
     """
+    Test whether or not expr is a real number.
+
     :param expr: any object
     :return: True or False
 
-    avoids the additional test whether an object has the attribute is_Symbol
+    Background:
+    avoids the additional test whether an arbitrary is a sympy object (has .is_Symbol)
     """
     try:
         f = float(expr)
     except TypeError:
         return False
 
-    return f == expr and not (f == float('nan') or abs(f) == float('inf'))
+    if np.isnan(f) or abs(f) == float('inf'):
+        return False
 
-    
+    if f == expr:
+        return True
+
+    # now: expr can be converted to float but float(expr) differs from expr
+    # there might be a problem with different precisions
+
+    L = len(str(expr))
+    f2 = expr.evalf(n=L+10)
+
+    if isinstance(f2, sp.Float) and f2 == expr:
+        return True
+    else:
+        msg = "Could not decide, whether the following is a number: " + str(expr)
+        raise ValueError(msg)
+
+
 def symb_vector(*args, **kwargs):
     return sp.Matrix(sp.symbols(*args, **kwargs))
 
@@ -2647,7 +2660,7 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
     kwargs.update(prime=prime)
 
     number_of_digits1 = 20
-    number_of_digits2 = 40
+    number_of_digits2 = 100
 
     # rank is equal to the number of singular values > 0
     # Problem: How to robustly determine if x > 0
@@ -2661,8 +2674,11 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
     M1 = M.subs(rnst).evalf(prec=number_of_digits1)
     M2 = M.subs(rnst).evalf(prec=number_of_digits2)
 
-    svd1 = np.linalg.svd(to_np(M1, np.float))[1]
-    svd2 = np.linalg.svd(to_np(M2, np.float))[1]
+    # svd1 = np.linalg.svd(to_np(M1, np.float))[1]
+    # svd2 = np.linalg.svd(to_np(M2, np.float))[1]
+
+    svd1 = calc_singular_values(M1, prec=number_of_digits1)
+    svd2 = calc_singular_values(M2, prec=number_of_digits2)
 
     Rmax = len(svd1)
 
@@ -2687,17 +2703,56 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
     for i, zc2 in enumerate(zero_candidates2):
         for c1 in zero_candidates1:
             # subjective choice: factor 10 distinguishes small changes from large changes
-            if abs(np.log10(zc2/c1)) < 1:
+            q = zc2 / c1
+            if abs(sp.log(q, 10)) < 1:
                 different_from_zero_flags[i] = True
                 break
 
     non_zero_number = np.sum(different_from_zero_flags)
 
-    r = Rmax - len(zero_candidates2) + non_zero_number
+    r = int(Rmax - len(zero_candidates2) + non_zero_number)
 
     #r = M1.rank(iszerofunc=iszero)
 
+    IPS()
+
     return r
+
+
+def calc_singular_values(M, **kwargs):
+    """
+    :param M:   Matrix to be investigated
+    :return:    ordered list of singular values (as precise as possible)
+
+    Background: sp.mpmath.svd seems to produce rounding errors
+    """
+
+    # this is necessary due to sympy inconsistency between expr.evalf and Matrix.evalf
+    if 'prec' in kwargs and not 'n' in kwargs:
+        kwargs['n'] = kwargs.pop('prec')
+
+    #IPS()
+    M_atoms = list(atoms(M))
+    for a in M_atoms:
+        assert is_number(a)
+
+    M2 = M.T*M
+    ev_dict = M2.eigenvals(rational=False)  # {val1: multiplicity1, val2: multiplicity2, ...}
+    res = []
+    #print M2, ev_dict
+    for eigval, mult in ev_dict.items():
+    # due to numerical issues some entries might be negative or complex
+    # However, this is impossible by construction of M2 and must be corrected here
+        val = sp.Abs( eigval.evalf(**kwargs) )
+        print val
+        res.extend([val]*mult)
+
+    res.sort(reverse=True)  # from greates to smalles
+    res = sp.Matrix(res)
+
+
+
+    return res
 
 
 def matrix_random_numbers(M):
