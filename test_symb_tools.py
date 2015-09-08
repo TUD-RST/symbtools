@@ -573,6 +573,12 @@ class SymbToolsTest(unittest.TestCase):
                         [ x1, -x3,   0],
                         [  0,  x2,  x1]])
 
+        M6 = sp.Matrix([[1, 0, 0],
+                        [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1, 0],
+                        [0, sp.pi, sin(-3)**50]])  # rank 2
+
+        M7 = st.row_stack(M6, [sp.sqrt(5)**-20, 2, 0])  # nonsquare, rank 3
+
         if 0:
             res1 = st.rnd_number_rank(M1)
             self.assertEqual(res1, 2)
@@ -580,15 +586,15 @@ class SymbToolsTest(unittest.TestCase):
             res2 = st.rnd_number_rank(M2)
             self.assertEqual(res2, 1)
 
-        res3 = st.rnd_number_rank(M3, seed=1814)
-        self.assertEqual(res3, 2)
+            res3 = st.rnd_number_rank(M3, seed=1814)
+            self.assertEqual(res3, 2)
 
-        #self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
+            self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
 
-
-        #self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
-
-
+            self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
+            self.assertEqual(st.rnd_number_rank(M6, seed=1814), 2)
+            self.assertEqual(st.rnd_number_rank(M7, seed=1814), 3)
+        self.assertEqual(st.rnd_number_rank(M7.T, seed=1814), 3)
 
     def test_lie_deriv_cartan(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')

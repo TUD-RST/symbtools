@@ -354,7 +354,6 @@ def make_pw(var, transpoints, fncs):
 
     # generate a list of tuples
     pieces = [(fnc, var < ub) for ub, fnc in zip(upper_borders, fncs)]
-    #IPS()
     return piece_wise(*pieces)
 
 
@@ -1187,8 +1186,6 @@ def solve_linear_system(eqns, vars):
     replm1, (A_cse, ) = sp.cse(A, ns1)
     replm2, (b_cse, ) = sp.cse(b, ns2)
 
-    # from IPython import embed as IPS
-
     if eqns.shape[0] < len(vars):
         # assuming full rank there are infinitely many solution
         # we have to find a regular submatrix of A_cse
@@ -1429,10 +1426,11 @@ def concat_cols(*args):
     col_list = []
 
     for a in args:
+        if isinstance(a, list):
+            # convenience: interpret a list as a column Matrix:
+            a = sp.Matrix(a)
         if not a.is_Matrix:
             # convenience: allow stacking scalars
-            # TODO: catch the sequence case and unify with duplicated code
-            # in concat_rows
             a = sp.Matrix([a])
         if a.shape[1] == 1:
             col_list.append( list(a) )
@@ -1480,6 +1478,9 @@ def concat_rows(*args):
     row_list = []
 
     for a in args:
+        if isinstance(a, list):
+            # convenience: interpret a list as a row-Matrix:
+            a = sp.Matrix(a).T
         if not a.is_Matrix:
             a = sp.Matrix([a])
         if a.shape[0] == 1:
@@ -2646,14 +2647,19 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
 
     assert isinstance(M, sp.Matrix)
 
-    def iszero(x):
-        if x.is_Number:
-            res = sp.Abs(x) < eps
-        else:
-            res = x.is_zero
+    class iszero(object):
+        def __init__(self, eps=eps):
+            self.eps = eps
 
-        assert res in (True, False)
-        return res
+        def __call__(self, x):
+            x = sp.sympify(x)
+            if x.is_Number:
+                res = sp.Abs(x) < self.eps
+            else:
+                res = x.is_zero
+
+            assert res in (True, False)
+            return res
 
     # using random prime numbers by default
     prime = kwargs.get('prime', True)
@@ -2665,25 +2671,25 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
     # rank is equal to the number of singular values > 0
     # Problem: How to robustly determine if x > 0
     # (e.g. should sin(3)**100 > 0 be True or False?)
-    # Solution evaluate the expressions with different precisions
-    # expressions different from zero will merely change,
+    # Solution: evaluate the expressions with different precisions
+    # Expressions different from zero will merely change,
     # while expressions near zero will result in heavy changes (factor 10 or beyond)
+    # To avoid numeric problems caused by calculation of the actual singular values
+    # only the coefficients of the characteristic polynomial of (M.T*M) are considered
 
 
     rnst = rnd_number_subs_tuples(M, **kwargs)
     M1 = M.subs(rnst).evalf(prec=number_of_digits1)
     M2 = M.subs(rnst).evalf(prec=number_of_digits2)
 
-    # svd1 = np.linalg.svd(to_np(M1, np.float))[1]
-    # svd2 = np.linalg.svd(to_np(M2, np.float))[1]
+    sv_coeffs1 = calc_sv_charpoly_coeffs(M1, prec=number_of_digits1)
+    sv_coeffs2 = calc_sv_charpoly_coeffs(M2, prec=number_of_digits2)
 
-    svd1 = calc_singular_values(M1, prec=number_of_digits1)
-    svd2 = calc_singular_values(M2, prec=number_of_digits2)
+    # maximum rank:
+    Rmax = min(M.shape)
 
-    Rmax = len(svd1)
-
-    zero_candidates1 = [val for val in svd1 if val < eps]
-    zero_candidates2 = [val for val in svd2 if val < eps]
+    zero_candidates1 = [sp.Abs(val) for val in sv_coeffs1 if sp.Abs(val) < eps]
+    zero_candidates2 = [sp.Abs(val) for val in sv_coeffs2 if sp.Abs(val) < eps]
 
     # remove exact zeros
     while 0 in zero_candidates1:
@@ -2695,8 +2701,8 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
         assert z == 0
         Rmax -= 1  # every zero marks a rank drop by 1
 
-    # now determine, if some of the zero_candidates have changed only a little
-    # Problem the order and even the number of zero candidates may be different
+    # Now determine if some of the zero_candidates have changed only a little.
+    # Problem: the order and even the number of zero candidates may be different
 
     different_from_zero_flags = [False]*len(zero_candidates2)
 
@@ -2712,17 +2718,25 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
 
     r = int(Rmax - len(zero_candidates2) + non_zero_number)
 
-    #r = M1.rank(iszerofunc=iszero)
-
     IPS()
 
     return r
 
 
-def calc_singular_values(M, **kwargs):
+def calc_sv_charpoly_coeffs(M, **kwargs):
     """
+    Calculates the coefficients of the characteristic polynomial cp(x) of (M.T*M).
+    M is assumed to only contain real numbers.
+
+    Background:
+    The roots of this polynomial would be the squares of the singular values.
+    To determine how many singular values are zero, however, it suffices to know how many
+    coefficients of cp(x) are zero.
+
+    To determine the coefficients M.berkowitz()[-1] is used.
+
     :param M:   Matrix to be investigated
-    :return:    ordered list of singular values (as precise as possible)
+    :return:    coefficients of cp(x) (as precise as possible)
 
     Background: sp.mpmath.svd seems to produce rounding errors
     """
@@ -2737,22 +2751,9 @@ def calc_singular_values(M, **kwargs):
         assert is_number(a)
 
     M2 = M.T*M
-    ev_dict = M2.eigenvals(rational=False)  # {val1: multiplicity1, val2: multiplicity2, ...}
-    res = []
-    #print M2, ev_dict
-    for eigval, mult in ev_dict.items():
-    # due to numerical issues some entries might be negative or complex
-    # However, this is impossible by construction of M2 and must be corrected here
-        val = sp.Abs( eigval.evalf(**kwargs) )
-        print val
-        res.extend([val]*mult)
+    sv_coeffs = sp.Matrix(M2.berkowitz()[-1])
 
-    res.sort(reverse=True)  # from greates to smalles
-    res = sp.Matrix(res)
-
-
-
-    return res
+    return sv_coeffs
 
 
 def matrix_random_numbers(M):
