@@ -579,7 +579,9 @@ class SymbToolsTest(unittest.TestCase):
 
         M7 = st.row_stack(M6, [sp.sqrt(5)**-20, 2, 0])  # nonsquare, rank 3
 
-        if 0:
+        M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
+
+        if 1:
             res1 = st.rnd_number_rank(M1)
             self.assertEqual(res1, 2)
 
@@ -594,7 +596,24 @@ class SymbToolsTest(unittest.TestCase):
             self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
             self.assertEqual(st.rnd_number_rank(M6, seed=1814), 2)
             self.assertEqual(st.rnd_number_rank(M7, seed=1814), 3)
-        self.assertEqual(st.rnd_number_rank(M7.T, seed=1814), 3)
+            self.assertEqual(st.rnd_number_rank(M7.T, seed=1814), 3)
+
+            self.assertEqual(st.rnd_number_rank(M8, seed=1814), 3)
+
+        self.assertEqual(st.rnd_number_rank(M2, seed=1529), 1)
+
+    @skip_slow
+    def test_rnd_number_rank2(self):
+        import pickle
+        with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
+            matrix_list = pickle.load(pfile)
+
+        for i, m in enumerate(matrix_list):
+            print i
+            r1 = m.srnp.rank()
+            r2 = st.rnd_number_rank(m)
+
+            self.assertEqual(r1, r2)
 
     def test_lie_deriv_cartan(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')

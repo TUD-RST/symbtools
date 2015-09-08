@@ -2633,7 +2633,7 @@ def subs_random_numbers(expr, *args, **kwargs):
     return expr.subs(tuples)
 
 
-def rnd_number_rank(M, eps=1e-40, **kwargs):
+def rnd_number_rank(M, **kwargs):
     """
     evaluates the rank of the matrix m by substituting a random number for each symbol, etc.
 
@@ -2645,10 +2645,14 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
     see also: rnd_number_subs_tuples
     """
 
-    assert isinstance(M, sp.Matrix)
+    assert isinstance(M, sp.MatrixBase)
 
-    class iszero(object):
-        def __init__(self, eps=eps):
+    class iszero_fnc_factory(object):
+        """
+        Instances of this class are callable.
+        They are intended to be used as comparision to zero (w.r.t the threshold eps)
+        """
+        def __init__(self, eps):
             self.eps = eps
 
         def __call__(self, x):
@@ -2665,95 +2669,42 @@ def rnd_number_rank(M, eps=1e-40, **kwargs):
     prime = kwargs.get('prime', True)
     kwargs.update(prime=prime)
 
-    number_of_digits1 = 20
-    number_of_digits2 = 100
 
-    # rank is equal to the number of singular values > 0
-    # Problem: How to robustly determine if x > 0
-    # (e.g. should sin(3)**100 > 0 be True or False?)
-    # Solution: evaluate the expressions with different precisions
-    # Expressions different from zero will merely change,
-    # while expressions near zero will result in heavy changes (factor 10 or beyond)
-    # To avoid numeric problems caused by calculation of the actual singular values
-    # only the coefficients of the characteristic polynomial of (M.T*M) are considered
+    # Problem: some nonzero symbolic expressions in M might lead to very small values
+    # (e.g. sin(3)**50  -> 3.015... e-43 )
+    # other expressions which are "symbolically 0" lead to bigger numerical expressions:
+    # sp.sin(3.32)**2 + sp.cos(3.32)**2 -1 -> 1.11...e-16
+
+    # Solution: convert the expressions to floats with low (-> M1) and high (-> M2) precision.
+    # identify a threshold for eps (used for iszerofunc in M1.rank()) where the rank increases.
+    # Then look at M2.rank for the same eps
+    # see also the unit tests for illustration
+
+
+    # nod means number of digits
+    nod1 = kwargs.pop('nod1', 30)
+    nod2 = nod1 + 40
 
 
     rnst = rnd_number_subs_tuples(M, **kwargs)
-    M1 = M.subs(rnst).evalf(prec=number_of_digits1)
-    M2 = M.subs(rnst).evalf(prec=number_of_digits2)
+    M1 = M.subs(rnst).evalf(prec=nod1)
+    M2 = M.subs(rnst).evalf(prec=nod2)
 
-    sv_coeffs1 = calc_sv_charpoly_coeffs(M1, prec=number_of_digits1)
-    sv_coeffs2 = calc_sv_charpoly_coeffs(M2, prec=number_of_digits2)
+    rank_list1 = []
+    eps_list = [10**-k for k in range(10, 200, 10)]
 
-    # maximum rank:
-    Rmax = min(M.shape)
+    for eps in eps_list:
+        rank_list1.append(M1.rank(iszerofunc=iszero_fnc_factory(eps)))
 
-    zero_candidates1 = [sp.Abs(val) for val in sv_coeffs1 if sp.Abs(val) < eps]
-    zero_candidates2 = [sp.Abs(val) for val in sv_coeffs2 if sp.Abs(val) < eps]
+    if rank_list1[-1] == rank_list1[0]:
+        return rank_list1[-1]
+    last_change_index = np.where(np.diff(rank_list1))[-1][-1] + 1
 
-    # remove exact zeros
-    while 0 in zero_candidates1:
-        z = zero_candidates1.pop()
-        assert z == 0
+    eps_krit = eps_list[last_change_index]
 
-    while 0 in zero_candidates2:
-        z = zero_candidates2.pop()
-        assert z == 0
-        Rmax -= 1  # every zero marks a rank drop by 1
-
-    # Now determine if some of the zero_candidates have changed only a little.
-    # Problem: the order and even the number of zero candidates may be different
-
-    different_from_zero_flags = [False]*len(zero_candidates2)
-
-    for i, zc2 in enumerate(zero_candidates2):
-        for c1 in zero_candidates1:
-            # subjective choice: factor 10 distinguishes small changes from large changes
-            q = zc2 / c1
-            if abs(sp.log(q, 10)) < 1:
-                different_from_zero_flags[i] = True
-                break
-
-    non_zero_number = np.sum(different_from_zero_flags)
-
-    r = int(Rmax - len(zero_candidates2) + non_zero_number)
-
-    IPS()
+    r = M2.rank(iszerofunc=iszero_fnc_factory(eps_krit))
 
     return r
-
-
-def calc_sv_charpoly_coeffs(M, **kwargs):
-    """
-    Calculates the coefficients of the characteristic polynomial cp(x) of (M.T*M).
-    M is assumed to only contain real numbers.
-
-    Background:
-    The roots of this polynomial would be the squares of the singular values.
-    To determine how many singular values are zero, however, it suffices to know how many
-    coefficients of cp(x) are zero.
-
-    To determine the coefficients M.berkowitz()[-1] is used.
-
-    :param M:   Matrix to be investigated
-    :return:    coefficients of cp(x) (as precise as possible)
-
-    Background: sp.mpmath.svd seems to produce rounding errors
-    """
-
-    # this is necessary due to sympy inconsistency between expr.evalf and Matrix.evalf
-    if 'prec' in kwargs and not 'n' in kwargs:
-        kwargs['n'] = kwargs.pop('prec')
-
-    #IPS()
-    M_atoms = list(atoms(M))
-    for a in M_atoms:
-        assert is_number(a)
-
-    M2 = M.T*M
-    sv_coeffs = sp.Matrix(M2.berkowitz()[-1])
-
-    return sv_coeffs
 
 
 def matrix_random_numbers(M):
