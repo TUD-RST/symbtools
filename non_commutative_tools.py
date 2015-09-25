@@ -5,6 +5,7 @@ import sympy as sp
 import symb_tools as st
 
 
+from IPython import embed as IPS
 #from ipHelp import IPS, Tracer, ip_syshook, sys
 
 #ip_syshook(1)
@@ -166,18 +167,27 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
     return res
 
 
-def make_all_symbols_commutative(expr, appendix='_c'):
+def make_all_symbols_commutative(expr, appendix='_c', exclude=[]):
     """
     :param expr:
+    :param exclude:     symbol (or sequence of symbols to exclude)
     :return: expr (with all symbols commutative) and
               a subs_tuple_list [(s1_c, s1_nc), ... ]
     """
+
+    if isinstance(expr, (list, tuple, set)):
+        expr = sp.Matrix(list(expr))
+
+
+    if isinstance(exclude, sp.Symbol):
+        exclude = [exclude]
+    exclude = list(exclude)
 
     symbs = st.atoms(expr, sp.Symbol)
     nc_symbols = [s for s in symbs if not s.is_commutative]
 
     new_symbols = [sp.Symbol(s.name+appendix, commutative=True)
-                   for s in nc_symbols]
+                   for s in nc_symbols if not s in exclude]
 
     tup_list = zip(new_symbols, nc_symbols)
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
