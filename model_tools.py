@@ -3,11 +3,12 @@
 functions to generate/analyse a model based on Lagrange formalism 2nd kind
 with minimal coordinates:
 
-Authors: Thomas Mutzke, Carsten Knoll, 2013
+Authors: Thomas Mutzke (2013), Carsten Knoll (2013-2015)
 """
 
 import sympy as sp
 import symb_tools as st
+from IPython import embed as IPS
 
 
 def Rz(phi):
@@ -67,11 +68,30 @@ def symbColVector(n, s='a'):
     return A
 
 
+def new_model_from_equations_of_motion(eqns, theta, tau):
+    """
+
+    :param eqns:    vector of equations of motion
+    :param tt:      generalized coordinates
+    :param tau:     input
+    :return:        SymbolicModel instance
+    """
+
+    mod = SymbolicModel()
+    mod.eqns = eqns
+    mod.tt = theta
+    mod.ttd = st.perform_time_derivative(theta, theta)
+    mod.ttdd = st.perform_time_derivative(theta, theta, order=2)
+    mod.extforce_list = tau
+    mod.tau = tau
+
+    return mod
+
 class SymbolicModel(object):
     """ model class """
 
-    def __init__(self):  # , eq_list, var_list, extforce_list, disforce_list):
-        self.eq_list = None  #eq_list
+    def __init__(self):
+        self.eqns = None  #eq_list
         self.qs = None  #var_list
         self.extforce_list = None  #extforce_list
         self.disforce_list = None  #disforce_list
@@ -81,10 +101,19 @@ class SymbolicModel(object):
         self.g = None
         self.tau = None
 
+        self.x = None # depricated
+        
         # for the collocated partial linearization
+        self.xx = None
         self.ff = None
         self.gg = None
         self.aa = None
+
+        # for Lagrange-Byrnes-Normalform
+        self.zz = None
+        self.fz = None
+        self.gz = None
+        self.ww = None
 
         self.solved_eq = None
         self.zero_equilibrium = None
@@ -104,11 +133,11 @@ class SymbolicModel(object):
         """
 
         # nothing fancy has be done yet with the model
-        assert self.eq_list != None
+        assert self.eqns != None
         assert (self.f, self.solved_eq, self.state_eq) == (None,) * 3
 
         subslist = zip(old_F, new_F)
-        self.eq_list = self.eq_list.subs(subslist)
+        self.eqns = self.eqns.subs(subslist)
         self.extforce_list = new_F_symbols
 
     def calc_mass_matrix(self):
@@ -121,9 +150,9 @@ class SymbolicModel(object):
             return self.M
         # Übergangsweise:
         if hasattr(self, 'ttdd'):
-            self.M = self.eq_list.jacobian(self.ttdd)
+            self.M = self.eqns.jacobian(self.ttdd)
         else:
-            self.M =  self.eq_list.jacobian(self.qdds)
+            self.M = self.eqns.jacobian(self.qdds)
 
         return self.M
 
@@ -135,7 +164,7 @@ class SymbolicModel(object):
             self.M.simplify()
         M = self.M
 
-        rhs = self.eq_list.subs(st.zip0(self.ttdd)) * -(1)
+        rhs = self.eqns.subs(st.zip0(self.ttdd)) * -(1)
         d = M.berkowitz_det()
         adj = M.adjugate()
         if simplify:
@@ -153,7 +182,8 @@ class SymbolicModel(object):
         """
         simplify = kwargs.get('simplify', False)
 
-        self.x = st.row_stack(self.tt, self.ttd)
+        self.xx = st.row_stack(self.tt, self.ttd)
+        self.x = self.xx # xx is preferred now
 
         eq2nd_order = self.solve_for_acc(**kwargs)
         self.state_eq = st.row_stack(self.ttd, eq2nd_order)
@@ -170,10 +200,12 @@ class SymbolicModel(object):
         calc vectorfields ff, and gg of collocated linearization
         """
         simplify = kwargs.get('simplify', False)
-        self.x = st.row_stack(self.tt, self.ttd)
+        self.xx = st.row_stack(self.tt, self.ttd)
+        self.x = self.xx # xx is preferred now
+        
         nq = len(self.tau)
         np = len(self.tt) - nq
-        B = self.eq_list.jacobian(self.tau)
+        B = self.eqns.jacobian(self.tau)
         cond1 = B[:np, :] == sp.zeros(np, nq)
         cond2 = B[np:, :] == -sp.eye(nq)
         if not cond1 and cond2:
@@ -197,7 +229,7 @@ class SymbolicModel(object):
         M11inv = adj/d
 
         # setting input and acceleration to 0
-        C1K1 = self.eq_list[:np, :].subs(st.zip0(self.ttdd, self.tau))
+        C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
         #eq_passive = -M11inv*C1K1 - M11inv*M12*self.aa
 
         self.ff = st.row_stack(self.ttd, -M11inv*C1K1, self.aa*0)
@@ -206,6 +238,82 @@ class SymbolicModel(object):
         if simplify:
             self.ff.simplify()
             self.gg.simplify()
+
+    def calc_lbi_nf_state_eq(self, **kwargs):
+        """
+        calc vectorfields fz, and gz of the Lagrange-Byrnes-Isidori-Normalform
+
+        instead of the state xx
+        """
+        simplify = kwargs.get('simplify', False)
+
+        n = len(self.tt)
+        nq = len(self.tau)
+        np = n - nq
+        nx = 2*n
+
+        # make sure that the system has the desired structure
+        B = self.eqns.jacobian(self.tau)
+        cond1 = B[:np, :] == sp.zeros(np, nq)
+        cond2 = B[np:, :] == -sp.eye(nq)
+        if not cond1 and cond2:
+            msg = "The jacobian of the equations of motion do not have the expected structure: %s"
+            raise NotImplementedError(msg % str(B))
+
+        pp = self.tt[:np,:]
+        qq = self.tt[np:,:]
+        uu = self.ttd[:np,:]
+        vv = self.ttd[np:,:]
+        ww = st.symb_vector('w1:{0}'.format(np+1))
+        assert len(vv) == nq
+
+        # state w.r.t normal form
+        self.zz = st.row_stack(qq, vv, pp, ww)
+        self.ww = ww
+
+        # set the actuated accelearations as new inputs
+        self.aa = self.ttdd[-nq:, :]
+
+        # input vectorfield
+        self.gz = sp.zeros(nx, nq)
+        self.gz[nq:2*nq, :] = sp.eye(nq)  # identity matrix for the active coordinates
+
+        # drift vectorfield (will be completed below)
+        self.fz = sp.zeros(nx, 1)
+        self.fz[:nq, :] = vv
+
+        self.calc_mass_matrix()
+        if simplify:
+            self.M.simplify()
+        M11 = self.M[:np, :np]
+        M12 = self.M[:np, np:]
+
+        d = M11.berkowitz_det()
+        adj = M11.adjugate()
+        if simplify:
+            d = d.simplify()
+            adj.simplify()
+        M11inv = adj/d
+
+        # defining equation for ww: ww := uu + M11inv*M12*vv
+        uu_expr = ww - M11inv*M12*vv
+
+        # setting input tau and acceleration to 0 in the equations of motion
+        C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
+
+        N = st.perform_time_derivative(M11inv*M12, self.tt)
+        ww_dot = -M11inv*C1K1.subs(zip(uu, uu_expr)) + N.subs(zip(uu, uu_expr))*vv
+
+        self.fz[2*nq:2*nq+np, :] = uu_expr
+        self.fz[2*nq+np:, :] = ww_dot
+
+        if simplify:
+            self.fz.simplify()
+            self.gz.simplify()
+
+    @property  # legacy (compatibility with older convention)
+    def eq_list(self):
+        return self.eqns
 
 """
 Hinweis: 2014-10-15: Verhalten wurde geändert.
@@ -285,7 +393,7 @@ def generate_model(T, U, qq, F, **kwargs):
 
     # create object of model
     model1 = SymbolicModel()  # model_eq, qs, f, D)
-    model1.eq_list = model_eq
+    model1.eqns = model_eq
     model1.qs = qs
     model1.extforce_list = f
     model1.tau = f
@@ -353,7 +461,7 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
 
     # create object of model
     mod = SymbolicModel()  # model_eq, qs, f, D)
-    mod.eq_list = model_eq
+    mod.eqns = model_eq
 
     mod.extforce_list = F
     reduced_F = sp.Matrix([s for s in F if st.is_symbol(s)])
@@ -398,10 +506,6 @@ def is_zero_equilibrium(model):
     model.zero_equilibrium = all(eq_1)
 
 
-
-
-
-
 def linearise(model):
     """ linearise model at equilibrium point zero """
     if model.zero_equilibrium:
@@ -409,3 +513,37 @@ def linearise(model):
         # substitute state varibles with equilibrium point zero
         model.A = J.subs(st.zip0(model.x))
         model.b = model.g.subs(st.zip0(model.x))
+
+
+def transform_2nd_to_1st_order_matrices(P0, P1, P2, xx):
+    """Transforms an implicit second order (tangential) representation of a mechanical system to
+    an first order representation (needed to apply the "Franke-approach")
+
+    :param P0:      eqns.jacobian(theta)
+    :param P1:      eqns.jacobian(theta_d)
+    :param P2:      eqns.jacobian(theta_dd)
+    :param xx:      vector of state variables
+
+    :return:   P0_bar, P1_bar
+
+    with P0_bar = implicit_state_equations.jacobian(x)
+    and  P1_bar = implicit_state_equations.jacobian(x_d)
+    """
+
+    assert P0.shape == P1.shape == P2.shape
+    assert xx.shape == (P0.shape[1]*2, 1)
+
+    xxd = st.perform_time_derivative(xx, xx)
+    N = xx.shape[0]/2
+
+    # definitional equations like xdot1 - x3 = 0 (for N=2)
+    eqns_def = xx[N:, :] - xxd[:N, :]
+    eqns_mech = P2*xxd[N:, :] + P1*xxd[:N, :] + P0*xx[:N, :]
+
+    F = st.row_stack(eqns_def, eqns_mech)
+
+    P0_bar = F.jacobian(xx)
+    P1_bar = F.jacobian(xxd)
+
+    return P0_bar, P1_bar
+
