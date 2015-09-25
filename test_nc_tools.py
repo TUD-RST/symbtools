@@ -5,18 +5,30 @@ Created on Fri 2015-03-20
 @author: Carsten Knoll
 """
 
-import unittest
+import unittest, sys
 
 import sympy as sp
-from sympy import sin, cos, exp
 
 import symb_tools as st
-from IPython import embed as IPS
 import non_commutative_tools as nct
 
-# Noncommutative tools
+from IPython import embed as IPS
+
+
+if 'all' in sys.argv:
+    FLAG_all = True
+    sys.argv.remove('all')
+else:
+    FLAG_all = False
+
+# s, t from Noncommutative tools
 t = nct.t
 s = nct.s
+
+
+# own decorator for skipping slow tests
+def skip_slow(func):
+    return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
 
 class NonCommToolsTest(unittest.TestCase):
@@ -276,6 +288,14 @@ class NonCommToolsTest(unittest.TestCase):
 
         self.assertTrue( all([r.is_commutative for r in exp1_c.atoms()]) )
 
+    def test_make_all_symbols_commutative2(self):
+        import pickle
+        fname = "test_data/Q_matrix_wagen_pendel.pcl"
+        with open(fname, 'r') as pfile:
+            Q = pickle.load(pfile)
+
+        Qc, stl = nct.make_all_symbols_commutative(Q, '')
+
     def test_nc_coeffs(self):
 
         a, b, c, s = sp.symbols("a, b, c, s", commutative=False)
@@ -294,6 +314,95 @@ class NonCommToolsTest(unittest.TestCase):
         self.assertEqual(c1, [a, b + c] + [0]*9)
         self.assertEqual(c2, [a, b**2 - c - 1, -a*b*a] + [0]*8)
         self.assertEqual(c8, [a, b**2 - c, -a*b*a, ] + [0]*5 + [-c] + [0]*2)
+
+    def test_nc_degree(self):
+        a, b, c, s = sp.symbols("a, b, c, s", commutative=False)
+
+        p1 = a + 5 + b*a*s - s**3
+        p2 = c
+        p3 = a + b*s + c*s**20
+
+        M1 = sp.Matrix([p1, p2, p1, p3])
+
+        d1 = nct.nc_degree(p1, s)
+        d2 = nct.nc_degree(p2, s)
+        d3 = nct.nc_degree(p3, s)
+
+        d4 = nct.nc_degree(M1, s)
+
+        self.assertEqual(d1, 3)
+        self.assertEqual(d2, 0)
+        self.assertEqual(d3, 20)
+        self.assertEqual(d4, 20)
+
+
+    def test_unimod_inv(self):
+        y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
+        s = sp.Symbol('s', commutative=False)
+        ydot1, ydot2 = yyd1 = st.perform_time_derivative(yy, yy, order=1, commutative=False)
+        yddot1, yddot2 = yyd2 = st.perform_time_derivative(yy, yy, order=2, commutative=False)
+        yyd3 = st.perform_time_derivative(yy, yy, order=3, commutative=False)
+        yyd4 = st.perform_time_derivative(yy, yy, order=4, commutative=False)
+        yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
+
+        if 1:
+            M1 = sp.Matrix([yy[0]])
+            M1inv = nct.unimod_inv(M1, s, time_dep_symbs=yy)
+            self.assertEqual(M1inv, M1.inv())
+
+        if 1:
+            M2 = sp.Matrix([[y1, y1*s], [0, y2]])
+            M2inv = nct.unimod_inv(M2, s, time_dep_symbs=yy)
+
+            product2a = nct.right_shift_all( nct.nc_mul(M2, M2inv), s, func_symbols=yya)
+            product2b = nct.right_shift_all( nct.nc_mul(M2inv, M2), s, func_symbols=yya)
+
+            res2a = nct.make_all_symbols_commutative( product2a)[0]
+            res2b = nct.make_all_symbols_commutative( product2b)[0]
+            self.assertEqual(res2a, sp.eye(2))
+            self.assertEqual(res2b, sp.eye(2))
+
+    def test_unimod_inv2(self):
+        y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
+        s = sp.Symbol('s', commutative=False)
+        ydot1, ydot2 = yyd1 = st.perform_time_derivative(yy, yy, order=1, commutative=False)
+        yddot1, yddot2 = yyd2 = st.perform_time_derivative(yy, yy, order=2, commutative=False)
+        yyd3 = st.perform_time_derivative(yy, yy, order=3, commutative=False)
+        yyd4 = st.perform_time_derivative(yy, yy, order=4, commutative=False)
+        yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
+
+        # this Matrix is not unimodular due to factor 13 (should be 1)
+        M3 = sp.Matrix([[ydot2,                                              13*y1*s],
+                       [y2*yddot2 + y2*ydot2*s, y1*yddot2 + y2*y1*s**2 + y2*ydot1*s + ydot2*ydot1]])
+
+        with self.assertRaises(ValueError) as cm:
+            res = nct.unimod_inv(M3, s, time_dep_symbs=yya)
+
+
+    @skip_slow
+    def test_unimod_inv3(self):
+        y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
+        s = sp.Symbol('s', commutative=False)
+        ydot1, ydot2 = yyd1 = st.perform_time_derivative(yy, yy, order=1, commutative=False)
+        yddot1, yddot2 = yyd2 = st.perform_time_derivative(yy, yy, order=2, commutative=False)
+        yyd3 = st.perform_time_derivative(yy, yy, order=3, commutative=False)
+        yyd4 = st.perform_time_derivative(yy, yy, order=4, commutative=False)
+        yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
+
+        M3 = sp.Matrix([[ydot2,                                              y1*s],
+                       [y2*yddot2 + y2*ydot2*s, y1*yddot2 + y2*y1*s**2 + y2*ydot1*s + ydot2*ydot1]])
+
+        M3inv = nct.unimod_inv(M3, s, time_dep_symbs=yya)
+
+        product3a = nct.right_shift_all( nct.nc_mul(M3, M3inv), s, func_symbols=yya)
+        product3b = nct.right_shift_all( nct.nc_mul(M3inv, M3), s, func_symbols=yya)
+        res3a = nct.make_all_symbols_commutative(product3a)[0]
+        res3b = nct.make_all_symbols_commutative(product3b)[0]
+        res3a.simplify()
+        res3b.simplify()
+
+        self.assertEqual(res3a, sp.eye(2))
+        self.assertEqual(res3b, sp.eye(2))
 
 
 

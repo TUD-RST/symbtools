@@ -167,10 +167,9 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
     return res
 
 
-def make_all_symbols_commutative(expr, appendix='_c', exclude=[]):
+def make_all_symbols_commutative(expr, appendix='_c'):
     """
     :param expr:
-    :param exclude:     symbol (or sequence of symbols to exclude)
     :return: expr (with all symbols commutative) and
               a subs_tuple_list [(s1_c, s1_nc), ... ]
     """
@@ -178,16 +177,11 @@ def make_all_symbols_commutative(expr, appendix='_c', exclude=[]):
     if isinstance(expr, (list, tuple, set)):
         expr = sp.Matrix(list(expr))
 
-
-    if isinstance(exclude, sp.Symbol):
-        exclude = [exclude]
-    exclude = list(exclude)
-
     symbs = st.atoms(expr, sp.Symbol)
     nc_symbols = [s for s in symbs if not s.is_commutative]
 
     new_symbols = [sp.Symbol(s.name+appendix, commutative=True)
-                   for s in nc_symbols if not s in exclude]
+                   for s in nc_symbols]
 
     tup_list = zip(new_symbols, nc_symbols)
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
@@ -211,6 +205,7 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     """
 
     # TODO: elegant way to find out the degree
+    # TODO: use nc_degree (after performance-testing)
     # workarround: pass the maximum expected degree as kwarg
 
     D0 = sp.Dummy('D0')
@@ -225,15 +220,15 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
             coeff += a
     res.append(coeff.subs(D0, 0))
 
-    # special case: first power of var
+    # special case: 1st power of var
     coeff = poly.diff(var).subs(var, 0)
     res.append(coeff)
 
     # powers > 1:
-    for i in xrange(1, max_deg):
+    for i in xrange(2, max_deg+1):
         coeff = 0
         for a in poly.args:
-            if a.has(var**(i + 1)):
+            if a.has(var**(i)):
                 term = a.subs(var, 1)
                 coeff += term
         res.append(coeff)
@@ -243,6 +238,27 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
 
     return res
 
+
+# TODO: Test how much max_degree affects the performance for large expressions
+def nc_degree(expr, var, max_deg=20):
+
+    if not expr.has(var):
+        return 0
+
+    res = [-1]  # we dont know about the 0th order term (and it does not matter)
+    for i in xrange(0, max_deg):
+        if expr.has(var**(i + 1)):
+            res.append(1)
+        else:
+            res.append(0)
+
+    assert 1 in res
+    # for expr = x - a*x**3 res looks like [-1, 1, 0, 1, 0, 0, 0, ...]
+    # we are interested in the highest index of a 1-entry (first index of reversed list)
+    res.reverse()
+    deg = len(res) - 1 - res.index(1)
+
+    return deg
 
 
 def nc_mul(L, R):
@@ -285,6 +301,99 @@ def nc_mul(L, R):
         raise TypeError(msg)
 
     return res
+
+
+def unimod_inv(M, s=None, t=None, time_dep_symbs=[]):
+    """ Assumes that M(s) is an unimodular polynomial matrix and calculates its inverse
+    which is again unimodular
+
+    :param M:
+    :param s:
+    :param time_dep_symbs:
+    :return: Minv
+    """
+
+    assert isinstance(M, sp.MatrixBase)
+    assert M.is_square
+
+    n = M.shape[0]
+
+    degree_m = nc_degree(M, s)
+
+    # upper bound according to
+    # Levine 2011, On necessary and sufficient conditions for differential flatness, p. 73
+
+    max_deg = (n - 1)*degree_m
+
+    C = M*0
+    free_params = []
+
+    for i in xrange(max_deg+1):
+        prefix = 'c{0}_'.format(i)
+        c_part = st.symbMatrix(n, n, prefix, commuative=False)
+        C += c_part*s**i
+        free_params.extend(list(c_part))
+
+    P = nc_mul(C, M) - sp.eye(n)
+
+    P2 = right_shift_all(P, s, t, time_dep_symbs).reshape(n*n, 1)
+
+    deg_P = nc_degree(P2, s)
+
+    part_eqns = []
+    for i in xrange(deg_P + 1):
+        # omit the highest order (because it behaves like in the commutative case)
+        res = P2.diff(s, i).subs(s, 0)
+        part_eqns.append(res)
+
+    eqns = st.row_stack(*part_eqns)  # equations for all degrees of s
+
+    # now non-commutativity is inferring
+    eqns2, st_c_nc = make_all_symbols_commutative(eqns)
+    free_params_c, st_c_nc_free_params = make_all_symbols_commutative(free_params)
+
+    # find out which of the equations are (in)homogeneous
+    eqns2_0 = eqns2.subs(st.zip0(free_params_c))
+    assert eqns2_0.atoms() in ({0, -1}, {-1}, set())
+    inhom_idcs = st.np.where(st.to_np(eqns2_0) != 0)[0]
+    hom_idcs = st.np.where(st.to_np(eqns2_0) == 0)[0]
+
+    eqns_hom = sp.Matrix(st.np.array(eqns2)[hom_idcs])
+    eqns_inh = sp.Matrix(st.np.array(eqns2)[inhom_idcs])
+
+    assert len(eqns_inh) == n
+
+    # find a solution for the homogeneous equations
+    # if this is not possible, M was not unimodular
+    Jh = eqns_hom.jacobian(free_params_c).expand()
+    nsm = st.nullspaceMatrix(Jh)
+
+    na = nsm.shape[1]
+    if na < n:
+        msg = 'Could not determine sufficiently large nullspace. Probably M is not unimodular.'
+        raise ValueError(msg)
+
+    # parameterize the inhomogenous equations with the solution of the homogeneous equations
+    # new free parameters:
+    aa = st.symb_vector('_a1:{0}'.format(na+1))
+    nsm_a = nsm*aa
+
+    eqns_inh2 = eqns_inh.subs(zip(free_params_c, nsm_a))
+
+    # now solve the remaining equations
+
+    sol = sp.solve(eqns_inh2, aa)
+    assert isinstance(sol, dict)
+
+    # get the values for all free_params (now they are not free anymore)
+    free_params_sol_c = nsm_a.subs(sol)
+
+    # replace the commutative symbols with the original non_commutative symbols (of M)
+    free_params_sol = free_params_sol_c.subs(st_c_nc)
+
+    Minv = C.subs(zip(free_params, free_params_sol))
+
+    return Minv
 
 
 def _method_mul(self, other):
