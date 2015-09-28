@@ -303,7 +303,7 @@ def nc_mul(L, R):
     return res
 
 
-def unimod_inv(M, s=None, t=None, time_dep_symbs=[]):
+def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True):
     """ Assumes that M(s) is an unimodular polynomial matrix and calculates its inverse
     which is again unimodular
 
@@ -366,7 +366,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[]):
     # find a solution for the homogeneous equations
     # if this is not possible, M was not unimodular
     Jh = eqns_hom.jacobian(free_params_c).expand()
-    nsm = st.nullspaceMatrix(Jh)
+    nsm = st.nullspaceMatrix(Jh, simplify=simplify_nsm)
 
     na = nsm.shape[1]
     if na < n:
@@ -382,8 +382,13 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[]):
 
     # now solve the remaining equations
 
-    sol = sp.solve(eqns_inh2, aa)
-    assert isinstance(sol, dict)
+    # solve the linear system
+    Jinh = eqns_inh2.jacobian(aa)
+    rhs_inh = -eqns_inh2.subs(st.zip0(aa))
+    assert rhs_inh == sp.ones(n, 1)
+    
+    sol_vect = Jinh.solve(rhs_inh)
+    sol = zip(aa, sol_vect)
 
     # get the values for all free_params (now they are not free anymore)
     free_params_sol_c = nsm_a.subs(sol)

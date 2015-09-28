@@ -31,7 +31,7 @@ def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
 
-class NonCommToolsTest(unittest.TestCase):
+class NCTTest(unittest.TestCase):
 
     def setUp(self):
         pass
