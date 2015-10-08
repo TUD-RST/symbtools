@@ -145,7 +145,7 @@ class SymbToolsTest(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_system_prolongation(self):
+    def test_system_prolongation1(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
         z1, z2, z3 = zz = st.symb_vector('z1:4')
         a1, a2, a3 = aa = st.symb_vector('a1:4')
@@ -156,6 +156,27 @@ class SymbToolsTest(unittest.TestCase):
         fnew, ggnew, xxnew = st.system_pronlongation(f, gg, xx, [(0, 2), (1, 1)])
 
         fnew_ref = sp.Matrix([x2, a1*z1 + a2*z3, a3*z3,  z2, 0, 0])
+        ggnew_ref = sp.eye(6)[:, -2:]
+
+        self.assertEqual(fnew, fnew_ref)
+        self.assertEqual(ggnew, ggnew_ref)
+
+    def test_system_prolongation2(self):
+        # test the avoidance of name collisions
+
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        z1, z2, z3 = zz = st.symb_vector('z1:4')
+        z4, z5, z6 = ZZ = st.symb_vector('z4:7')
+        a1, a2, a3 = aa = st.symb_vector('a1:4')
+
+        f = sp.Matrix([x2, x1*z3, 0])
+        gg = sp.Matrix([[0, 0], [a1, a2], [0, a3]])
+
+        XX = [x1, x2, z3]
+
+        fnew, ggnew, xxnew = st.system_pronlongation(f, gg, XX, [(0, 2), (1, 1)])
+
+        fnew_ref = sp.Matrix([x2, z3*x1 + a1*z4 + a2*z6, a3*z6,  z5, 0, 0])
         ggnew_ref = sp.eye(6)[:, -2:]
 
         self.assertEqual(fnew, fnew_ref)
@@ -1064,6 +1085,87 @@ class SymbToolsTest3(unittest.TestCase):
 
         x1.abc_xyz = 85
         self.assertEqual(tmp(), x1b.abc_xyz)
+
+    def test_introduce_abreviations(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        a1, a2, a3 = aa = st.symb_vector('a1:4')
+
+        P1 = sp.eye(3)
+        P2 = sp.Matrix([x1**2, a1+a2, a3*x2, 13.7, 1, 0])
+
+        res1 = st.introduce_abreviations(P1)
+        res2 = st.introduce_abreviations(P1, time_dep_smybs=xx)
+        res3 = st.introduce_abreviations(P2, time_dep_smybs=xx)
+
+        self.assertEqual(res1[0], P1)
+        self.assertEqual(res2[0], P1)
+
+        # test subs_tuples
+        self.assertNotEqual(res3[0], P2)
+        self.assertEqual(res3[0].subs(res3[1]), P2)
+
+        # time dependend symbols
+        tds = res3[2]
+        original_expressions = tds.subs(res3[1])
+        self.assertEqual(original_expressions, sp.Matrix([x1**2, a3*x2]))
+
+    def test_make_global(self):
+        xx = st.symb_vector('x1:4')
+        yy = st.symb_vector('y1:4')
+
+        st.make_global(xx, 1)
+        self.assertEqual(x1 + x2, xx[0] + xx[1])
+
+        # test if set is accepted
+        st.make_global(yy.atoms(sp.Symbol), 1)
+        self.assertEqual(y1 + y2, yy[0] + yy[1])
+
+        self.assertRaises(TypeError, st.make_global, args=(dict(), 1))
+
+
+class TestNumTools(unittest.TestCase):
+
+    def setUp(self):
+        n = 5
+        self.ev = sp.randMatrix(n, 1, seed=1631)
+        d = sp.diag(*self.ev)
+
+        self.T = T = sp.randMatrix(n, n, seed=1632)
+        assert not T.det() == 0
+        self.M1 = T*d*T.inv()
+
+        self.ev_sorted = list(self.ev)
+        self.ev_sorted.sort(reverse=True)
+
+        # #
+
+        self.M2 = sp.Matrix([[0, 1], [-1, 0]])
+
+    def test_sorted_eigenvalues(self):
+
+        res1 = st.sorted_eigenvalues(self.M1)
+        self.assertEqual(res1, self.ev_sorted)
+
+        # imaginary unit
+        I = sp.I
+
+        res2 = st.sorted_eigenvalues(self.M2)
+        self.assertTrue(I in res2)
+        self.assertTrue(-I in res2)
+        self.assertEqual(2, len(res2))
+
+    def test_sorted_eigenvectors(self):
+
+        V1 = st.sorted_eigenvector_matrix(self.M1)
+
+        ev1 = st.sorted_eigenvalues(self.M1)
+        self.assertEqual(len(ev1), V1.shape[1])
+
+        for val, vect in zip(ev1, st.col_split(V1)):
+            res_vect = self.M1*vect - val*vect
+            res = (res_vect.T*res_vect)[0]
+            self.assertTrue(res < 1e-15)
+            self.assertAlmostEqual( (vect.T*vect)[0] - 1, 0)
 
 
 def main():

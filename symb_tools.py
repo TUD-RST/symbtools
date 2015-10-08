@@ -664,13 +664,18 @@ def involutivity_test(dist, xx, **kwargs):
 
 def system_pronlongation(f, gg, xx, prl_list, **kwargs):
     """
+    Extend the system input by integrator-chains
 
     :param f:        drift vector field
     :param gg:       matrix of input vfs
-    :param xx:       coordinates
+    :param xx:       state-coordinates
     :param prl_list: list of tuples (input_number, prolongation_order)
     :return:         fnew, Gnew, xxnew
     """
+
+    # convenience
+    if isinstance(xx, (list, tuple)):
+        xx = sp.Matrix(xx)
 
     nr, nc = gg.shape
     assert len(f) == nr == len(xx)
@@ -684,7 +689,20 @@ def system_pronlongation(f, gg, xx, prl_list, **kwargs):
     Nz = sum(orders)
     max_idx = str(Nz + 1)
     # create new state_variables:
-    zz = symb_vector(state_symbol + '1:' + max_idx)
+
+    # prevent name collisions
+    collision_state_names = [str(x) for x in xx if str(x).startswith(state_symbol)]
+    if len(collision_state_names) == 0:
+        first_idx_str = '1'
+    else:
+        collision_state_names.sort()
+        highest_collision_state_name = collision_state_names[-1]
+        idx_str = highest_collision_state_name.replace(state_symbol, '')
+        first_idx_str = str(int(idx_str) + 1)
+
+    max_idx = str(Nz + int(first_idx_str))
+
+    zz = symb_vector(state_symbol + first_idx_str + ':' + max_idx)
 
     fnew = row_stack( f, sp.zeros(Nz, 1) )
     ggnew = row_stack( gg, sp.zeros(Nz, nc) )
@@ -959,10 +977,12 @@ def make_global(varList, up_count=0):
     """
 
     if not isinstance(varList, (list, tuple)):
-        if isinstance(varList, sp.Matrix):
-            varList = np.array(varList).flatten()
+        if isinstance(varList, sp.MatrixBase):
+            varList = list(varList)
+        elif isinstance(varList, set):
+            varList = list(varList)
         else:
-            raise TypeError, 'Unexpected type for varList'
+            raise TypeError('Unexpected type for varList')
 
     import inspect
 
@@ -2060,6 +2080,38 @@ def trigsimp2(expr):
     return expr.expand()
 
 
+def introduce_abreviations(M, prefix='A', time_dep_smybs=[]):
+    """returns a matrix with the same shape, but with complicated expressions substituted
+    by new symbols. Additionally returns two lists: one for the reverse substitution and
+    one which contains only those of the new symbols which are time dependent.
+
+    :param M:                   symbolic matrix
+    :param prefix:              prefix-string for the new symbols
+    :param time_dep_smybs:      sequence of time dependend symbols
+    :return: M_new, subs_tuples, new_time_dep_symbs
+    """
+
+    M_new = (M*1).as_mutable()
+    Nc, Nr = M.shape
+
+    all_symbols = []
+    diff_symbols = []
+    subs_tuples = []
+
+    gen = sp.numbered_symbols(prefix)
+
+    for i, j in it.product(range(Nc), range(Nr)):
+        elt0 = M_new[i, j]
+        if not is_number(elt0):
+            symb = gen.next()
+            all_symbols.append(symb)
+            M_new[i, j] = symb
+            subs_tuples.append((symb, elt0))
+            if depends_on_t(elt0, 't', time_dep_smybs):
+                diff_symbols.append(symb)
+
+    return M_new, subs_tuples, sp.Matrix(diff_symbols)
+
 # TODO: rename to rev_tuple_list
 def rev_tuple(tuples):
     """
@@ -2114,7 +2166,7 @@ def count_ops(expr, *args, **kwargs):
     Matrix aware wrapper for sp.count_ops
     """
 
-    if isinstance(expr, sp.Matrix):
+    if isinstance(expr, sp.MatrixBase):
         return matrix_count_ops(expr, *args, **kwargs)
     else:
         return sp.count_ops(expr, *args, **kwargs)
@@ -3209,7 +3261,22 @@ def enullspace(M, *args, **kwargs):
 
     """
 
-    vectors = M.nullspace(*args, **kwargs)
+    # two different targets for kwargsuments -> create a copy
+    spns_kwargs = dict(kwargs)
+    
+    if kwargs.get('simplify') is False:
+        # the user does not want to apply simplify at all
+        # this has consequences on 2 levels: 
+        # sp.nullspace and this function
+        # -> sp.nullspace expects a callable
+        # create a separat kwargs structure with a
+        # dummy function which does nothing
+        
+        empty_simplify_func = lambda arg: arg
+        
+        spns_kwargs['simplify'] = empty_simplify_func
+        
+    vectors = M.nullspace(*args, **spns_kwargs)
 
     if kwargs.get('simplify', True):
         custom_simplify = nullspace_simplify_func
@@ -3276,6 +3343,60 @@ def dd(*args):
     return reduce(np.dot, args)
 
 
+def sorted_eigenvalues(M, **kwargs):
+    """
+    returns a list of eigenvalues ordered by their real part in decreasing order
+
+    :param M:      square matrix (entries are assumed to be numbers)
+    :return:       ordered list of eigenvalues
+    """
+
+    assert isinstance(M, sp.MatrixBase)
+    assert M.is_square
+
+    for elt in list(M):
+        assert is_number(elt)
+
+    # get triples (eigenvalue, multiplicity, L)
+    # where L is a list of corresponding eigenvectors
+    eig_triples = M.eigenvects()
+
+    def key_func(trip):
+        # take the real part of ther first element
+        return sp.re(trip[0])
+
+    # decreasing order of the real parts
+    eig_triples.sort(key=key_func, reverse=True)
+
+    if kwargs.get('get_triples', False):
+        return eig_triples
+
+    res = []
+    for value, multiplicity, vects in eig_triples:
+        for k in range(multiplicity):
+            res.append(value)
+
+    #res.sort(key=sp.Abs)
+    return res
+
+
+def sorted_eigenvector_matrix(M, **kwargs):
+    """
+    returns a matrix whose columns are the normalized eigenvectors of M
+
+    :param M:      square matrix (entries are assumed to be numbers)
+    :return:
+    """
+
+    sorted_triples = sorted_eigenvalues(M, get_triples=True, **kwargs)
+
+    cols = []
+    for value, multiplicity, vects in sorted_triples:
+        for v in vects:
+            cols.append(v/sp.sqrt((v.T*v)[0]))
+
+    V = col_stack(*cols)
+    return V
 
 ## !! Laplace specific
 
