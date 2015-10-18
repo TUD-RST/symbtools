@@ -3552,10 +3552,27 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
     # perform_time_derivative(x_2, [x_2], order=5) -> x__2_d5
     # (respective first underscore is obsolete)
 
-    def extended_name_symb(base, ord, assumptions={}):
+    def extended_name_symb(base, ord, assumptions={}, base_difforder=None):
+        """
+        construct a derivative symbol with an appropriate name and other properties
+        like assumptions, and difforder attribute
+
+        Because this function might be called recursively, the optional argument
+        base_difforder is used to carry the difforder value of the original symbol
+
+        """
+
         if isinstance(base, sp.Symbol):
+            assert base_difforder is None  # avoid conflicting information
+            if hasattr(base, 'difforder'):
+                base_difforder = base.difforder
+            else:
+                base_difforder = 0
             base = base.name
+
         assert isinstance(base, str)
+        if base_difforder is None:
+            base_difforder = 0
 
         # remove trailing number
         base_order = base.rstrip('1234567890')
@@ -3598,24 +3615,24 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
 
         if ord == 1:
             new_symbol = sp.Symbol(new_name, **assumptions)
-            if hasattr(base,"difforder"):
-                new_order = base.difforder + order
-            else:
-                new_order = order
-
-            # dynamically setting attribute
-            new_symbol.difforder = new_order
+            new_symbol.difforder = base_difforder + ord
 
             return new_symbol
         else:
-            return extended_name_symb(new_name, ord - 1, assumptions)
+            return extended_name_symb(new_name, ord - 1, assumptions, base_difforder=base_difforder+1)
 
     # the user may want to provide their own symbols for the derivatives
     if not prov_deriv_symbols:
-        deriv_symbols1 = [ [extended_name_symb(s, ord, s.assumptions0)
-                            for s in func_symbols] for ord in range(order, 0, -1)]
+        deriv_symbols1 = []
+        for ord in range(order, 0, -1):
+            tmp_symbol_list = []
 
-        # print deriv_symbols1  # -> e.g: [[a_dd, b_dd], [a_d, b_d]]
+            for s in func_symbols:
+                ens = extended_name_symb(s, ord, s.assumptions0)
+                tmp_symbol_list.append(ens)
+
+            deriv_symbols1.append(tmp_symbol_list)
+
     else:
         L = len(func_symbols)
         assert len(prov_deriv_symbols) == order*L

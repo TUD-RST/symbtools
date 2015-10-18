@@ -1068,9 +1068,22 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEquals(res6, [C1, x, a])
 
     def test_difforder_attribute(self):
-        x1 = sp.Symbol('x1')
-        xdot1 = st.perform_time_derivative(x1, [x1], order=4)
-        self.assertEquals(xdot1.difforder, 4)
+        if 1:
+            x1 = sp.Symbol('x1')
+            xddddot1 = st.perform_time_derivative(x1, [x1], order=4)
+            self.assertEquals(xddddot1.difforder, 4)
+
+            xx = sp.Matrix(sp.symbols("x1, x2, x3"))
+            xxd = st.perform_time_derivative(xx, xx)
+            xxdd = st.perform_time_derivative(xx, xx, order=2)
+            for xdd in xxdd:
+                self.assertEqual(xdd.difforder, 2)
+
+        # this once was a bug
+        y = sp.Symbol('y')
+        ydot = st.perform_time_derivative(y, [y])
+        yddot = st.perform_time_derivative(ydot, [y, ydot])
+        self.assertEqual(yddot.difforder, 2)
 
     def test_user_attributes(self):
         x1 = sp.Symbol('x1')
