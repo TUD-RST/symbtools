@@ -31,6 +31,11 @@ else:
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
+# Avoid warnings of undefined symbols from the IDE,
+# but still make use of st.make_global
+x1 = x2 = x3 = x4 = None
+y1 = y2 = None
+
 
 class InteractiveConvenienceTest(unittest.TestCase):
 
@@ -1068,18 +1073,20 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEquals(res6, [C1, x, a])
 
     def test_difforder_attribute(self):
-        if 1:
-            x1 = sp.Symbol('x1')
-            xddddot1 = st.perform_time_derivative(x1, [x1], order=4)
-            self.assertEquals(xddddot1.difforder, 4)
+        x1 = sp.Symbol('x1')
 
-            xx = sp.Matrix(sp.symbols("x1, x2, x3"))
-            xxd = st.perform_time_derivative(xx, xx)
-            xxdd = st.perform_time_derivative(xx, xx, order=2)
-            for xdd in xxdd:
-                self.assertEqual(xdd.difforder, 2)
+        self.assertEqual(x1.difforder, 0)
 
-        # this once was a bug
+        xddddot1 = st.perform_time_derivative(x1, [x1], order=4)
+        self.assertEquals(xddddot1.difforder, 4)
+
+        xx = sp.Matrix(sp.symbols("x1, x2, x3"))
+        xxd = st.perform_time_derivative(xx, xx)
+        xxdd = st.perform_time_derivative(xx, xx, order=2)
+        for xdd in xxdd:
+            self.assertEqual(xdd.difforder, 2)
+
+        # once, this was a bug
         y = sp.Symbol('y')
         ydot = st.perform_time_derivative(y, [y])
         yddot = st.perform_time_derivative(ydot, [y, ydot])
@@ -1123,6 +1130,7 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(original_expressions, sp.Matrix([x1**2, a3*x2]))
 
     def test_make_global(self):
+
         xx = st.symb_vector('x1:4')
         yy = st.symb_vector('y1:4')
 

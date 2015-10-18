@@ -112,11 +112,8 @@ for tc in target_classes:
         setattr(tc, name, meth)
 
 
-# because sympy does not allow to dynamically attach attributes to symbols
+# Because sympy does not allow to dynamically attach attributes to symbols,
 # we set up our own infrastructure for storing them
-
-
-
 
 def new_setattr(self, name, value):
     try:
@@ -147,6 +144,18 @@ if not hasattr(sp, '_attribute_store'):
 
 sp.Symbol.__getattr__ = new_getattr
 
+
+# This new setattr infrastructure is mainly used for perform_time_derivative
+# (to store the difforder)
+# However: a cleaner way of implementation would be to use completely rely on
+# the following property
+
+# All symbols should have the attribute difforder=0 by default
+@property
+def difforder(self):
+    return sp._attribute_store.get((self, 'difforder'), 0)
+
+sp.Symbol.difforder = difforder
 
 class equation(object):
 
@@ -3492,7 +3501,10 @@ def is_derivative_symbol(expr, t=None):
         # we currently do not distinguish between different independent variables
         raise NotImplementedError
 
-    return hasattr(expr, 'difforder')
+    if hasattr(expr, 'difforder') and expr.difforder > 0:
+        return True
+    else:
+        return False
 
 
 def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
@@ -3535,7 +3547,6 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
     for ds in deriv_symbols0:
         if not ds in prov_deriv_symbols and not ds in func_symbols:
             func_symbols.append(ds)
-
 
     # replace the func_symbols by the symbols from expr to make sure the the
     # correct symbols (with correct assumptions) are used.
