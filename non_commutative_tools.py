@@ -303,13 +303,15 @@ def nc_mul(L, R):
     return res
 
 
-def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True):
+def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=None):
     """ Assumes that M(s) is an unimodular polynomial matrix and calculates its inverse
     which is again unimodular
 
-    :param M:
-    :param s:
-    :param time_dep_symbs:
+    :param M:               Matrix to be inverted
+    :param s:               Derivative Symbol
+    :param time_dep_symbs:  sequence of time dependent symbols
+    :param max_deg:       maximum polynomial degree w.r.t. s of the ansatz
+
     :return: Minv
     """
 
@@ -320,10 +322,14 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True):
 
     degree_m = nc_degree(M, s)
 
-    # upper bound according to
-    # Levine 2011, On necessary and sufficient conditions for differential flatness, p. 73
+    if max_deg is None:
+        # upper bound according to
+        # Levine 2011, On necessary and sufficient conditions for differential flatness, p. 73
 
-    max_deg = (n - 1)*degree_m
+        max_deg = (n - 1)*degree_m
+
+    assert int(max_deg) == max_deg
+    assert max_deg >= 0
 
     C = M*0
     free_params = []
@@ -343,7 +349,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True):
     part_eqns = []
     for i in xrange(deg_P + 1):
         # omit the highest order (because it behaves like in the commutative case)
-        res = P2.diff(s, i).subs(s, 0)
+        res = P2.diff(s, i).subs(s, 0)#/sp.factorial(i)
         part_eqns.append(res)
 
     eqns = st.row_stack(*part_eqns)  # equations for all degrees of s
@@ -366,7 +372,8 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True):
     # find a solution for the homogeneous equations
     # if this is not possible, M was not unimodular
     Jh = eqns_hom.jacobian(free_params_c).expand()
-    nsm = st.nullspaceMatrix(Jh, simplify=simplify_nsm)
+
+    nsm = st.nullspaceMatrix(Jh, simplify=simplify_nsm, sort_rows=True)
 
     na = nsm.shape[1]
     if na < n:

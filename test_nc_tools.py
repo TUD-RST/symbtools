@@ -11,6 +11,7 @@ import sympy as sp
 
 import symb_tools as st
 import non_commutative_tools as nct
+import pickle
 
 from IPython import embed as IPS
 
@@ -350,7 +351,7 @@ class NCTTest(unittest.TestCase):
             M1inv = nct.unimod_inv(M1, s, time_dep_symbs=yy)
             self.assertEqual(M1inv, M1.inv())
 
-        if 1:
+        if 0:
             M2 = sp.Matrix([[y1, y1*s], [0, y2]])
             M2inv = nct.unimod_inv(M2, s, time_dep_symbs=yy)
 
@@ -404,7 +405,25 @@ class NCTTest(unittest.TestCase):
         self.assertEqual(res3a, sp.eye(2))
         self.assertEqual(res3b, sp.eye(2))
 
+    @skip_slow
+    def test_unimod_inv4(self):
+        with open('test_data/unimod_maxtrix_unicycle.pcl', "r") as pfile:
+            pdict = pickle.load(pfile)
 
+        PQ = pdict['PQ']
+        s = [ symb for symb in PQ.s if str(symb) == "s"][0]
+        self.assertTrue(s in PQ.s)
+
+        abc = pdict['abc']
+        #kk = pdict['kk']
+        #JEh = pdict['JEh']
+
+        inv = nct.unimod_inv(PQ, s, None, abc, max_deg=2)
+        res = nct.nc_mul(inv, PQ)
+        res2 = nct.right_shift_all(res, s, None, abc)
+        res3, tmp = nct.make_all_symbols_commutative(res2)
+        res4 = st.subs_random_numbers(res3, prime=True)
+        self.assertEqual(res4, sp.eye(3))
 
 
 def main():
