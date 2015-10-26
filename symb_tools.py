@@ -3270,21 +3270,34 @@ def enullspace(M, *args, **kwargs):
 
     """
 
+    if kwargs.get('sort_rows', False) and not 0 in M.shape:
+        # it might help sympy to calculate the symbolic nullspace
+        # if the rows are sorted w.r.t. their complexity
+        # simplest rows first
+        rows = M.tolist()
+        rows.sort( key=lambda row: sum( count_ops(sp.Matrix(row)) ) )
+        M = sp.Matrix(rows)
+
+    # ensure that the key is in
+    kwargs['sort_rows'] = None
+    # and pop it out (avoid sp.Matrix,nullspace complaints)
+    kwargs.pop('sort_rows')
+
     # two different targets for kwargsuments -> create a copy
     spns_kwargs = dict(kwargs)
-    
+
     if kwargs.get('simplify') is False:
         # the user does not want to apply simplify at all
-        # this has consequences on 2 levels: 
+        # this has consequences on 2 levels:
         # sp.nullspace and this function
         # -> sp.nullspace expects a callable
         # create a separat kwargs structure with a
         # dummy function which does nothing
-        
+
         empty_simplify_func = lambda arg: arg
-        
+
         spns_kwargs['simplify'] = empty_simplify_func
-        
+
     vectors = M.nullspace(*args, **spns_kwargs)
 
     if kwargs.get('simplify', True):
