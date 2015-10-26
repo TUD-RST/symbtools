@@ -86,6 +86,14 @@ def subz0(self, arg):
     return self.subs(zip0(arg))
 new_methods.append(('subz0', subz0))
 
+@property
+def srn01(self):
+    """
+    Convenience property for interactive usage:
+    returns subs_random_numbers(self, **kwargs)
+    """
+    return subs_random_numbers(self)
+new_methods.append(('srn01', srn01))
 
 @property
 def srn(self):
@@ -93,7 +101,7 @@ def srn(self):
     Convenience property for interactive usage:
     returns subs_random_numbers(self, **kwargs)
     """
-    return subs_random_numbers(self)
+    return subs_random_numbers(self, minmax=(1, 10))
 new_methods.append(('srn', srn))
 
 @property
@@ -2575,8 +2583,8 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
     raise DeprecationWarning, "use random_equaltest instead"
 
 
-def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False):
-    '''
+def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=None):
+    """
 
     :param expr: expression
     :return: [(a1, r1), (a2, r2), ...]
@@ -2585,10 +2593,10 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False):
     and r1, r2, ... are random numbers
     
     keyword args:
-    mul_pi_list: list of atoms, which should be multiplied by pi
-    prime: 
-    '''
-
+    mul_pi_list:    list of atoms, which should be multiplied by pi
+    minmax:          2-tuple: (min_value, max_value)
+    prime:          True or False
+    """
 
     derivs = list(expr.atoms(sp.Derivative))
 
@@ -2637,16 +2645,33 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False):
         random.seed(seed)
 
     if prime:
+        assert minmax is None
         N = len(atoms_list)
         list_of_primes = prime_list(2*N) # more numbers than needed
         random.shuffle(list_of_primes)
         tuples = [(reverse_dict[s], list_of_primes.pop()) for s in atoms_list]
         return tuples
 
-    if rational == True:
-        tuples = [(reverse_dict[s], clean_numbers(random.random())) for s in atoms_list]
+    if minmax is None:
+        min_val, max_val = 0, 1
     else:
-        tuples = [(reverse_dict[s], random.random()) for s in atoms_list]
+        min_val, max_val = minmax
+
+    assert max_val > min_val
+    assert float(max_val) == max_val
+    assert float(min_val) == min_val
+
+    delta = max_val - min_val
+
+    prec = 100
+    def rnd():
+        val = random.random()
+        return sp.Float(val, prec)
+
+    if rational == True:
+        tuples = [(reverse_dict[s], clean_numbers( rnd()*delta + min_val )) for s in atoms_list]
+    else:
+        tuples = [(reverse_dict[s], rnd()*delta + min_val) for s in atoms_list]
         
     
 #    # make the desired symbols a multiple of pi 
@@ -2654,7 +2679,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False):
 #        for i, (s, v) in enumerate(tuples):
 #            if s in mul_pi_list:
 #                tuples[i] = (s, v*sp.pi)
-    
+
     return tuples
 
 # TODO: unit test

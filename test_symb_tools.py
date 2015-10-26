@@ -56,7 +56,6 @@ class InteractiveConvenienceTest(unittest.TestCase):
 
         self.assertEqual(res, [])
 
-
     def test_symbol_atoms(self):
         a, b, t = sp.symbols("a, b, t")
         x1 = a + b
@@ -83,6 +82,14 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(st.count_ops(x2), x2.co)
         self.assertEqual(st.count_ops(M1), M1.co)
         self.assertEqual(st.count_ops(M2), M2.co)
+
+    def test_srn(self):
+        x, y, z = st.symb_vector('x, y, z')
+        st.random.seed(3319)
+        self.assertAlmostEqual(x.srn01, 0.843044195656457)
+
+        st.random.seed(3319)
+        self.assertAlmostEqual(x.srn, 8.58739776090811)
 
     def test_subz(self):
         x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
