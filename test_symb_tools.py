@@ -1196,6 +1196,37 @@ class TestNumTools(unittest.TestCase):
             self.assertAlmostEqual( (vect.T*vect)[0] - 1, 0)
 
 
+class TestTrajectoryPlanning(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_create_piecewise(self):
+        t, x = sp.symbols('t, x')
+        interface_points1 = [0, 4]
+        expr1 = st.create_piecewise(t, interface_points1, [-1, x, -13])
+
+        self.assertEquals(expr1.subs(t, -3), -1)
+        self.assertEquals(expr1.subs(t, 0), x)
+        self.assertEquals(expr1.subs(t, 3), x)
+        self.assertEquals(expr1.subs(t, 4), x)
+        self.assertEquals(expr1.subs(t, 4.00000001), -13)
+        self.assertEquals(expr1.subs(t, 10**100), -13)
+
+        interface_points2 = [0, 4, 8, 12]
+        expr1 = st.create_piecewise(t, interface_points2, [-1, x, x**2, x**3, -13])
+
+        self.assertEquals(expr1.subs(t, -2), -1)
+        self.assertEquals(expr1.subs(t, 0), x)
+        self.assertEquals(expr1.subs(t, 4), x**2)
+        self.assertEquals(expr1.subs(t, 7), x**2)
+        self.assertEquals(expr1.subs(t, 8), x**3)
+        self.assertEquals(expr1.subs(t, 9), x**3)
+        self.assertEquals(expr1.subs(t, 12), x**3)
+        self.assertEquals(expr1.subs(t, 12.00000001), -13)
+        self.assertEquals(expr1.subs(t, 1e50), -13)
+
+
 def main():
     unittest.main()
 

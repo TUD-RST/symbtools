@@ -350,8 +350,13 @@ def trans_poly(var, cn, left, right):
 
     return sol_poly
 
-
-def make_pw(var, transpoints, fncs):
+# 
+def make_pw(var, transpoints, fncs, ignore_warning=False):
+    if not ignore_warning:
+        msg = "This function is deprecated. Use create_piecewise(...) "\
+        "with slightly different syntax."
+        raise DeprecationWarning, msg
+    
     transpoints = list(transpoints)
     upper_borders = list(zip(*transpoints)[0])
 
@@ -373,9 +378,30 @@ def make_pw(var, transpoints, fncs):
     pieces = [(fnc, var < ub) for ub, fnc in zip(upper_borders, fncs)]
     return piece_wise(*pieces)
 
+def create_piecewise(var, interface_positions, fncs):
+    """
+    Creates a sympy.Piecewise object, streamlined to trajectory planning.
+    """
+    
+    interface_positions= list(interface_positions)
+    upper_borders = list(interface_positions)
+
+    var = sp.sympify(var)
+    inf = sp.oo
+
+    assert len(upper_borders) == len(fncs) - 1
+    #upper_borders += [inf]
+
+    pieces = [(fnc, var < ub) for ub, fnc in zip(upper_borders[:-1], fncs[:-2])]
+
+    # the last finite border sould be included, hence we use '<=' instead of '<'
+    last_two_pieces = [(fncs[-2], var <= upper_borders[-1]), (fncs[-1], var < inf)]
+    pieces.extend(last_two_pieces)
+
+    return piece_wise(*pieces)
 
 
-def integrate_pw(fnc, var, transpoints):
+def integrate_pw(fnc, sadadvar, transpoints):
     """
     due to a bug in sympy we must correct the offset in the integral
     to make the result continious
@@ -2872,6 +2898,7 @@ def expr_to_func(args, expr, modules = 'numpy', **kwargs):
 
     # TODO: sympy-Matrizen mit Stückweise definierten Polynomen
     # numpy fähig (d.h. vektoriell) auswerten
+    # TODO: optionally respect sympy shape
 
     expr = sp.sympify(expr)
     expr = ensure_mutable(expr)
