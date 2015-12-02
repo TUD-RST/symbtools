@@ -2123,14 +2123,14 @@ def trigsimp2(expr):
     return expr.expand()
 
 
-def introduce_abreviations(M, prefix='A', time_dep_smybs=[]):
+def introduce_abreviations(M, prefix='A', time_dep_symbs=[]):
     """returns a matrix with the same shape, but with complicated expressions substituted
     by new symbols. Additionally returns two lists: one for the reverse substitution and
     one which contains only those of the new symbols which are time dependent.
 
     :param M:                   symbolic matrix
     :param prefix:              prefix-string for the new symbols
-    :param time_dep_smybs:      sequence of time dependend symbols
+    :param time_dep_symbs:      sequence of time dependend symbols
     :return: M_new, subs_tuples, new_time_dep_symbs
     """
 
@@ -2150,7 +2150,7 @@ def introduce_abreviations(M, prefix='A', time_dep_smybs=[]):
             all_symbols.append(symb)
             M_new[i, j] = symb
             subs_tuples.append((symb, elt0))
-            if depends_on_t(elt0, 't', time_dep_smybs):
+            if depends_on_t(elt0, 't', time_dep_symbs):
                 diff_symbols.append(symb)
 
     return M_new, subs_tuples, sp.Matrix(diff_symbols)

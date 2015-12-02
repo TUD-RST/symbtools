@@ -1121,8 +1121,8 @@ class SymbToolsTest3(unittest.TestCase):
         P2 = sp.Matrix([x1**2, a1+a2, a3*x2, 13.7, 1, 0])
 
         res1 = st.introduce_abreviations(P1)
-        res2 = st.introduce_abreviations(P1, time_dep_smybs=xx)
-        res3 = st.introduce_abreviations(P2, time_dep_smybs=xx)
+        res2 = st.introduce_abreviations(P1, time_dep_symbs=xx)
+        res3 = st.introduce_abreviations(P2, time_dep_symbs=xx)
 
         self.assertEqual(res1[0], P1)
         self.assertEqual(res2[0], P1)
