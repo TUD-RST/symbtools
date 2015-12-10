@@ -2200,19 +2200,26 @@ def atoms(expr, *args, **kwargs):
 
 def matrix_count_ops(M, visual=False):
     def co(expr):
-        return sp.count_ops(expr, visual)
+        return count_ops(expr, visual=visual)
     return M.applyfunc(co)
 
 
 def count_ops(expr, *args, **kwargs):
     """
     Matrix aware wrapper for sp.count_ops
+    
+    In difference to the sympy version this function only returns 0
+    if the operand is equal to 0, otherwise it returns at least 1 (for atoms)
     """
 
     if isinstance(expr, sp.MatrixBase):
         return matrix_count_ops(expr, *args, **kwargs)
     else:
-        return sp.count_ops(expr, *args, **kwargs)
+        res = sp.count_ops(expr, *args, **kwargs)
+        if expr == 0:
+            return res
+        else:
+            return res + 1
 
 
 def get_diffterms(xx, order, order_list=False):

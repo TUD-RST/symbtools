@@ -82,6 +82,22 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(st.count_ops(x2), x2.co)
         self.assertEqual(st.count_ops(M1), M1.co)
         self.assertEqual(st.count_ops(M2), M2.co)
+        
+    def test_count_ops2(self):
+        a, b, t = sp.symbols("a, b, t")
+        x1 = a + b
+        x2 = a + b - 3 + sp.pi
+        M1 = sp.Matrix([x2, t, a**2, 0, 1])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        self.assertEqual(st.count_ops(0), 0)
+        self.assertEqual(st.count_ops(a), 1)
+        self.assertEqual(st.count_ops(1.3), 1)
+        self.assertEqual(st.count_ops(x1), 2)
+        self.assertEqual(st.count_ops(x2), 4)
+        self.assertEqual(st.count_ops(M1), sp.Matrix([4, 1, 2, 0, 1]))
+        self.assertEqual(st.count_ops(M2), sp.Matrix([4, 1, 2, 0, 1]))
+
 
     def test_srn(self):
         x, y, z = st.symb_vector('x, y, z')
