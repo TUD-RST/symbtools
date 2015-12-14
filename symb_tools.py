@@ -401,7 +401,7 @@ def create_piecewise(var, interface_positions, fncs):
     return piece_wise(*pieces)
 
 
-def integrate_pw(fnc, sadadvar, transpoints):
+def integrate_pw(fnc, var, transpoints):
     """
     due to a bug in sympy we must correct the offset in the integral
     to make the result continious
