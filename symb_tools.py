@@ -20,8 +20,8 @@ import collections as col
 
 try:
     # usefull for debugging but not mandatory
-    from IPython import embed as IPS
-    #from ipHelp import IPS
+    #from IPython import embed as IPS
+    from ipHelp import IPS
 except ImportError:
     pass
 
@@ -465,25 +465,86 @@ def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
     return Hterm + J2
 
 
-def lie_deriv(sf, vf, x, n = 1):
+def lie_deriv(sf, *args, **kwargs):
     """
     lie_deriv of a scalar field along a vector field
+
+    calling convention 1:
+    lie_deriv(sf, vf, xx, order=1)
+
+    calling convention 2:
+    lie_deriv(sf, vf1, vf2, ..., vfn, xx)
     """
 
-    if isinstance(x, sp.Matrix):
-        assert x.shape[1] == 1
-        x = list(x)
+    # for backward-compatibilty:
+    if 'n' in kwargs:
+        assert not 'order' in kwargs
+        kwargs['order'] = kwargs.pop('n')
 
-    assert int(n) == n and n >= 0
-    if n == 0:
+    #determine the calling convenntion (cc):
+    if len(args) == 3 and not kwargs.get('xx') and not kwargs.get('order') and is_number(args[2]):
+        cc = 1
+        order = args[2]
+        xx = args[1]
+        vf_list = [args[0]]*order
+        # example call:
+        # lie_deriv(sf, vf, xx, 3)
+
+    elif len(args) == 2 and not kwargs.get('xx') and 'order' in kwargs:
+        cc = 1
+        order = kwargs.get('order', 1)
+        vf_list = [args[0]]*order
+        xx = args[1]
+        # example call:
+        # lie_deriv(sf, vf, xx, order=3)
+
+    elif len(args) == 1 and kwargs.get('xx'):
+        cc = 1
+        order = 1
+        xx = kwargs.get('xx')
+        vf_list = [args[0]]
+        # example call:
+        # lie_deriv(sf, vf, xx=xx)
+
+    else:
+        cc = 2
+        assert not 'order' in kwargs
+        if 'xx' in kwargs:
+            xx = kwargs.get('xx')
+            vf_list = args[:]  # make a copy
+        else:
+            assert len(args) >= 1
+            xx = args[-1]
+            vf_list = args[:-1]
+        order = len(vf_list)
+
+    if isinstance(xx, sp.Matrix):
+        assert xx.shape[1] == 1
+        xx = list(xx)
+
+    for elt in xx:
+        assert isinstance(elt, sp.Symbol)
+
+    assert int(order) == order
+    assert order >= 0
+    #IPS()
+    assert order == len(vf_list)
+
+    # check whether xx and the vectorfields all have the correct length
+    assert [len(vf) for vf in vf_list] == [len(xx)]*order
+
+    if order == 0:
         return sf
 
-    res = jac(sf, x)*vf
-    assert res.shape == (1,1)
+    vf1 = vf_list[0]
+
+    # now comes the actual calculation
+    res = jac(sf, xx)*vf1
+    assert res.shape == (1, 1)
     res = res[0]
 
-    if n > 1:
-        return lie_deriv(res, vf, x, n-1)
+    if order > 1:
+        return lie_deriv(res, *vf_list[1:], xx=xx)
     else:
         return res
 

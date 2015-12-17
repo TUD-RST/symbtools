@@ -167,6 +167,88 @@ class LieToolsTest(unittest.TestCase):
         self.assertTrue(res2)
         self.assertEqual(fail2, [])
 
+    def test_lie_deriv_cartan(self):
+        x1, x2, x3 = xx = sp.symbols('x1:4')
+        u1, u2 = uu = sp.Matrix(sp.symbols('u1:3'))
+
+        # ordinary lie_derivative
+
+        # source: inspired by the script of Prof. Kugi (TU-Wien)
+        f = sp.Matrix([-x1**3, cos(x1)*cos(x2), x2])
+        g = sp.Matrix([cos(x2), 1, exp(x1)])
+        h = x3
+        Lfh = x2
+        Lf2h = f[1]
+        Lgh = exp(x1)
+
+        res1 = st.lie_deriv_cartan(h, f, xx)
+        res2 = st.lie_deriv_cartan(h, f, xx, order=2)
+
+        self.assertEqual(res1, Lfh)
+        self.assertEqual(res2, Lf2h)
+
+        # incorporating the input
+        h2 = u1
+
+        udot1, udot2 = uudot = st.perform_time_derivative(uu, uu, order=1)
+        uddot1, uddot2 = st.perform_time_derivative(uu, uu, order=2)
+
+        res_a1 = st.lie_deriv_cartan(h2, f, xx, uu, order=1)
+        res_a2 = st.lie_deriv_cartan(h2, f, xx, uu, order=2)
+
+        self.assertEqual(res_a1, udot1)
+        self.assertEqual(res_a2, uddot1)
+
+        res_a3 = st.lie_deriv_cartan(udot1, f, xx, [uu, uudot], order=1)
+        self.assertEqual(res_a3, uddot1)
+
+        # more complex examples
+        h3 = x3 + u1
+        fg = f + g * u2
+
+        res_b1 = st.lie_deriv_cartan(h3, fg, xx, uu, order=1)
+        res_b2 = st.lie_deriv_cartan(h3, fg, xx, uu, order=2)
+        res_b3 = st.lie_deriv_cartan(res_b1, fg, xx, [uu, uudot], order=1)
+
+        self.assertEqual(res_b1, Lfh + Lgh*u2 + udot1)
+        self.assertEqual(sp.expand(res_b2 - res_b3), 0)
+
+        h4 = x3 * sin(x2)
+        fg = f + g * u2
+
+        res_c1 = st.lie_deriv_cartan(h4, fg, xx, uu, order=1)
+        res_c2 = st.lie_deriv_cartan(res_c1, fg, xx, uu, order=1)
+        res_c3 = st.lie_deriv_cartan(h4, fg, xx, uu, order=2)
+
+        self.assertEqual(sp.expand(res_c2 - res_c3), 0)
+
+    def test_lie_deriv(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        f = sp.Matrix([x1 + x3*x2, 7*exp(x1), cos(x2)])
+        h1 = x1**2 + sin(x3)*x2
+        res1 = st.lie_deriv(h1, f, xx)
+        eres1 = 2*x1**2 + 2*x1*x2*x3 + 7*exp(x1)*sin(x3) + x2*cos(x2)*cos(x3)
+        self.assertEqual(res1.expand(), eres1)
+
+        res2a = st.lie_deriv(h1, f, xx, order=2).expand()
+        res2b = st.lie_deriv(h1, f, xx, 2).expand()
+        eres2 = st.lie_deriv(eres1, f, xx).expand()
+
+        self.assertEqual(res2a, eres2)
+        self.assertEqual(res2b, eres2)
+
+
+        res2c = st.lie_deriv(h1, f, f, xx).expand()
+        res2d = st.lie_deriv(h1, f, f, xx=xx).expand()
+        self.assertEqual(res2c, eres2)
+        self.assertEqual(res2d, eres2)
+        # IPS()
+
+        F = f[:-1, :]
+        res1 = st.lie_deriv(h1, F, f, xx)
+
+
 
 class SymbToolsTest(unittest.TestCase):
 
@@ -663,61 +745,6 @@ class SymbToolsTest(unittest.TestCase):
             r2 = st.rnd_number_rank(m)
 
             self.assertEqual(r1, r2)
-
-    def test_lie_deriv_cartan(self):
-        x1, x2, x3 = xx = sp.symbols('x1:4')
-        u1, u2 = uu = sp.Matrix(sp.symbols('u1:3'))
-
-        # ordinary lie_derivative
-
-        # source: inspired by the script of Prof. Kugi (TU-Wien)
-        f = sp.Matrix([-x1**3, cos(x1)*cos(x2), x2])
-        g = sp.Matrix([cos(x2), 1, exp(x1)])
-        h = x3
-        Lfh = x2
-        Lf2h = f[1]
-        Lgh = exp(x1)
-
-        res1 = st.lie_deriv_cartan(h, f, xx)
-        res2 = st.lie_deriv_cartan(h, f, xx, order=2)
-
-        self.assertEqual(res1, Lfh)
-        self.assertEqual(res2, Lf2h)
-
-        # incorporating the input
-        h2 = u1
-
-        udot1, udot2 = uudot = st.perform_time_derivative(uu, uu, order=1)
-        uddot1, uddot2 = st.perform_time_derivative(uu, uu, order=2)
-
-        res_a1 = st.lie_deriv_cartan(h2, f, xx, uu, order=1)
-        res_a2 = st.lie_deriv_cartan(h2, f, xx, uu, order=2)
-
-        self.assertEqual(res_a1, udot1)
-        self.assertEqual(res_a2, uddot1)
-
-        res_a3 = st.lie_deriv_cartan(udot1, f, xx, [uu, uudot], order=1)
-        self.assertEqual(res_a3, uddot1)
-
-        # more complex examples
-        h3 = x3 + u1
-        fg = f + g * u2
-
-        res_b1 = st.lie_deriv_cartan(h3, fg, xx, uu, order=1)
-        res_b2 = st.lie_deriv_cartan(h3, fg, xx, uu, order=2)
-        res_b3 = st.lie_deriv_cartan(res_b1, fg, xx, [uu, uudot], order=1)
-
-        self.assertEqual(res_b1, Lfh + Lgh*u2 + udot1)
-        self.assertEqual(sp.expand(res_b2 - res_b3), 0)
-
-        h4 = x3 * sin(x2)
-        fg = f + g * u2
-
-        res_c1 = st.lie_deriv_cartan(h4, fg, xx, uu, order=1)
-        res_c2 = st.lie_deriv_cartan(res_c1, fg, xx, uu, order=1)
-        res_c3 = st.lie_deriv_cartan(h4, fg, xx, uu, order=2)
-
-        self.assertEqual(sp.expand(res_c2 - res_c3), 0)
 
     def test_deriv_2nd_order_chain_rule(self):
         a, b, x = sp.symbols('a, b, x')
