@@ -531,7 +531,11 @@ def lie_deriv(sf, *args, **kwargs):
     assert order == len(vf_list)
 
     # check whether xx and the vectorfields all have the correct length
-    assert [len(vf) for vf in vf_list] == [len(xx)]*order
+    if not [len(vf) for vf in vf_list] == [len(xx)]*order:
+        msg = "At least one of the vector fields has a different length "\
+        "compared to xx."
+        raise ValueError(msg)
+    
 
     if order == 0:
         return sf

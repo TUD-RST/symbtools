@@ -246,8 +246,9 @@ class LieToolsTest(unittest.TestCase):
         # IPS()
 
         F = f[:-1, :]
-        res1 = st.lie_deriv(h1, F, f, xx)
-
+        with self.assertRaises(ValueError) as cm:
+            # different lengths of vectorfields:
+            res1 = st.lie_deriv(h1, F, f, xx)
 
 
 class SymbToolsTest(unittest.TestCase):
