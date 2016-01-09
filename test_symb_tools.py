@@ -507,7 +507,12 @@ class SymbToolsTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             res = st.match_symbols_by_name(abc0, input3)  # implies strict=True
 
-        self.assertTrue('symbol x' in cm.exception.message)
+        err = cm.exception
+        if hasattr(err, 'args'):
+            msg = err.args[0]
+        else:
+            msg = err.message
+        self.assertTrue('symbol x' in msg)
 
         self.assertEquals(abc0, tuple(res))
 
