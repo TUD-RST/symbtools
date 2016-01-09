@@ -1254,8 +1254,8 @@ class RandNumberTest(unittest.TestCase):
 
         M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
 
-        if 0:
-            res1 = st.generic_rank(M1)
+        if 1:
+            res1 = st.generic_rank(M1, seed=98682)
             self.assertEqual(res1, 2)
 
             res2 = st.generic_rank(M2)
@@ -1271,10 +1271,10 @@ class RandNumberTest(unittest.TestCase):
             self.assertEqual(st.generic_rank(M6, seed=1814), 2)
             self.assertEqual(st.generic_rank(M7, seed=1814), 3)
             self.assertEqual(st.generic_rank(M7.T, seed=1814), 3)
+            self.assertEqual(st.generic_rank(M8, seed=1814), 3)
 
         if 1:
-            #self.assertEqual(st.generic_rank(M8, seed=1814), 3)
-            self.assertEqual(st.rnd_number_rank(M8, seed=1814), 3)
+            pass
 
 
     @skip_slow

@@ -2681,7 +2681,7 @@ def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
     raise DeprecationWarning, "use random_equaltest instead"
 
 
-def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=None):
+def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=None, **kwargs):
     """
 
     :param expr: expression
@@ -2691,9 +2691,11 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
     and r1, r2, ... are random numbers
     
     keyword args:
-    mul_pi_list:    list of atoms, which should be multiplied by pi
-    minmax:          2-tuple: (min_value, max_value)
-    prime:          True or False
+    seed:
+    rational:       generate sp.Ratioinal instead of sp.Float objects (default: False)
+    minmax:         2-tuple: (min_value, max_value)
+    prime:          (default: False)
+    prec:           evalf-precision (default 100)
     """
 
     derivs = list(expr.atoms(sp.Derivative))
@@ -2761,7 +2763,8 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
 
     delta = max_val - min_val
 
-    prec = 100
+    prec = kwargs.pop('prec', 100)
+
     def rnd():
         val = random.random()
         return sp.Float(val, prec)
@@ -2846,28 +2849,96 @@ def generic_rank(M, **kwargs):
     prime = kwargs.get('prime', False)
     kwargs.update(prime=prime)
 
-    eps = kwargs.pop('eps', 1e-160)
+    #eps = kwargs.pop('eps', 1e-160)
+    seed = kwargs.pop('seed', random.randint(0, 1e5))
 
-    nod1 = 100
-    nod2 = 200
-    rnst = rnd_number_subs_tuples(M, **kwargs)
-    M1 = M.subs(rnst).evalf(prec=nod1)
-    M2 = M.subs(rnst).evalf(prec=nod2)
+    # define the precisions
+    prec1, prec2, prec3 = plist = 100, 150, 200
+    # rnst1, rnst2, rnst3 = rnst_list = [rnd_number_subs_tuples(M, seed=seed, prec=p) for p in plist]
+    # M1, M2, M3 = [M.subs(r).evalf(prec=p) for (r, p) in zip(rnst_list, plist)]
 
-    coeffs1 = (M1.T*M1).berkowitz()[-1]
-    coeffs2 = (M2.T*M2).berkowitz()[-1]
+    rnst = rnd_number_subs_tuples(M, seed=seed, rational=True)
+    M1, M2, M3 = [M.subs(rnst).evalf(prec=p) for p in plist]
 
-    zero_coeffs1 = [c for c in coeffs1 if abs(c) < eps]
-    zero_coeffs2 = [c for c in coeffs2 if abs(c) < eps]
+    # calculate the coeffs of the charpoly
+    # berkowitz-method sorts from highes to lowest -> reverse the tuples
+    coeffs1 = (M1.T*M1).berkowitz()[-1][::-1]
+    coeffs2 = (M2.T*M2).berkowitz()[-1][::-1]
+    coeffs3 = (M3.T*M3).berkowitz()[-1][::-1]
 
-    d1 = len(zero_coeffs1)
-    d2 = len(zero_coeffs2)
+    # a coefficient is considered as vanishing if it is
+    # a) exactly zero, or
+    # b) if its absolute value decreases several orders of magnitudes when
+    # the precision increases.
 
-    if not d1 == d2:
-        IPS()
-    rank = n2 - d1
+    # count the exact zeros
+    # !! obsolete?
+    #zero_count = [cl.count(0) for cl in (coeffs1, coeffs2, coeffs3)]
 
-    IPS()
+    # find out the first (w.r.t to the index) non-vanishing coeff
+
+    nz_coeffs1 = np.array([c for c in coeffs1 if c != 0], dtype=sp.Float)
+    nz_coeffs2 = np.array([c for c in coeffs2 if c != 0], dtype=sp.Float)
+    nz_coeffs3 = np.array([c for c in coeffs3 if c != 0], dtype=sp.Float)
+
+    res21_list = []
+    res32_list = []
+
+    err_msg = "unexpected behavior of berkowitz coeffs during rank calculation"
+    threshold = 1e-2
+    for i, (c1, c2, c3) in enumerate(zip(coeffs1, coeffs2, coeffs3)):
+        if c1 != 0:
+            q21 = abs(c2/c1)
+        else:
+            if not c2 == c3 == 0:
+                # this means: a a coeff which has been exactly zero with lower precision
+                # is nonzero with higher precision
+                print c1, c2, c3
+                print "seed", seed
+                IPS()
+                raise ValueError(err_msg)
+            else:
+                # we know: c2 = 0
+                q21 = 0
+        res21_list.append( q21 < threshold )
+
+        if c2 != 0:
+            q32 = abs(c3/c2)
+        else:
+            if not c3 == 0:
+                # same problem as above
+                print c1, c2, c3
+                print "seed", seed
+                IPS()
+                raise ValueError(err_msg)
+            else:
+                # we know c3 = 0
+                q32 = 0
+
+        res32_list.append( q32 < threshold )
+
+    if res21_list != res32_list:
+        raise ValueError(err_msg)
+
+    # the index of the first False-entry gives the number of the low zero coeffs
+    # = number of zero singular values = defect (rank drop)
+
+    d = res21_list.index(False)
+
+    #
+    # q12 = nz_coeffs1/nz_coeffs2
+    # q23 = nz_coeffs2/nz_coeffs3
+    #
+    # nz_index = np.where(np.abs(q12) < 100)[0]
+    #
+    # IPS()
+    #
+    # d1 = len(zero_coeffs1)
+    # d2 = len(zero_coeffs2)
+
+    rank = n2 - d
+
+    #IPS()
 
     return rank
 
