@@ -1232,6 +1232,18 @@ class RandNumberTest(unittest.TestCase):
 
         self.assertEqual(st.rnd_number_rank(M2, seed=1529), 1)
 
+    @skip_slow
+    def test_rnd_number_rank2(self):
+        import pickle
+        with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
+            matrix_list = pickle.load(pfile)
+
+        for i, m in enumerate(matrix_list):
+            print i
+            r1 = m.srnp.rank()
+            r2 = st.rnd_number_rank(m)
+
+            self.assertEqual(r1, r2)
 
     def test_generic_rank1(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
@@ -1276,17 +1288,17 @@ class RandNumberTest(unittest.TestCase):
         if 1:
             pass
 
-
     @skip_slow
-    def test_rnd_number_rank2(self):
+    def test_generic_rank2(self):
         import pickle
         with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
             matrix_list = pickle.load(pfile)
 
+        N = len(matrix_list)
         for i, m in enumerate(matrix_list):
-            print i
+            print "%i / %i" %(i, N)
             r1 = m.srnp.rank()
-            r2 = st.rnd_number_rank(m)
+            r2 = st.generic_rank(m)
 
             self.assertEqual(r1, r2)
 

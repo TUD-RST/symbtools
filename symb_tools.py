@@ -2853,7 +2853,7 @@ def generic_rank(M, **kwargs):
     seed = kwargs.pop('seed', random.randint(0, 1e5))
 
     # define the precisions
-    prec1, prec2, prec3 = plist = 100, 150, 200
+    prec1, prec2, prec3 = plist = 100, 200, 300
     # rnst1, rnst2, rnst3 = rnst_list = [rnd_number_subs_tuples(M, seed=seed, prec=p) for p in plist]
     # M1, M2, M3 = [M.subs(r).evalf(prec=p) for (r, p) in zip(rnst_list, plist)]
 
@@ -2887,62 +2887,37 @@ def generic_rank(M, **kwargs):
     err_msg = "unexpected behavior of berkowitz coeffs during rank calculation"
     threshold = 1e-2
     for i, (c1, c2, c3) in enumerate(zip(coeffs1, coeffs2, coeffs3)):
-        if c1 != 0:
-            q21 = abs(c2/c1)
-        else:
-            if not c2 == c3 == 0:
-                # this means: a a coeff which has been exactly zero with lower precision
-                # is nonzero with higher precision
-                print c1, c2, c3
-                print "seed", seed
-                IPS()
-                raise ValueError(err_msg)
-            else:
-                # we know: c2 = 0
-                q21 = 0
-        res21_list.append( q21 < threshold )
+        if 0 in (c1, c2, c3):
+            # assume that this coeff indeed vanishes
+            continue
 
-        if c2 != 0:
-            q32 = abs(c3/c2)
-        else:
-            if not c3 == 0:
-                # same problem as above
-                print c1, c2, c3
-                print "seed", seed
-                IPS()
-                raise ValueError(err_msg)
-            else:
-                # we know c3 = 0
-                q32 = 0
+        q21 = abs(c2/c1)
+        q32 = abs(c3/c2)
 
-        res32_list.append( q32 < threshold )
+        res21 = q21 < threshold
+        res32 = q32 < threshold
 
-    if res21_list != res32_list:
-        raise ValueError(err_msg)
+        if res21 != res32:
+            # one precision-step indicates a vanishing coeff
+            # while the other does not
+            raise ValueError(err_msg)
 
-    # the index of the first False-entry gives the number of the low zero coeffs
+        if res21 == False:
+            # the coeff has not changed sufficiently due to the precision step
+            # this means the coeff is not considered to vanish,
+            # i.e. it is the first non-vanishing coeff
+            break
+
+    # the index of the first False-event gives the number of the "vanishing low coeffs"
     # = number of zero singular values = defect (rank drop)
+    # Note: vanishing coeffs after the first non-vanishing coeff can be ignored here
 
-    d = res21_list.index(False)
-
-    #
-    # q12 = nz_coeffs1/nz_coeffs2
-    # q23 = nz_coeffs2/nz_coeffs3
-    #
-    # nz_index = np.where(np.abs(q12) < 100)[0]
-    #
-    # IPS()
-    #
-    # d1 = len(zero_coeffs1)
-    # d2 = len(zero_coeffs2)
-
-    rank = n2 - d
-
-    #IPS()
+    defect = i
+    rank = n2 - defect
 
     return rank
 
-
+# TODO: due to generic_rank() this function is obsolete and thus deprecated
 def rnd_number_rank(M, **kwargs):
     """
     evaluates the rank of the matrix m by substituting a random number for each symbol, etc.
