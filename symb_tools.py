@@ -2817,6 +2817,61 @@ def subs_random_numbers(expr, *args, **kwargs):
     return expr.subs(tuples)
 
 
+def generic_rank(M, **kwargs):
+    """
+    Evaluate the rank of the matrix M by substituting a random number for each symbol,
+    function, etc. and then applying the Berkowitz algorithm (see sympy docs).
+
+    :param M:       Matrix of interest
+    :param eps:
+    :param kwargs:  prime(=True by default), seed, ...
+    :return:        the rank (w.r.t. the numeric tolerance eps)
+
+    see also: rnd_number_subs_tuples
+
+    Background: Let n1, n2 = M.shape and n1 >= n2. Then the generic rank r <= n2.
+    Let d:= n2 - r >= 0 be the generic defect of the matrix. It equals the number of vanishing
+    singular values, which, in turn, is equal to the number of vanishing coefficients of the
+    characteristic polynomial of M.T*M (n2 x n2 matrix)
+    """
+
+    assert isinstance(M, sp.MatrixBase)
+
+    n1, n2 = M.shape
+    if n2 > n1:
+        M = M.T
+        n1, n2 = n2, n1
+
+    # using random prime numbers?
+    prime = kwargs.get('prime', False)
+    kwargs.update(prime=prime)
+
+    eps = kwargs.pop('eps', 1e-160)
+
+    nod1 = 100
+    nod2 = 200
+    rnst = rnd_number_subs_tuples(M, **kwargs)
+    M1 = M.subs(rnst).evalf(prec=nod1)
+    M2 = M.subs(rnst).evalf(prec=nod2)
+
+    coeffs1 = (M1.T*M1).berkowitz()[-1]
+    coeffs2 = (M2.T*M2).berkowitz()[-1]
+
+    zero_coeffs1 = [c for c in coeffs1 if abs(c) < eps]
+    zero_coeffs2 = [c for c in coeffs2 if abs(c) < eps]
+
+    d1 = len(zero_coeffs1)
+    d2 = len(zero_coeffs2)
+
+    if not d1 == d2:
+        IPS()
+    rank = n2 - d1
+
+    IPS()
+
+    return rank
+
+
 def rnd_number_rank(M, **kwargs):
     """
     evaluates the rank of the matrix m by substituting a random number for each symbol, etc.
@@ -2855,38 +2910,48 @@ def rnd_number_rank(M, **kwargs):
 
 
     # Problem: some nonzero symbolic expressions in M might lead to very small values
-    # (e.g. sin(3)**50  -> 3.015... e-43 )
+    # (e.g. sin(3)**50 ≈ 3.015e-43 )
     # other expressions which are "symbolically 0" lead to bigger numerical expressions:
     # sp.sin(3.32)**2 + sp.cos(3.32)**2 -1 -> 1.11...e-16
 
-    # Solution: convert the expressions to floats with low (-> M1) and high (-> M2) precision.
+    # Solution: convert the expressions to floats with medium (-> M1) and high (-> M2) precision.
     # identify a threshold for eps (used for iszerofunc in M1.rank()) where the rank increases.
     # Then look at M2.rank for the same eps
     # see also the unit tests for illustration
 
 
     # nod means number of digits
-    nod1 = kwargs.pop('nod1', 30)
-    nod2 = nod1 + 40
-
+    nod1 = kwargs.pop('nod1', 100)
+    nod2 = nod1 + 200
 
     rnst = rnd_number_subs_tuples(M, **kwargs)
     M1 = M.subs(rnst).evalf(prec=nod1)
     M2 = M.subs(rnst).evalf(prec=nod2)
 
-    rank_list1 = []
-    eps_list = [10**-k for k in range(10, 200, 10)]
+    if 0:
 
-    for eps in eps_list:
-        rank_list1.append(M1.rank(iszerofunc=iszero_fnc_factory(eps)))
+        rank_list1 = []
+        eps_list = [10**-k for k in range(10, 200, 10)]
 
-    if rank_list1[-1] == rank_list1[0]:
-        return rank_list1[-1]
-    last_change_index = np.where(np.diff(rank_list1))[-1][-1] + 1
+        for eps in eps_list:
+            rank_list1.append(M1.rank(iszerofunc=iszero_fnc_factory(eps)))
 
-    eps_krit = eps_list[last_change_index]
+        if rank_list1[-1] == rank_list1[0]:
+            return rank_list1[-1]
+        last_change_index = np.where(np.diff(rank_list1))[-1][-1] + 1
 
-    r = M2.rank(iszerofunc=iszero_fnc_factory(eps_krit))
+        eps_krit = eps_list[last_change_index]
+
+
+        # print rank_list1
+        # print eps_krit
+        #
+        # IPS()
+
+        r = M2.rank(iszerofunc=iszero_fnc_factory(eps_krit))
+
+    else:
+        r = M2.rank(iszerofunc=iszero_fnc_factory(1e-190))
 
     return r
 

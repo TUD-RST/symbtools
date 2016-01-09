@@ -632,121 +632,6 @@ class SymbToolsTest(unittest.TestCase):
         self.assertFalse(st.is_number(float('inf')))
         self.assertFalse(st.is_number(-float('inf')))
 
-    def test_rnd_number_tuples(self):
-        x1, x2, x3 = xx = sp.symbols('x1:4')
-
-        s = sum(xx)
-        res_a1 = st.rnd_number_subs_tuples(s)
-        self.assertTrue(isinstance(res_a1, list))
-        self.assertEqual(len(res_a1), len(xx))
-
-        c1 = [len(e)==2 and e[0].is_Symbol and st.is_number(e[1])
-              for e in res_a1]
-
-        self.assertTrue( all(c1) )
-
-        t = sp.Symbol('t')
-        f = sp.Function('f')(t)
-
-        fdot = f.diff(t)
-        fddot = f.diff(t, 2)
-
-        ff = sp.Matrix([f, fdot, fddot, x1*x2])
-
-        res_b1 = st.rnd_number_subs_tuples(ff)
-
-        expct_b1_set = set([f, fdot, fddot, t, x1, x2])
-        res_b1_atom_set = set( zip(*res_b1)[0] )
-
-        self.assertEqual(expct_b1_set, res_b1_atom_set)
-        self.assertEqual(res_b1[0][0], fddot)
-        self.assertEqual(res_b1[1][0], fdot)
-        self.assertTrue( all( [st.is_number(e[1]) for e in res_b1] ) )
-
-    def test_rnd_number_tuples2(self):
-        x1, x2, x3 = xx = sp.symbols('x1:4')
-
-        s = sum(xx)
-        res_a1 = st.rnd_number_subs_tuples(s, seed=1)
-        res_a2 = st.rnd_number_subs_tuples(s, seed=2)
-        self.assertNotEqual(res_a1, res_a2)
-
-        res_b1 = st.rnd_number_subs_tuples(s, seed=2)
-        self.assertEqual(res_b1, res_a2)
-
-    def test_rnd_number_tuples3(self):
-        a, b = sp.symbols('a, b', commutative=False)
-
-        term1 = a*b - b*a
-        st.warnings.simplefilter("always")
-        with st.warnings.catch_warnings(record=True) as cm:
-            st.rnd_number_subs_tuples(term1)
-
-        self.assertEqual(len(cm), 1)
-        self.assertTrue('not commutative' in str(cm[0].message))
-
-
-        with st.warnings.catch_warnings(record=True) as cm2:
-            st.subs_random_numbers(term1)
-
-        self.assertEqual(len(cm2), 1)
-        self.assertTrue('not commutative' in str(cm2[0].message))
-
-    def test_rnd_number_rank1(self):
-        x1, x2, x3 = xx = st.symb_vector('x1:4')
-
-        M1 = sp.Matrix([[x1, 0], [0, x2]])
-        M2 = sp.Matrix([[1, 0], [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1]])  # singular
-        M3 = sp.Matrix([[1, 0], [1, sin(x1)**50]])  # regular
-
-        M4 = sp.Matrix([[1, 0, 0], [1, sin(x1)**50, 1], [0, 0, 0]])  # rank 2
-
-        M5 = sp.Matrix([[-x2,   0, -x3],
-                        [ x1, -x3,   0],
-                        [  0,  x2,  x1]])
-
-        M6 = sp.Matrix([[1, 0, 0],
-                        [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1, 0],
-                        [0, sp.pi, sin(-3)**50]])  # rank 2
-
-        M7 = st.row_stack(M6, [sp.sqrt(5)**-20, 2, 0])  # nonsquare, rank 3
-
-        M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
-
-        if 1:
-            res1 = st.rnd_number_rank(M1)
-            self.assertEqual(res1, 2)
-
-            res2 = st.rnd_number_rank(M2)
-            self.assertEqual(res2, 1)
-
-            res3 = st.rnd_number_rank(M3, seed=1814)
-            self.assertEqual(res3, 2)
-
-            self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
-
-            self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
-            self.assertEqual(st.rnd_number_rank(M6, seed=1814), 2)
-            self.assertEqual(st.rnd_number_rank(M7, seed=1814), 3)
-            self.assertEqual(st.rnd_number_rank(M7.T, seed=1814), 3)
-
-            self.assertEqual(st.rnd_number_rank(M8, seed=1814), 3)
-
-        self.assertEqual(st.rnd_number_rank(M2, seed=1529), 1)
-
-    @skip_slow
-    def test_rnd_number_rank2(self):
-        import pickle
-        with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
-            matrix_list = pickle.load(pfile)
-
-        for i, m in enumerate(matrix_list):
-            print i
-            r1 = m.srnp.rank()
-            r2 = st.rnd_number_rank(m)
-
-            self.assertEqual(r1, r2)
-
     def test_deriv_2nd_order_chain_rule(self):
         a, b, x = sp.symbols('a, b, x')
 
@@ -1238,6 +1123,172 @@ class TestNumTools(unittest.TestCase):
             res = (res_vect.T*res_vect)[0]
             self.assertTrue(res < 1e-15)
             self.assertAlmostEqual( (vect.T*vect)[0] - 1, 0)
+
+
+class RandNumberTest(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_rnd_number_tuples(self):
+        x1, x2, x3 = xx = sp.symbols('x1:4')
+
+        s = sum(xx)
+        res_a1 = st.rnd_number_subs_tuples(s)
+        self.assertTrue(isinstance(res_a1, list))
+        self.assertEqual(len(res_a1), len(xx))
+
+        c1 = [len(e)==2 and e[0].is_Symbol and st.is_number(e[1])
+              for e in res_a1]
+
+        self.assertTrue( all(c1) )
+
+        t = sp.Symbol('t')
+        f = sp.Function('f')(t)
+
+        fdot = f.diff(t)
+        fddot = f.diff(t, 2)
+
+        ff = sp.Matrix([f, fdot, fddot, x1*x2])
+
+        res_b1 = st.rnd_number_subs_tuples(ff)
+
+        expct_b1_set = set([f, fdot, fddot, t, x1, x2])
+        res_b1_atom_set = set( zip(*res_b1)[0] )
+
+        self.assertEqual(expct_b1_set, res_b1_atom_set)
+        self.assertEqual(res_b1[0][0], fddot)
+        self.assertEqual(res_b1[1][0], fdot)
+        self.assertTrue( all( [st.is_number(e[1]) for e in res_b1] ) )
+
+    def test_rnd_number_tuples2(self):
+        x1, x2, x3 = xx = sp.symbols('x1:4')
+
+        s = sum(xx)
+        res_a1 = st.rnd_number_subs_tuples(s, seed=1)
+        res_a2 = st.rnd_number_subs_tuples(s, seed=2)
+        self.assertNotEqual(res_a1, res_a2)
+
+        res_b1 = st.rnd_number_subs_tuples(s, seed=2)
+        self.assertEqual(res_b1, res_a2)
+
+    def test_rnd_number_tuples3(self):
+        a, b = sp.symbols('a, b', commutative=False)
+
+        term1 = a*b - b*a
+        st.warnings.simplefilter("always")
+        with st.warnings.catch_warnings(record=True) as cm:
+            st.rnd_number_subs_tuples(term1)
+
+        self.assertEqual(len(cm), 1)
+        self.assertTrue('not commutative' in str(cm[0].message))
+
+
+        with st.warnings.catch_warnings(record=True) as cm2:
+            st.subs_random_numbers(term1)
+
+        self.assertEqual(len(cm2), 1)
+        self.assertTrue('not commutative' in str(cm2[0].message))
+
+    def test_rnd_number_rank1(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        M1 = sp.Matrix([[x1, 0], [0, x2]])
+        M2 = sp.Matrix([[1, 0], [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1]])  # singular
+        M3 = sp.Matrix([[1, 0], [1, sin(x1)**50]])  # regular
+
+        M4 = sp.Matrix([[1, 0, 0], [1, sin(x1)**50, 1], [0, 0, 0]])  # rank 2
+
+        M5 = sp.Matrix([[-x2,   0, -x3],
+                        [ x1, -x3,   0],
+                        [  0,  x2,  x1]])
+
+        M6 = sp.Matrix([[1, 0, 0],
+                        [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1, 0],
+                        [0, sp.pi, sin(-3)**50]])  # rank 2
+
+        M7 = st.row_stack(M6, [sp.sqrt(5)**-20, 2, 0])  # nonsquare, rank 3
+
+        M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
+
+        if 1:
+            res1 = st.rnd_number_rank(M1)
+            self.assertEqual(res1, 2)
+
+            res2 = st.rnd_number_rank(M2)
+            self.assertEqual(res2, 1)
+
+            res3 = st.rnd_number_rank(M3, seed=1814)
+            self.assertEqual(res3, 2)
+
+            self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
+
+            self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
+            self.assertEqual(st.rnd_number_rank(M6, seed=1814), 2)
+            self.assertEqual(st.rnd_number_rank(M7, seed=1814), 3)
+            self.assertEqual(st.rnd_number_rank(M7.T, seed=1814), 3)
+
+            self.assertEqual(st.rnd_number_rank(M8, seed=1814), 3)
+
+        self.assertEqual(st.rnd_number_rank(M2, seed=1529), 1)
+
+
+    def test_generic_rank1(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        M1 = sp.Matrix([[x1, 0], [0, x2]])
+        M2 = sp.Matrix([[1, 0], [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1]])  # singular
+        M3 = sp.Matrix([[1, 0], [1, sin(x1)**50]])  # regular
+
+        M4 = sp.Matrix([[1, 0, 0], [1, sin(x1)**50, 1], [0, 0, 0]])  # rank 2
+
+        M5 = sp.Matrix([[-x2,   0, -x3],
+                        [ x1, -x3,   0],
+                        [  0,  x2,  x1]])
+
+        M6 = sp.Matrix([[1, 0, 0],
+                        [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1, 0],
+                        [0, sp.pi, sin(-3)**50]])  # rank 2
+
+        M7 = st.row_stack(M6, [sp.sqrt(5)**-20, 2, 0])  # nonsquare, rank 3
+
+        M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
+
+        if 0:
+            res1 = st.generic_rank(M1)
+            self.assertEqual(res1, 2)
+
+            res2 = st.generic_rank(M2)
+            self.assertEqual(res2, 1)
+
+            res3 = st.generic_rank(M3, seed=1814)
+            self.assertEqual(res3, 2)
+
+            self.assertEqual(st.generic_rank(M2, seed=1529), 1)
+            self.assertEqual(st.generic_rank(M4, seed=1814), 2)
+
+            self.assertEqual(st.generic_rank(M5, seed=1814), 2)
+            self.assertEqual(st.generic_rank(M6, seed=1814), 2)
+            self.assertEqual(st.generic_rank(M7, seed=1814), 3)
+            self.assertEqual(st.generic_rank(M7.T, seed=1814), 3)
+
+        if 1:
+            #self.assertEqual(st.generic_rank(M8, seed=1814), 3)
+            self.assertEqual(st.rnd_number_rank(M8, seed=1814), 3)
+
+
+    @skip_slow
+    def test_rnd_number_rank2(self):
+        import pickle
+        with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
+            matrix_list = pickle.load(pfile)
+
+        for i, m in enumerate(matrix_list):
+            print i
+            r1 = m.srnp.rank()
+            r2 = st.rnd_number_rank(m)
+
+            self.assertEqual(r1, r2)
 
 
 class TestTrajectoryPlanning(unittest.TestCase):
