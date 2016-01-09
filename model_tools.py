@@ -306,10 +306,14 @@ class SymbolicModel(object):
 
         self.fz[2*nq:2*nq+np, :] = uu_expr
         self.fz[2*nq+np:, :] = ww_dot
+        
+        # how the new coordinates are defined:
+        self.ww_def = uu + M11inv*M12*vv
 
         if simplify:
             self.fz.simplify()
             self.gz.simplify()
+            self.ww_def.simplify()
 
     @property  # legacy (compatibility with older convention)
     def eq_list(self):
@@ -325,7 +329,7 @@ Hinweis: 2014-10-15: Verhalten wurde geändert.
 def generate_model(T, U, qq, F, **kwargs):
     raise DeprecationWarning('generate_symbolic_model should be used')
     """
-    T kinetic co-energy
+    T kinetic energy
     U potential energy
     q independend deflection variables
     F external forces

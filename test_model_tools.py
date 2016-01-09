@@ -189,11 +189,15 @@ class ModelToolsTest(unittest.TestCase):
                            [ (-qdot1*(1 + kappa*cos(p1) ) ) + w1],
                            [                                 fz4]])
 
+        w_def_ref = pdot1 + qdot1*(1+kappa*cos(p1))
         self.assertEqual(mod.gz, sp.Matrix([0, 1, 0, 0]))
 
         fz_diff = mod.fz - fzref
         fz_diff.simplify()
         self.assertEqual(fz_diff, sp.Matrix([0, 0, 0, 0]))
+
+        diff = mod.ww_def[0,0] - w_def_ref
+        self.assertEqual(diff.simplify(), 0)
 
     def test_unicycle(self):
         # test the generation of Lagrange-Byrnes-Isidori-Normal form
