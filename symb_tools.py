@@ -733,7 +733,7 @@ def lie_deriv_covf(w, f, args, **kwargs):
 def involutivity_test(dist, xx, **kwargs):
     """
     Test whether a distribution is closed w.r.t the lie_bracket.
-    This is done via substituting random numbers and checking the rank
+    This is done by checking whether the generic rank changes
 
     :param dist:    Matrix whose columns span the distribution
     :param xx:      coordinates
@@ -746,7 +746,7 @@ def involutivity_test(dist, xx, **kwargs):
     assert len(xx) == nr
     combs = it.combinations(range(nc), 2)
 
-    rank0 = rnd_number_rank(dist)
+    rank0 = generic_rank(dist)
 
     res = True
     fail = []
@@ -761,7 +761,7 @@ def involutivity_test(dist, xx, **kwargs):
 
         tmp = col_stack(dist, lb)
 
-        if rnd_number_rank(tmp) != rank0:
+        if generic_rank(tmp) != rank0:
             res = False
             fail = c
             break
