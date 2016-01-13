@@ -1339,6 +1339,24 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEquals(expr1.subs(t, 1e50), -13)
 
 
+class TestControlMethods1(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_kalman_matrix(self):
+
+        k, J, R, L = sp.symbols('k, J, R, L')
+        A = sp.Matrix([[0, 1, 0], [0, 0, k/J], [0, -k/L, -R/L]])
+        B = sp.Matrix([0, 0, 1/L])
+
+        Qref = sp.Matrix([[0, 0, k/L/J], [0, k/L/J, -k*R/J/L**2 ],
+                          [1/L, -R/L**2, -k**2/J/L**2 + R**2/L**3 ]])
+        Q = st.kalman_matrix(A, B)
+
+        self.assertEqual(Q, Qref)
+
+
 def main():
     unittest.main()
 

@@ -1155,9 +1155,9 @@ def jac(expr, *args):
     return sp.Matrix(expr).jacobian(args)
 
 
-def cont_mat(A,B):
+def kalman_matrix(A, B):
     """
-    Kallmanns controlability matrix
+    Kalmans controlability matrix
     """
     A = sp.Matrix(A)
     B = sp.Matrix(B)
@@ -1169,11 +1169,15 @@ def cont_mat(A,B):
     n = A.shape[0]
 
     Q = sp.Matrix(B)
-    for i in range(n-1):
+    for i in range(1, n):
         Q = Q.row_join(A**i * B)
         Q = Q.applyfunc(sp.expand)
 
     return Q
+
+# for backward compatibility:
+cont_mat = kalman_matrix
+
 
 def get_rows(A):
     """
