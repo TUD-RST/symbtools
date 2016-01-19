@@ -435,6 +435,7 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
         assert isinstance(theta_i, sp.Symbol)
 
     F = sp.Matrix(F)
+    # TODO: raise informative ValueError instead of assert
     assert F.shape == (n, 1)
 
     # introducing symbols for the derivatives

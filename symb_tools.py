@@ -949,6 +949,7 @@ def is_symbol(expr):
     """
     return hasattr(expr, 'is_Symbol') and expr.is_Symbol
 
+
 # TODO: rename is_real_number
 def is_number(expr):
     """
@@ -1028,6 +1029,7 @@ def symbs_to_func(expr, symbs=None, arg=None):
 
     return expr.subs(zip(symbs, funcs))
 
+
 # TODO: Unittest
 def funcs_to_symbs(expr, funcs=None, symbs=None, arg=None, kwargs = None):
     """
@@ -1056,6 +1058,7 @@ def getOccupation(M):
     n, m = M.shape
     tmp = sp.Matrix(n, m, lambda i,j: 1 if not M[i,j]==0 else 0)
     return tmp
+
 
 def symmetryDict(M):
     """
@@ -1121,8 +1124,8 @@ def make_global(varList, up_count=0):
         # doc
         del frame
 
-
 makeGlobal = make_global
+
 
 def prev(expr, **kwargs):
     """
@@ -1139,6 +1142,7 @@ def mdiff(M, var):
     """
     return M.applyfunc(lambda elt: sp.diff(elt, var))
 
+
 # TODO: seems to conflict with zip0
 def tup0(xx):
     """
@@ -1148,6 +1152,7 @@ def tup0(xx):
     """
 
     return zip(xx, [0]*len(xx))
+
 
 def jac(expr, *args):
     if not hasattr(expr, '__len__'):

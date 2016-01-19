@@ -336,7 +336,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
 
     for i in xrange(max_deg+1):
         prefix = 'c{0}_'.format(i)
-        c_part = st.symbMatrix(n, n, prefix, commuative=False)
+        c_part = st.symbMatrix(n, n, prefix, commutative=False)
         C += c_part*s**i
         free_params.extend(list(c_part))
 
