@@ -297,6 +297,17 @@ class NCTTest(unittest.TestCase):
 
         Qc, stl = nct.make_all_symbols_commutative(Q, '')
 
+    def test_make_all_symbols_noncommutative(self):
+
+        a, b, c = sp.symbols("a, b, c", commutative=True)
+        x, y = sp.symbols("x, y", commutative=False)
+
+        exp1 = a*b*x + b*c*y
+        
+        exp1_nc, subs_tuples = nct.make_all_symbols_noncommutative(exp1)
+
+        self.assertTrue( all([ not r.is_commutative for r in exp1_nc.atoms()]) )
+
     def test_nc_coeffs(self):
 
         a, b, c, s = sp.symbols("a, b, c, s", commutative=False)

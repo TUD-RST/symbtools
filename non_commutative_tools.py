@@ -186,6 +186,25 @@ def make_all_symbols_commutative(expr, appendix='_c'):
     tup_list = zip(new_symbols, nc_symbols)
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
 
+def make_all_symbols_noncommutative(expr, appendix='_n'):
+    """
+    :param expr:
+    :return: expr (with all symbols noncommutative) and
+              a subs_tuple_list [(s1_n, s1_c), ... ]
+    """
+
+    if isinstance(expr, (list, tuple, set)):
+        expr = sp.Matrix(list(expr))
+
+    symbs = st.atoms(expr, sp.Symbol)
+    c_symbols = [s for s in symbs if s.is_commutative]
+
+    new_symbols = [sp.Symbol(s.name+appendix, commutative=False)
+                   for s in c_symbols]
+
+    tup_list = zip(new_symbols, c_symbols)
+    return expr.subs(zip(c_symbols, new_symbols)), tup_list
+
 
 def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     """Returns a list of the coeffs w.r.t. var (expecting a monovariate polynomial)
