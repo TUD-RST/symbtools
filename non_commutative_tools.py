@@ -81,12 +81,18 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
     linear_term = list(mul.atoms().intersection([s]))
     powers = [p for p in mul.atoms(sp.Pow) if p.args[0] == s ]
     s_terms = linear_term + powers
+
+    # ensure that there are no furhter s-terms:
+    atoms = list( mul.atoms(sp.Function, sp.Derivative) )
+    if any([atom.has(s) for atom in atoms]):
+        msg = "Unsupported or unexpected occurence of differential operator within function: %s"
+        msg = msg % mul
+        raise ValueError(msg)
     assert len(s_terms) > 0
 
     args = mul.args
 
     depends_on_time = partial(st.depends_on_t, t=t, dependent_symbols=func_symbols)
-
 
     idx = min([args.index(sterm) for sterm in s_terms if sterm in args])
 
@@ -173,7 +179,14 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
 
     res = 0
     for a in args:
-        assert isinstance(a, (sp.Mul, sp.Atom, sp.Pow))
+        if not isinstance(a, (sp.Mul, sp.Atom, sp.Pow, sp.Function)):
+            msg = "unexpected arg: %s" %a
+            raise ValueError(msg)
+        if isinstance(a, sp.Function):
+            if a.has(s):
+                msg = "unexpected or unsupported occurence of differential operator"
+                "inside function: %s" %a
+                raise ValueError
         res += right_shift(a, s, t, func_symbols)
 
     return res

@@ -118,6 +118,9 @@ class NCTTest(unittest.TestCase):
         res = nct.right_shift(a, s, t)
         self.assertEqual(res, a)
 
+        self.assertRaises( ValueError, nct.right_shift, sp.sin(s), s, t)
+        self.assertRaises( ValueError, nct.right_shift, s*sp.sin(s), s, t)
+
     def test_right_shift2(self):
         a, b = sp.symbols("a, b", commutative=False)
         f1 = sp.Function('f1')(t)
@@ -135,7 +138,6 @@ class NCTTest(unittest.TestCase):
 
         res4 = nct.right_shift(s**4*a*b, s, t)
         self.assertEquals(res4, a*b*s**4)
-
 
         res5 = nct.right_shift(s**2*a*s*b*s, s, t)
         ex5 = a*b*s**4
@@ -168,7 +170,6 @@ class NCTTest(unittest.TestCase):
 
         self.assertEquals(res2, ex2)
 
-    # Hier gehts weiter
     def test_right_shift4(self):
 
         y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
@@ -246,7 +247,12 @@ class NCTTest(unittest.TestCase):
         res = nct.right_shift_all(s*1/a, s, func_symbols=ab)
         self.assertEqual(res, 1/a*s -1/a**2*adot)
 
+        res = nct.right_shift_all(s + sp.sin(a), s, func_symbols=ab)
+        self.assertEqual(res, s + sp.sin(a))
+
         self.assertRaises( ValueError, nct.right_shift_all, s**(sp.S(1)/2), s, t)
+
+        self.assertRaises( ValueError, nct.right_shift_all, sp.sin(s), s, t)
 
     def test_right_shift_all_naive(self):
         a, b = sp.symbols("a, b", commutative=False)
