@@ -87,6 +87,18 @@ def subz0(self, arg):
 new_methods.append(('subz0', subz0))
 
 @property
+def smplf(self):
+    """
+    convenience property for interactive usage:
+    return sp.simplify(self)
+
+    saves typing effort and handles scalars and matrices uniformly.
+    (self.simplify() works in place for matrices, thus printing needs additional line)
+    """
+    return sp.simplify(self)
+new_methods.append(('smplf', smplf))
+
+@property
 def srn01(self):
     """
     Convenience property for interactive usage:

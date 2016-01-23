@@ -120,6 +120,16 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(M1.subs(zip(xx, yy)), M1.subz(xx, yy))
         self.assertEqual(M2.subs(zip(xx, yy)), M2.subz(xx, yy))
 
+    def test_smplf(self):
+        x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
+        y1, y2, y3 = yy = sp.symbols("y1, y2, y3")
+
+        a = x1**2*(x2/x1 + 7) - x1*x2
+        M1 = sp.Matrix([sin(x1)**2 + cos(x1)**2, a, x3])
+
+        self.assertEqual(M1.smplf, sp.simplify(M1))
+        self.assertEqual(a.smplf, sp.simplify(a))
+
     def test_subz0(self):
         x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
         y1, y2, y3 = yy = sp.symbols("y1, y2, y3")
