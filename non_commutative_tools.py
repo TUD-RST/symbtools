@@ -144,6 +144,11 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
             return right_shift_all(a, s, t, func_symbols)
         return expr.applyfunc(fnc)
 
+    if s is None:
+        s = gC.s
+    if not expr.has(s):
+        return expr
+
     assert isinstance(expr, sp.Basic)
 
     if isinstance(expr, sp.Add):
@@ -151,13 +156,20 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
     elif isinstance(expr, (sp.Mul, sp.Atom)):
         args = (expr,)
     elif isinstance(expr, sp.Pow):
+        # either s**a or some fraction
         base, expo = expr.args
-        assert int(expo) == expo
-        assert expo < 0
-        args = (expr,)
+        if not int(expo) == expo:
+            msg = "unexpected exponent in expr %s" % (expr)
+            raise ValueError(msg)
+        if base == s or expo < 0:
+            args = (expr,)
+        else:
+            msg = "unexpected expr (%s) of type: %s" % (expr, type(expr))
+            ValueError(msg)
 
     else:
-        raise ValueError, "unexpected type: %s" % type(expr)
+        msg = "unexpected type: %s" % type(expr)
+        raise ValueError(msg)
 
     res = 0
     for a in args:
