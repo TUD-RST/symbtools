@@ -176,11 +176,12 @@ def copy_custom_attributes(old_symbs, new_symbs):
             new_symb = map_old_to_new[key[0]]
             new_key = (new_symb, key[1])
 
-            if global_data.attribute_store.get(new_key) is not None:
-                msg = "Name conflict: the attribute %s was already stored"
-                raise ValueError(msg)
-            else:
+            old_value = global_data.attribute_store.get(new_key)
+            if  old_value is None or old_value == value :
                 global_data.attribute_store[new_key] = value
+            else:
+                msg = "Name conflict: the attribute %s was already stored" % str(new_key)
+                raise ValueError(msg)
 
 
 # All symbols should have the attribute difforder=0 by default

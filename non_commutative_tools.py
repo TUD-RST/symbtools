@@ -58,14 +58,18 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
     if t is None:
         t = gC.t
 
+
     assert isinstance(s, sp.Symbol)
+    if func_symbols is not None:
+        assert not s in func_symbols
 
     # nothing to do
     if not mul.has(s):
         return mul
 
     if not mul.expand().count_ops() == mul.count_ops():
-        raise ValueError, 'mul expression must be expanded:'+ str(mul)
+        msg = 'mul expression must be expanded:' + str(mul)
+        raise ValueError(msg)
 
     if not isinstance(mul, sp.Mul):
         if mul == s:
@@ -73,7 +77,8 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
         elif isinstance(mul, sp.Pow) and mul.args[0] == s:
             return mul
         else:
-            raise ValueError, 'Expected Mul, Symbol or Pow (like s**2), not ' +  str(mul)
+            msg = 'Expected Mul, Symbol or Pow (like s**2), not ' + str(mul)
+            raise ValueError(msg)
     assert isinstance(mul, sp.Mul)
     assert not s.is_commutative
 
