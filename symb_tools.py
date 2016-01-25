@@ -17,6 +17,7 @@ import random
 
 import itertools as it
 import collections as col
+import pickle
 
 try:
     # usefull for debugging but not mandatory
@@ -39,13 +40,29 @@ t = sp.var('t')
 zf = sp.numbers.Zero()
 
 
-# These definitions allow useful shorthands in interactive mode:
+class Container(object):
+    """General purpose container class to conveniently store data attributes
+    """
+
+    def __init__(self, **kwargs):
+        assert len( set(dir(self)).intersection(kwargs.keys()) ) == 0
+        self.__dict__.update(kwargs)
+
+# data structure to store some data on module level without using `global` keyword
+if not hasattr(sp, 'global_data'):
+    # host this object in sp module to prevent dataloss when reloading the module
+    # not very clean but facilitates interactive development
+    sp.global_data = Container()
+
+global_data = sp.global_data
+
+
+# The following definitions allow useful shorthands in interactive mode:
 # (IPython, or IPython-Notebook):
 # <object>.s  as alias for <object>.atoms(sp.Symbol)
 # (determine from which symbols does an expression depend)
 # <object>.co as alias for count_ops(object) (with matrix support)
 # (determine how "big" an expression is without converting it to string (slow))
-
 
 new_methods = []
 
@@ -131,24 +148,88 @@ for tc in target_classes:
     for name, meth in new_methods:
         setattr(tc, name, meth)
 
+
 # create a place where userdefined attributes are stored (needed for difforder)
+def init_attribute_store(reinit=False):
+    if not hasattr(global_data, 'attribute_store') or reinit:
+        global_data.attribute_store = {}
 
-if not hasattr(sp, '_attribute_store'):
-    sp._attribute_store = {}
-
+init_attribute_store()
 
 # All symbols should have the attribute difforder=0 by default
 @property
 def difforder(self):
-    return sp._attribute_store.get((self, 'difforder'), 0)
+    return global_data.attribute_store.get((self, 'difforder'), 0)
+
 
 @difforder.setter
 def difforder(self, value):
-    #IPS()
+
     assert int(value) == value
-    sp._attribute_store[(self, 'difforder')] = value
+
+    old_value = global_data.attribute_store.get((self, 'difforder'))
+
+    if old_value is not None and not value == old_value:
+        msg = "difforder was already set to %s for symbol %s" %(old_value, self)
+        raise ValueError(msg)
+
+    global_data.attribute_store[(self, 'difforder')] = value
 
 sp.Symbol.difforder = difforder
+
+
+# handling of _attribute_store makes custom pickle interface necessary
+
+def pickle_full_dump(sp_obj, path):
+    """write sympy object (expr, matrix, ...) to file via pickle serialization
+    additionally also dump the corresponding entries of _attribute_store.
+    """
+    pdata = Container()
+    pdata.relevant_symbols = list()
+
+    # helper function:
+    def get_symbols(my_obj):
+        if hasattr(my_obj, 'atoms'):
+            pdata.relevant_symbols += list(my_obj.atoms(sp.Symbol))
+
+    get_symbols(sp_obj)
+
+    if hasattr(sp_obj, 'data'):
+        for obj in sp_obj.data.__dict__.values():
+            get_symbols(obj)
+
+    pdata.relevant_symbols = set(pdata.relevant_symbols)
+    relevant_items = [item for item in global_data.attribute_store.items()
+                                    if item[0][0] in pdata.relevant_symbols]
+
+    pdata.sp_obj = sp_obj
+    pdata.attribute_store = dict(relevant_items)
+
+    with open(path, 'w') as pfile:
+        pickle.dump(pdata, pfile)
+
+
+def pickle_full_load(path):
+    """load sympy object (expr, matrix, ...) from file via pickle serialization
+    additionally also load the corresponding entries of _attribute_store.
+    """
+
+    with open(path, 'r') as pfile:
+        pdata = pickle.load(pfile)
+
+    new_items = pdata.attribute_store.items()
+
+    for key, value in new_items:
+        old_value = global_data.attribute_store.get(key)
+        if old_value is None or value == old_value:
+            continue
+        msg = "Name conflict while loading attributes from serialization.\n"
+        msg += "Attribute %s: \n old value: %s \n new value: %s" % (key, old_value, value)
+        raise ValueError(msg)
+
+    global_data.attribute_store.update(new_items)
+
+    return pdata.sp_obj
 
 class equation(object):
 
@@ -169,13 +250,6 @@ class equation(object):
         lhs_  = self.lhs_.subs(*args, **kwargs)
         rhs_  = self.rhs_.subs(*args, **kwargs)
         return type(self)(lhs_, rhs_)
-
-
-class Container(object):
-
-    def __init__(self, **kwargs):
-        assert len( set(dir(self)).intersection(kwargs.keys()) ) == 0
-        self.__dict__.update(kwargs)
 
 
 def make_eqns(v1, v2 = None):

@@ -995,7 +995,7 @@ class SymbToolsTest2(unittest.TestCase):
 class SymbToolsTest3(unittest.TestCase):
 
     def setUp(self):
-        pass
+        st.init_attribute_store(reinit=True)
 
     def test_get_symbols_by_name(self):
         c1, C1, x, a, t, Y = sp.symbols('c1, C1, x, a, t, Y')
@@ -1043,6 +1043,11 @@ class SymbToolsTest3(unittest.TestCase):
         yddot = st.perform_time_derivative(ydot, [y, ydot])
         self.assertEqual(yddot.difforder, 2)
 
+        z = sp.Symbol('z')
+        zdot_false = sp.Symbol('zdot')
+        st.global_data.attribute_store[(zdot_false, 'difforder')] = -7
+        self.assertRaises(ValueError, st.perform_time_derivative, z, [z])
+
     def test_introduce_abreviations(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
         a1, a2, a3 = aa = st.symb_vector('a1:4')
@@ -1065,6 +1070,40 @@ class SymbToolsTest3(unittest.TestCase):
         tds = res3[2]
         original_expressions = tds.subs(res3[1])
         self.assertEqual(original_expressions, sp.Matrix([x1**2, a3*x2]))
+
+    def test_pickle_full_dump_and_load(self):
+
+        xx = st.symb_vector("x1, x2, x3")
+        xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
+
+        yy = st.symb_vector("y1, y2, y3")
+        yyd = st.perform_time_derivative(yy, yy)
+        yydd = st.perform_time_derivative(yy, yy, order=2)
+
+        xxd.data = st.Container()
+
+        xxd.data.z1 = yy
+        xxd.data.z2 = sin(yyd[2])
+        xxd.data.z3 = yydd
+
+        pfname = "tmp_dump_test.pcl"
+        st.pickle_full_dump(xxd, pfname)
+
+        self.assertEqual(xdot1.difforder, 1)
+        self.assertEqual(yydd[1].difforder, 2)
+
+        # forget all difforder attributes
+        st.init_attribute_store(reinit=True)
+
+        self.assertEqual(xdot1.difforder, 0)
+        self.assertEqual(yydd[1].difforder, 0)
+        del xdot1, xdot2, xdot3, xxd, yydd
+
+        xdot1, xdot2, xdot3 = xxd = st.pickle_full_load(pfname)
+        yydd_new = xxd.data.z3
+
+        self.assertEqual(xdot1.difforder, 1)
+        self.assertEqual(yydd_new[1].difforder, 2)
 
     def test_make_global(self):
 
