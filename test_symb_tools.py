@@ -1043,20 +1043,6 @@ class SymbToolsTest3(unittest.TestCase):
         yddot = st.perform_time_derivative(ydot, [y, ydot])
         self.assertEqual(yddot.difforder, 2)
 
-    def test_user_attributes(self):
-        x1 = sp.Symbol('x1')
-        x1b = sp.Symbol('x1')
-        # These symbols are equal and should share any new attribute
-
-        self.assertTrue(x1 is x1b)
-
-        def tmp():
-            return x1.abc_xyz
-        self.assertRaises(AttributeError, tmp)
-
-        x1.abc_xyz = 85
-        self.assertEqual(tmp(), x1b.abc_xyz)
-
     def test_introduce_abreviations(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
         a1, a2, a3 = aa = st.symb_vector('a1:4')

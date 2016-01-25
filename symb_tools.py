@@ -131,49 +131,22 @@ for tc in target_classes:
     for name, meth in new_methods:
         setattr(tc, name, meth)
 
-
-# Because sympy does not allow to dynamically attach attributes to symbols,
-# we set up our own infrastructure for storing them
-
-def new_setattr(self, name, value):
-    try:
-        self.__orig_setattr__(name, value)
-    except AttributeError:
-        sp._attribute_store[(self, name)] = value
-
-
-def new_getattr(self, name):
-    try:
-        res = self.__getattribute__(name)
-    except AttributeError, AE:
-        try:
-            res = sp._attribute_store[(self, name)]
-        except KeyError:
-            # raise the original AttributeError
-            raise AE
-    return res
-
-
-# prevent Problems when reloading the module
-if not hasattr(sp.Symbol, '__orig_setattr__'):
-    sp.Symbol.__orig_setattr__ = sp.Symbol.__setattr__
-    sp.Symbol.__setattr__ = new_setattr
+# create a place where userdefined attributes are stored (needed for difforder)
 
 if not hasattr(sp, '_attribute_store'):
     sp._attribute_store = {}
 
-sp.Symbol.__getattr__ = new_getattr
-
-
-# This new setattr infrastructure is mainly used for perform_time_derivative
-# (to store the difforder)
-# However: a cleaner way of implementation would be to use completely rely on
-# the following property
 
 # All symbols should have the attribute difforder=0 by default
 @property
 def difforder(self):
     return sp._attribute_store.get((self, 'difforder'), 0)
+
+@difforder.setter
+def difforder(self, value):
+    #IPS()
+    assert int(value) == value
+    sp._attribute_store[(self, 'difforder')] = value
 
 sp.Symbol.difforder = difforder
 
