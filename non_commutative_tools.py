@@ -208,8 +208,11 @@ def make_all_symbols_commutative(expr, appendix='_c'):
     new_symbols = [sp.Symbol(s.name+appendix, commutative=True)
                    for s in nc_symbols]
 
+    # preserve difforder attributes
+    st.copy_custom_attributes(nc_symbols, new_symbols)
     tup_list = zip(new_symbols, nc_symbols)
     return expr.subs(zip(nc_symbols, new_symbols)), tup_list
+
 
 def make_all_symbols_noncommutative(expr, appendix='_n'):
     """
@@ -227,6 +230,8 @@ def make_all_symbols_noncommutative(expr, appendix='_n'):
     new_symbols = [sp.Symbol(s.name+appendix, commutative=False)
                    for s in c_symbols]
 
+    # preserve difforder attributes
+    st.copy_custom_attributes(c_symbols, new_symbols)
     tup_list = zip(new_symbols, c_symbols)
     return expr.subs(zip(c_symbols, new_symbols)), tup_list
 

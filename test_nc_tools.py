@@ -35,7 +35,7 @@ def skip_slow(func):
 class NCTTest(unittest.TestCase):
 
     def setUp(self):
-        pass
+        st.init_attribute_store(reinit=True)
 
     def test_apply_deriv1(self):
         a, b = sp.symbols("a, b")
@@ -329,16 +329,31 @@ class NCTTest(unittest.TestCase):
 
         Qc, stl = nct.make_all_symbols_commutative(Q, '')
 
+    def test_make_all_symbols_commutative3(self):
+        x1, x2, x3 = xx = st.symb_vector('x1, x2, x3', commutative=False)
+
+        xxd = st.perform_time_derivative(xx, xx)
+
+        xxd_c = nct.make_all_symbols_commutative(xxd)[0]
+
+        self.assertEqual(xxd_c[0].difforder, 1)
+
     def test_make_all_symbols_noncommutative(self):
 
-        a, b, c = sp.symbols("a, b, c", commutative=True)
-        x, y = sp.symbols("x, y", commutative=False)
+        a, b, c = abc = sp.symbols("a, b, c", commutative=True)
+        x, y = xy = sp.symbols("x, y", commutative=False)
+
+        adddot = st.perform_time_derivative(a, abc, order=3)
 
         exp1 = a*b*x + b*c*y
         
         exp1_nc, subs_tuples = nct.make_all_symbols_noncommutative(exp1)
 
         self.assertTrue( all([ not r.is_commutative for r in exp1_nc.atoms()]) )
+
+        adddot_nc = nct.make_all_symbols_noncommutative(adddot)[0]
+
+        self.assertEqual(adddot.difforder, adddot_nc.difforder)
 
     def test_nc_coeffs(self):
 

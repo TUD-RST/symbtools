@@ -156,6 +156,33 @@ def init_attribute_store(reinit=False):
 
 init_attribute_store()
 
+
+def copy_custom_attributes(old_symbs, new_symbs):
+
+    old_symbs = list(old_symbs)
+    new_symbs = list(new_symbs)
+    assert len(old_symbs) == len(new_symbs)
+
+    map_old_to_new = dict(zip(old_symbs, new_symbs))
+
+    new_items = []
+
+    # attribute_store is a dict like {(xddot, 'difforder'): 2}
+    # i.e. keys are 2-tuples like (variable, attr_name)
+    for key, value in global_data.attribute_store.items():
+
+        if key[0] in old_symbs:
+            # there is an relevant attribute
+            new_symb = map_old_to_new[key[0]]
+            new_key = (new_symb, key[1])
+
+            if global_data.attribute_store.get(new_key) is not None:
+                msg = "Name conflict: the attribute %s was already stored"
+                raise ValueError(msg)
+            else:
+                global_data.attribute_store[new_key] = value
+
+
 # All symbols should have the attribute difforder=0 by default
 @property
 def difforder(self):
