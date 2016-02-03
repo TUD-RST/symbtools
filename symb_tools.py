@@ -95,12 +95,16 @@ def subz(self, args1, args2):
 new_methods.append(('subz', subz))
 
 
-def subz0(self, arg):
+def subz0(self, *args):
     '''
     convenience property for interactive usage:
-    returns self.subs(zip0(arg))
+    returns self.subs(zip0(arg[0]) + zip0(args[1]) + ...)
     '''
-    return self.subs(zip0(arg))
+    
+    # nested list comprehension http://stackoverflow.com/a/952952/333403
+    # flatten the args
+    all_args = [symb for sequence in args for symb in sequence]
+    return self.subs(zip0(all_args))
 new_methods.append(('subz0', subz0))
 
 @property

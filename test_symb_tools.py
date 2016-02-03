@@ -131,8 +131,8 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(a.smplf, sp.simplify(a))
 
     def test_subz0(self):
-        x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
-        y1, y2, y3 = yy = sp.symbols("y1, y2, y3")
+        x1, x2, x3 = xx = st.symb_vector("x1, x2, x3")
+        y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
 
         XX = (x1, x2)
 
@@ -144,7 +144,10 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(a.subs(st.zip0(XX)), a.subz0(XX))
         self.assertEqual(M1.subs(st.zip0(XX)), M1.subz0(XX))
         self.assertEqual(M2.subs(st.zip0(XX)), M2.subz0(XX))
-
+        
+        konst = sp.Matrix([1,2,3])
+        zz = konst + xx + 5*yy 
+        self.assertEqual(zz.subz0(xx, yy), konst)
 
 class LieToolsTest(unittest.TestCase):
 
