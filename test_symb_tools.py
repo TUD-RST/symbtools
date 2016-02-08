@@ -1015,9 +1015,10 @@ class SymbToolsTest3(unittest.TestCase):
         res3 = st.get_symbols_by_name(expr1, *'c1 x a'.split())
         self.assertEquals(res3, [c1, x, a])
 
-
-        self.assertRaises(ValueError, st.get_symbols_by_name, expr1, 'Y')
-        self.assertRaises(ValueError, st.get_symbols_by_name, expr1, 'c1', 'Y')
+        with self.assertRaises(ValueError) as cm:
+            st.get_symbols_by_name(expr1, 'Y')
+        with self.assertRaises(ValueError) as cm:
+            st.get_symbols_by_name(expr1, 'c1', 'Y')
 
         res4 = st.get_symbols_by_name(expr2, 'Y')
         self.assertEquals(res4, Y)
@@ -1049,7 +1050,9 @@ class SymbToolsTest3(unittest.TestCase):
         z = sp.Symbol('z')
         zdot_false = sp.Symbol('zdot')
         st.global_data.attribute_store[(zdot_false, 'difforder')] = -7
-        self.assertRaises(ValueError, st.perform_time_derivative, z, [z])
+        
+        with self.assertRaises(ValueError) as cm:
+            st.perform_time_derivative( z, [z])
 
     def test_introduce_abreviations(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
@@ -1170,7 +1173,8 @@ class SymbToolsTest3(unittest.TestCase):
         st.make_global(yy.atoms(sp.Symbol), 1)
         self.assertEqual(y1 + y2, yy[0] + yy[1])
 
-        self.assertRaises(TypeError, st.make_global, args=(dict(), 1))
+        with self.assertRaises(TypeError) as cm:
+            st.make_global(dict(), 1)
 
 
 class TestNumTools(unittest.TestCase):
