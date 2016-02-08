@@ -212,29 +212,65 @@ sp.Symbol.difforder = difforder
 
 # handling of _attribute_store makes custom pickle interface necessary
 
-def pickle_full_dump(sp_obj, path):
-    """write sympy object (expr, matrix, ...) to file via pickle serialization
-    additionally also dump the corresponding entries of _attribute_store.
+def pickle_full_dump(obj, path):
+    """write sympy object (expr, matrix, ...) or Container object to file
+    via pickle serialization and additionally also dump the corresponding
+    entries of _attribute_store (such as difforder).
     """
-    pdata = Container()
+    
+    if isinstance(obj, Container):
+        pdata = obj
+        
+        # prevent accidental name clashes
+        assert not hasattr(pdata,'relevant_symbols')
+        assert not hasattr(pdata,'attribute_store')
+        assert not hasattr(pdata,'atoms')
+        assert not hasattr(pdata,'data')
+        
+        pdata.container_flag = True
+        additional_data = pdata
+        
+    elif isinstance(obj, sp.MatrixBase):
+        
+        pdata = Container()
+        
+        pdata.container_flag = False
+        # safe obj so that it will be pickled
+        pdata.obj = obj
+        
+        if hasattr(obj, 'data'):
+            assert isinstance(obj.data, Container)
+            additional_data = obj.data
+        else:
+            additional_data = Container()
+    else:
+        raise TypeError('Unexpected data type: %s' % type(obj))
+
     pdata.relevant_symbols = list()
 
     # helper function:
     def get_symbols(my_obj):
         if hasattr(my_obj, 'atoms'):
             pdata.relevant_symbols += list(my_obj.atoms(sp.Symbol))
+    
+    # apply that function to obj itself
+    get_symbols(obj)
 
-    get_symbols(sp_obj)
+    # no apply it to all items in additional_data
+    
+    for new_obj in additional_data.__dict__.values():
+        get_symbols(new_obj)
 
-    if hasattr(sp_obj, 'data'):
-        for obj in sp_obj.data.__dict__.values():
-            get_symbols(obj)
-
+    # make each symbol occur only once
     pdata.relevant_symbols = set(pdata.relevant_symbols)
+    
+    # now look in global_data.attribute_store (see above) if there are
+    # some attributes stored concerning the relevant_symbols
+    # global_data.attribute_store looks like {(xdot, 'difforder'): 1, ...}
     relevant_items = [item for item in global_data.attribute_store.items()
                                     if item[0][0] in pdata.relevant_symbols]
 
-    pdata.sp_obj = sp_obj
+    
     pdata.attribute_store = dict(relevant_items)
 
     with open(path, 'w') as pfile:
@@ -242,8 +278,9 @@ def pickle_full_dump(sp_obj, path):
 
 
 def pickle_full_load(path):
-    """load sympy object (expr, matrix, ...) from file via pickle serialization
-    additionally also load the corresponding entries of _attribute_store.
+    """load sympy object (expr, matrix, ...) or Container object from file
+    via pickle serialization and additionally also load the corresponding
+    entries of _attribute_store (such as difforder).
     """
 
     with open(path, 'r') as pfile:
@@ -260,8 +297,11 @@ def pickle_full_load(path):
         raise ValueError(msg)
 
     global_data.attribute_store.update(new_items)
-
-    return pdata.sp_obj
+    
+    if pdata.container_flag:
+        return pdata
+    else:
+        return pdata.obj
 
 class equation(object):
 

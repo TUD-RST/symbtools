@@ -1107,6 +1107,56 @@ class SymbToolsTest3(unittest.TestCase):
 
         self.assertEqual(xdot1.difforder, 1)
         self.assertEqual(yydd_new[1].difforder, 2)
+        
+    def test_pickle_full_dump_and_load2(self):
+        """
+        Test with non-sympy object
+        """
+
+        xx = st.symb_vector("x1, x2, x3")
+        xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
+
+        yy = st.symb_vector("y1, y2, y3")
+        yyd = st.perform_time_derivative(yy, yy)
+        yydd = st.perform_time_derivative(yy, yy, order=2)
+
+        
+        pdata = st.Container()
+
+        pdata.z1 = yy
+        pdata.z2 = sin(yyd[2])
+        pdata.z3 = yydd
+        pdata.abc = xxd
+        
+        
+
+        pfname = "tmp_dump_test.pcl"
+        st.pickle_full_dump(pdata, pfname)
+
+        self.assertEqual(xdot1.difforder, 1)
+        self.assertEqual(yydd[1].difforder, 2)
+
+        # forget all difforder attributes
+        st.init_attribute_store(reinit=True)
+
+        self.assertEqual(xdot1.difforder, 0)
+        self.assertEqual(yydd[1].difforder, 0)
+        del xdot1, xdot2, xdot3, xxd, yydd, pdata
+
+        
+        pdata = st.pickle_full_load(pfname)
+        xdot1, xdot2, xdot3 = xxd = pdata.abc
+        yydd_new = pdata.z3
+
+        self.assertEqual(xdot1.difforder, 1)
+        self.assertEqual(yydd_new[1].difforder, 2)
+        
+        with self.assertRaises(TypeError) as cm:
+            st.pickle_full_dump([], pfname)
+        with self.assertRaises(TypeError) as cm:
+            st.pickle_full_dump(xdot1, pfname)
+        with self.assertRaises(TypeError) as cm:
+            st.pickle_full_dump(st.Container, pfname)
 
     def test_make_global(self):
 
