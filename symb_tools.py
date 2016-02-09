@@ -3164,7 +3164,7 @@ def zip0(*xx, **kwargs):
         if hasattr(x, '__len__'):
             res.extend( zip0(*x, **kwargs) )
         else:
-            assert x.is_Symbol
+            assert isinstance(x, (sp.Symbol, sp.Function, sp.Derivative))
             res.append((x, arg))
 
     return res

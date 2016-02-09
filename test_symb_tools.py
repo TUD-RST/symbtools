@@ -622,7 +622,7 @@ class SymbToolsTest(unittest.TestCase):
         aa = sp.symbols('a1:5')
         bb = sp.symbols('b1:4')
         xx = sp.symbols('x1:3')
-
+        
         s1 = sum(aa)
         self.assertEqual(s1.subs(st.zip0(aa)), 0)
         self.assertEqual(s1.subs(st.zip0(aa, arg=3.5)), 3.5*len(aa))
@@ -632,6 +632,11 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual(s1.subs(st.zip0(aa, bb, xx)), 0)
         t2 = s2.subs(st.zip0(aa, bb, xx, arg=-2.1))
         self.assertEqual( t2, -2.1*len(aa + bb + xx) )
+        
+        ff = sp.Function('f1')(*xx), sp.Function('f2')(*xx)
+        s3 = 10 + ff[0] + ff[1]
+        
+        self.assertEqual( s3.subs(st.zip0(ff)), 10 )
 
     def test_is_number(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')
