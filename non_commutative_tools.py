@@ -150,7 +150,7 @@ def right_shift_all(expr, s=None, t=None, func_symbols=[]):
 
     expr = expr.expand()
 
-    if isinstance(expr, sp.Matrix):
+    if isinstance(expr, sp.MatrixBase):
         def fnc(a):
             return right_shift_all(a, s, t, func_symbols)
         return expr.applyfunc(fnc)
@@ -328,12 +328,12 @@ def nc_mul(L, R):
     if isinstance(L, sp.Expr) and isinstance(R, sp.Expr):
         return L*R
     elif isinstance(L, sp.Expr):
-        assert isinstance(R, sp.Matrix)
+        assert isinstance(R, sp.MatrixBase)
         res = R.applyfunc(lambda x: L*x)
     elif isinstance(R, sp.Expr):
-        assert isinstance(L, sp.Matrix)
+        assert isinstance(L, sp.MatrixBase)
         res = L.applyfunc(lambda x: x*R)
-    elif isinstance(L, sp.Matrix) and isinstance(R, sp.Matrix):
+    elif isinstance(L, sp.MatrixBase) and isinstance(R, sp.MatrixBase):
         nrL, ncL = L.shape
         nrR, ncR = R.shape
 
