@@ -217,7 +217,7 @@ def pickle_full_dump(obj, path):
     via pickle serialization and additionally also dump the corresponding
     entries of _attribute_store (such as difforder).
     """
-    
+
     if isinstance(obj, Container):
         pdata = obj
         
@@ -252,7 +252,7 @@ def pickle_full_dump(obj, path):
     def get_symbols(my_obj):
         if hasattr(my_obj, 'atoms'):
             pdata.relevant_symbols += list(my_obj.atoms(sp.Symbol))
-    
+
     # apply that function to obj itself
     get_symbols(obj)
 
@@ -263,6 +263,27 @@ def pickle_full_dump(obj, path):
 
     # make each symbol occur only once
     pdata.relevant_symbols = set(pdata.relevant_symbols)
+
+    # find out which symbol names occur more than once in the set
+    # this indicates that there are symbols with the same name but different
+    # assumptions (like commutativity)
+    # due to strange interaction of sympy and pickle this leads to unexpected results
+    # after unpickling
+    symbol_names = [s.name for s in pdata.relevant_symbols]
+    unique_names = set(symbol_names)
+
+    multiple_name_count = []
+    for u in unique_names:
+        count = symbol_names.count(u)
+        if count > 1:
+            multiple_name_count.append((u, count))
+
+    if len(multiple_name_count) > 0:
+        msg = "The following symbol names occur more than once but have different assumptions "\
+              "(such as `commutative=False`): "
+        msg += str(multiple_name_count)
+
+        raise ValueError(msg)
     
     # now look in global_data.attribute_store (see above) if there are
     # some attributes stored concerning the relevant_symbols

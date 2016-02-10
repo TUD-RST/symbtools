@@ -1087,7 +1087,7 @@ class SymbToolsTest3(unittest.TestCase):
         xx = st.symb_vector("x1, x2, x3")
         xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
 
-        yy = st.symb_vector("y1, y2, y3")
+        y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
         yyd = st.perform_time_derivative(yy, yy)
         yydd = st.perform_time_derivative(yy, yy, order=2)
 
@@ -1103,6 +1103,9 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(xdot1.difforder, 1)
         self.assertEqual(yydd[1].difforder, 2)
 
+        # store assumptions to compare them later
+        y1_assumptions = y1.assumptions0
+
         # forget all difforder attributes
         st.init_attribute_store(reinit=True)
 
@@ -1115,6 +1118,9 @@ class SymbToolsTest3(unittest.TestCase):
 
         self.assertEqual(xdot1.difforder, 1)
         self.assertEqual(yydd_new[1].difforder, 2)
+
+        new_y1_assumptions = xxd.data.z1[0].assumptions0
+        self.assertEqual(new_y1_assumptions, y1_assumptions)
         
     def test_pickle_full_dump_and_load2(self):
         """
@@ -1124,19 +1130,16 @@ class SymbToolsTest3(unittest.TestCase):
         xx = st.symb_vector("x1, x2, x3")
         xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
 
-        yy = st.symb_vector("y1, y2, y3")
+        y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
         yyd = st.perform_time_derivative(yy, yy)
         yydd = st.perform_time_derivative(yy, yy, order=2)
 
-        
         pdata = st.Container()
 
         pdata.z1 = yy
         pdata.z2 = sin(yyd[2])
         pdata.z3 = yydd
         pdata.abc = xxd
-        
-        
 
         pfname = "tmp_dump_test.pcl"
         st.pickle_full_dump(pdata, pfname)
@@ -1158,13 +1161,47 @@ class SymbToolsTest3(unittest.TestCase):
 
         self.assertEqual(xdot1.difforder, 1)
         self.assertEqual(yydd_new[1].difforder, 2)
-        
+
         with self.assertRaises(TypeError) as cm:
             st.pickle_full_dump([], pfname)
         with self.assertRaises(TypeError) as cm:
             st.pickle_full_dump(xdot1, pfname)
         with self.assertRaises(TypeError) as cm:
             st.pickle_full_dump(st.Container, pfname)
+
+    def test_pickle_full_dump_and_load3(self):
+        """
+        Test for correct handling of assumptions
+        """
+
+        xx = st.symb_vector("x1, x2, x3")
+        xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
+
+        y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
+        yyd = st.perform_time_derivative(yy, yy)
+        yydd = st.perform_time_derivative(yy, yy, order=2)
+        s_nc = sp.Symbol('s', commutative=False)
+        sk_nc = sp.Symbol('sk', commutative=False)
+        s_c = sp.Symbol('s')
+
+        pdata1 = st.Container()
+        pdata1.s1 = sk_nc # different names
+        pdata1.s2 = s_c
+        pdata1.xx = xx
+
+        pdata2 = st.Container()
+        pdata2.s1 = s_nc # same names
+        pdata2.s2 = s_c
+        pdata2.xx = xx
+
+        pfname = "tmp_dump_test.pcl"
+
+        # this should pass
+        st.pickle_full_dump(pdata1, pfname)
+
+        with self.assertRaises(ValueError) as cm:
+            st.pickle_full_dump(pdata2, pfname)
+
 
     def test_make_global(self):
 
