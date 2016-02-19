@@ -27,8 +27,8 @@ class ModelToolsTest(unittest.TestCase):
 
         m = sp.Symbol('m')
 
-        q1d = st.perform_time_derivative(q1, qq)
-        q1dd = st.perform_time_derivative(q1, qq, order=2)
+        q1d = st.time_deriv(q1, qq)
+        q1dd = st.time_deriv(q1, qq, order=2)
 
         T = q1d**2*m/2
         V = 0
@@ -50,8 +50,8 @@ class ModelToolsTest(unittest.TestCase):
         params = sp.symbols('m0, m1, l1, g')
         m0, m1, l1, g = params
 
-        pdot1 = st.perform_time_derivative(p1, ttheta)
-        # q1dd = st.perform_time_derivative(q1, ttheta, order=2)
+        pdot1 = st.time_deriv(p1, ttheta)
+        # q1dd = st.time_deriv(q1, ttheta, order=2)
 
         ex = Matrix([1,0])
         ey = Matrix([0,1])
@@ -60,8 +60,8 @@ class ModelToolsTest(unittest.TestCase):
         S1 = S0 - mt.Rz(p1)*ey*l1  # center of mass
 
         #velocity
-        S0d = st.perform_time_derivative(S0, ttheta)
-        S1d = st.perform_time_derivative(S1, ttheta)
+        S0d = st.time_deriv(S0, ttheta)
+        S1d = st.time_deriv(S1, ttheta)
 
         T_rot = 0  # no moment of inertia (mathematical pendulum)
         T_trans = ( m0*S0d.T*S0d + m1*S1d.T*S1d )/2
@@ -103,8 +103,8 @@ class ModelToolsTest(unittest.TestCase):
         qq = st.symb_vector("q1:{0}".format(nq+1))
 
         theta = st.row_stack(pp, qq)
-        mu = st.perform_time_derivative(theta, theta)
-        mud = st.perform_time_derivative(theta, theta, order=2)
+        mu = st.time_deriv(theta, theta)
+        mud = st.time_deriv(theta, theta, order=2)
         st.make_global(theta, 1)
         st.make_global(mu, 1)
 
@@ -127,7 +127,7 @@ class ModelToolsTest(unittest.TestCase):
         S3 = G3 + Rz(p1)*ey*s3
 
         # Zeitableitungen der Schwerpunktskoordinaten
-        Sd1, Sd2, Sd3 = st.col_split(st.perform_time_derivative(st.col_stack(S1, S2, S3), theta)) ##
+        Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), theta)) ##
 
         # Energy
         T_rot = ( J3*pdot1**2 )/2
@@ -150,7 +150,7 @@ class ModelToolsTest(unittest.TestCase):
 
     def test_two_link_manipulator(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
-        pdot1, qdot1 = st.perform_time_derivative(ttheta, ttheta)
+        pdot1, qdot1 = st.time_deriv(ttheta, ttheta)
         tau1, = ttau = sp.Matrix(sp.symbols('F1,'))
 
         params = sp.symbols('m1, m2, l1, l2, s1, s2, J1, J2')
@@ -164,8 +164,8 @@ class ModelToolsTest(unittest.TestCase):
         S2 = G1 + mt.Rz(q1+p1)*ex*s2
 
         #velocity
-        S1d = st.perform_time_derivative(S1, ttheta)
-        S2d = st.perform_time_derivative(S2, ttheta)
+        S1d = st.time_deriv(S1, ttheta)
+        S2d = st.time_deriv(S2, ttheta)
 
         T_rot = (J1*qdot1**2 + J2*(qdot1 + pdot1)**2) / 2
 
@@ -212,7 +212,7 @@ class ModelToolsTest(unittest.TestCase):
         QQ = sp.symbols("Q0, Q1, Q2")
         Q0, Q1, Q2 = QQ
 
-        mu = st.perform_time_derivative(theta, theta)
+        mu = st.time_deriv(theta, theta)
         p1d, q1d, q2d = mu
 
         # Geometry
@@ -224,9 +224,9 @@ class ModelToolsTest(unittest.TestCase):
         S1 = M0 + Rz(p1+q1)*ey*s1
         S2 = M0 + Rz(p1+q1)*ey*l1+Rz(p1+q1+q2)*ey*s2
 
-        M0d = st.perform_time_derivative(M0, theta)
-        S1d = st.perform_time_derivative(S1, theta)
-        S2d = st.perform_time_derivative(S2, theta)
+        M0d = st.time_deriv(M0, theta)
+        S1d = st.time_deriv(S1, theta)
+        S2d = st.time_deriv(S2, theta)
 
         # Energy
         T_rot = ( J0*p1d**2 + J1*(p1d+q1d)**2 + J2*(p1d+ q1d+q2d)**2 )/2
@@ -249,8 +249,8 @@ class ModelToolsTest(unittest.TestCase):
         Q1, Q2 = sp.symbols('Q1, Q2')
 
 
-        p1_d, q1_d, q2_d = mu = st.perform_time_derivative(ttheta, ttheta)
-        p1_dd, q1_dd, q2_dd = mu_d = st.perform_time_derivative(ttheta, ttheta, order=2)
+        p1_d, q1_d, q2_d = mu = st.time_deriv(ttheta, ttheta)
+        p1_dd, q1_dd, q2_dd = mu_d = st.time_deriv(ttheta, ttheta, order=2)
 
         p1, q1, q2 = ttheta
 
@@ -279,9 +279,9 @@ class ModelToolsTest(unittest.TestCase):
         G3 = G2 + mt.Rz(sum(kk[:3]))*mey*l3
 
         # velocities of joints and center of inertia
-        Sd1 = st.perform_time_derivative(S1, ttheta)
-        Sd2 = st.perform_time_derivative(S2, ttheta)
-        Sd3 = st.perform_time_derivative(S3, ttheta)
+        Sd1 = st.time_deriv(S1, ttheta)
+        Sd2 = st.time_deriv(S2, ttheta)
+        Sd3 = st.time_deriv(S3, ttheta)
 
         # energy
         T_rot = ( J1*kd1**2 + J2*(kd1 + kd2)**2 + J3*(kd1 + kd2 + kd3)**2)/2
@@ -293,7 +293,10 @@ class ModelToolsTest(unittest.TestCase):
         external_forces = [0, Q1, Q2]
         mod = mt.generate_symbolic_model(T, V, ttheta, external_forces)
 
-        eqns_ref = Matrix([[J3*(2*p1_dd + 2*q1_dd + 2*q2_dd)/2 + g*m3*s3*sin(p1 + q1 + q2) + m3*s3*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - l2*(q1_d + q2_d)**2*sin(q1 + q2) + l2*(q1_dd + q2_dd)*cos(q1 + q2) - s3*(p1_d + q1_d + q2_d)**2*sin(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*cos(p1 + q1 + q2))*cos(p1 + q1 + q2) + m3*s3*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + l2*(q1_d + q2_d)**2*cos(q1 + q2) + l2*(q1_dd + q2_dd)*sin(q1 + q2) + s3*(p1_d + q1_d + q2_d)**2*cos(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*sin(p1 + q1 + q2))*sin(p1 + q1 + q2)], [J1*q1_dd + J2*(2*q1_dd + 2*q2_dd)/2 + J3*(2*p1_dd + 2*q1_dd + 2*q2_dd)/2 - Q1 + g*m1*s1*sin(q1) + g*m2*(l1*sin(q1) + s2*sin(q1 + q2)) + g*m3*(l1*sin(q1) + l2*sin(q1 + q2) + s3*sin(p1 + q1 + q2)) + m1*q1_dd*s1**2*sin(q1)**2 + m1*q1_dd*s1**2*cos(q1)**2 + m2*(2*l1*sin(q1) + 2*s2*sin(q1 + q2))*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + s2*(q1_d + q2_d)**2*cos(q1 + q2) + s2*(q1_dd + q2_dd)*sin(q1 + q2))/2 + m2*(2*l1*cos(q1) + 2*s2*cos(q1 + q2))*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - s2*(q1_d + q2_d)**2*sin(q1 + q2) + s2*(q1_dd + q2_dd)*cos(q1 + q2))/2 + m3*(2*l1*sin(q1) + 2*l2*sin(q1 + q2) + 2*s3*sin(p1 + q1 + q2))*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + l2*(q1_d + q2_d)**2*cos(q1 + q2) + l2*(q1_dd + q2_dd)*sin(q1 + q2) + s3*(p1_d + q1_d + q2_d)**2*cos(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*sin(p1 + q1 + q2))/2 + m3*(2*l1*cos(q1) + 2*l2*cos(q1 + q2) + 2*s3*cos(p1 + q1 + q2))*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - l2*(q1_d + q2_d)**2*sin(q1 + q2) + l2*(q1_dd + q2_dd)*cos(q1 + q2) - s3*(p1_d + q1_d + q2_d)**2*sin(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*cos(p1 + q1 + q2))/2], [J2*(2*q1_dd + 2*q2_dd)/2 + J3*(2*p1_dd + 2*q1_dd + 2*q2_dd)/2 - Q2 + g*m2*s2*sin(q1 + q2) + g*m3*(l2*sin(q1 + q2) + s3*sin(p1 + q1 + q2)) + m2*s2*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - s2*(q1_d + q2_d)**2*sin(q1 + q2) + s2*(q1_dd + q2_dd)*cos(q1 + q2))*cos(q1 + q2) + m2*s2*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + s2*(q1_d + q2_d)**2*cos(q1 + q2) + s2*(q1_dd + q2_dd)*sin(q1 + q2))*sin(q1 + q2) + m3*(2*l2*sin(q1 + q2) + 2*s3*sin(p1 + q1 + q2))*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + l2*(q1_d + q2_d)**2*cos(q1 + q2) + l2*(q1_dd + q2_dd)*sin(q1 + q2) + s3*(p1_d + q1_d + q2_d)**2*cos(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*sin(p1 + q1 + q2))/2 + m3*(2*l2*cos(q1 + q2) + 2*s3*cos(p1 + q1 + q2))*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - l2*(q1_d + q2_d)**2*sin(q1 + q2) + l2*(q1_dd + q2_dd)*cos(q1 + q2) - s3*(p1_d + q1_d + q2_d)**2*sin(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*cos(p1 + q1 + q2))/2]])
+        eqns_ref = Matrix([[J3*(2*p1_dd + 2*q1_dd + 2*q2_dd)/2 + g*m3*s3*sin(p1 + q1 + q2) + m3*s3*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - l2*(q1_d + q2_d)**2*sin(q1 + q2) + l2*(q1_dd + q2_dd)*cos(q1 + q2) - s3*(p1_d + q1_d + q2_d)**2*sin(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*cos(p1 + q1 + q2))*cos(p1 + q1 + q2) + m3*s3*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + l2*(q1_d + q2_d)**2*cos(q1 + q2) + l2*(q1_dd + q2_dd)*sin(q1 + q2) + s3*(p1_d + q1_d + q2_d)**2*cos(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*sin(p1 + q1 + q2))*sin(p1 + q1 + q2)], [J1*q1_dd + J2*(2*q1_dd + 2*q2_dd)/2 + J3*(2*p1_dd + 2*q1_dd + 2*q2_dd)/2 - Q1 + g*m1*s1*sin(q1) + \
+        g*m2*(l1*sin(q1) + s2*sin(q1 + q2)) + g*m3*(l1*sin(q1) + l2*sin(q1 + q2) + s3*sin(p1 + q1 + q2)) + m1*q1_dd*s1**2*sin(q1)**2 + m1*q1_dd*s1**2*cos(q1)**2 + m2*(2*l1*sin(q1) + 2*s2*sin(q1 + q2))*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + s2*(q1_d + q2_d)**2*cos(q1 + q2) + s2*(q1_dd + q2_dd)*sin(q1 + q2))/2 + m2*(2*l1*cos(q1) + 2*s2*cos(q1 + q2))*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - s2*(q1_d + q2_d)**2*sin(q1 + q2) + s2*(q1_dd + q2_dd)*cos(q1 + q2))/2 + m3*(2*l1*sin(q1) + 2*l2*sin(q1 + q2) + 2*s3*sin(p1 + q1 + q2))*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + l2*(q1_d + q2_d)**2*cos(q1 + q2) + l2*(q1_dd + q2_dd)*sin(q1 + q2) + s3*(p1_d + q1_d + q2_d)**2*cos(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*sin(p1 + q1 + q2))/2 + m3*(2*l1*cos(q1) + 2*l2*cos(q1 + q2) + 2*s3*cos(p1 + q1 + q2))*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - l2*(q1_d + q2_d)**2*sin(q1 + q2) + l2*(q1_dd + q2_dd)*cos(q1 + q2) - \
+        s3*(p1_d + q1_d + q2_d)**2*sin(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*cos(p1 + q1 + q2))/2], [J2*(2*q1_dd + 2*q2_dd)/2 + J3*(2*p1_dd + 2*q1_dd + 2*q2_dd)/2 - Q2 + g*m2*s2*sin(q1 + q2) + g*m3*(l2*sin(q1 + q2) + s3*sin(p1 + q1 + q2)) + m2*s2*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - s2*(q1_d + q2_d)**2*sin(q1 + q2) + s2*(q1_dd + q2_dd)*cos(q1 + q2))*cos(q1 + q2) + \
+        m2*s2*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + s2*(q1_d + q2_d)**2*cos(q1 + q2) + s2*(q1_dd + q2_dd)*sin(q1 + q2))*sin(q1 + q2) + m3*(2*l2*sin(q1 + q2) + 2*s3*sin(p1 + q1 + q2))*(l1*q1_d**2*cos(q1) + l1*q1_dd*sin(q1) + l2*(q1_d + q2_d)**2*cos(q1 + q2) + l2*(q1_dd + q2_dd)*sin(q1 + q2) + s3*(p1_d + q1_d + q2_d)**2*cos(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*sin(p1 + q1 + q2))/2 + m3*(2*l2*cos(q1 + q2) + 2*s3*cos(p1 + q1 + q2))*(-l1*q1_d**2*sin(q1) + l1*q1_dd*cos(q1) - l2*(q1_d + q2_d)**2*sin(q1 + q2) + l2*(q1_dd + q2_dd)*cos(q1 + q2) - s3*(p1_d + q1_d + q2_d)**2*sin(p1 + q1 + q2) + s3*(p1_dd + q1_dd + q2_dd)*cos(p1 + q1 + q2))/2]])
 
         self.assertEqual(eqns_ref, mod.eqns)
 

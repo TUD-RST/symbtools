@@ -748,7 +748,7 @@ def lie_deriv_cartan(sf, vf, x, u=None, order=1, **kwargs):
     if all( [ is_symbol(elt) for elt in u ] ):
         # sequence of symbols
         uu = sp.Matrix(u)
-        uu_dot_list = [perform_time_derivative(uu, uu, order=i)
+        uu_dot_list = [time_deriv(uu, uu, order=i)
                        for i in range(order + 1)]
 
     elif all([hasattr(elt, '__len__') for elt in u]):
@@ -760,7 +760,7 @@ def lie_deriv_cartan(sf, vf, x, u=None, order=1, **kwargs):
         N = len(uu_dot_list[1:]) # we already have derivatives up to order N
         # maybe we need more derivatives
         vv = sp.Matrix(uu_dot_list[-1])
-        new_uu_dot_list = [perform_time_derivative(vv, vv, order=i)
+        new_uu_dot_list = [time_deriv(vv, vv, order=i)
                            for i in range(1, order + 1)]
         uu_dot_list.extend(new_uu_dot_list)
 
@@ -3915,9 +3915,19 @@ def is_derivative_symbol(expr, t=None):
     else:
         return False
 
+                                
+def perform_time_derivative(*args, **kwargs):
+    
+    msg = "This function name is deprecated. Use time_deriv instead. "
+    #raise DeprecationWarning, msg
+    warnings.warn(msg)
+    
+    return time_deriv(*args, **kwargs)
 
-def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
-                            t_symbol=None, order=1, **kwargs):
+
+def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
+                                                        order=1, **kwargs):
+                                
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
     we want : expr.diff(t) with te appropriate substitutions made
@@ -3968,8 +3978,8 @@ def perform_time_derivative(expr, func_symbols, prov_deriv_symbols=[],
     derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
 
     # TODO: current behavior is inconsistent:
-    # perform_time_derivative(x1, [x1], order=5) -> x_1_d5
-    # perform_time_derivative(x_2, [x_2], order=5) -> x__2_d5
+    # time_deriv(x1, [x1], order=5) -> x_1_d5
+    # time_deriv(x_2, [x_2], order=5) -> x__2_d5
     # (respective first underscore is obsolete)
 
     def extended_name_symb(base, ord, assumptions={}, base_difforder=None):

@@ -51,10 +51,10 @@ class NCTTest(unittest.TestCase):
     def test_apply_deriv2(self):
         y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
 
-        ydot1 = st.perform_time_derivative(y1, yy)
-        ydot2 = st.perform_time_derivative(y2, yy)
-        yddot1 = st.perform_time_derivative(y1, yy, order=2)
-        ydddot1 = st.perform_time_derivative(y1, yy, order=3)
+        ydot1 = st.time_deriv(y1, yy)
+        ydot2 = st.time_deriv(y2, yy)
+        yddot1 = st.time_deriv(y1, yy, order=2)
+        ydddot1 = st.time_deriv(y1, yy, order=3)
 
         res1 = nct.apply_deriv(y1, 1, s, t, func_symbols=yy)
         self.assertEqual(res1, ydot1 + y1*s)
@@ -174,7 +174,7 @@ class NCTTest(unittest.TestCase):
 
         y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
 
-        ydot1, ydot2 = st.perform_time_derivative(yy, yy)
+        ydot1, ydot2 = st.time_deriv(yy, yy)
         res1 = nct.right_shift(s*y1, s, t, yy)
 
         self.assertEqual(res1, ydot1 + y1*s)
@@ -205,7 +205,7 @@ class NCTTest(unittest.TestCase):
         p1 = s*(f1 + f2)
 
         ab = sp.Matrix([a, b])
-        adot, bdot = st.perform_time_derivative(ab, ab)
+        adot, bdot = st.time_deriv(ab, ab)
 
         res1 = nct.right_shift_all(p1)
         self.assertEqual(res1, f1d + f1*s + f2d + f2*s)
@@ -223,7 +223,7 @@ class NCTTest(unittest.TestCase):
         a, b = sp.symbols("a, b", commutative=False)
 
         ab = sp.Matrix([a, b])
-        adot, bdot = ab_dot = st.perform_time_derivative(ab, ab)
+        adot, bdot = ab_dot = st.time_deriv(ab, ab)
 
         sab = sp.Matrix([s*a, s*b])
 
@@ -258,8 +258,8 @@ class NCTTest(unittest.TestCase):
         a, b = sp.symbols("a, b", commutative=False)
 
         ab = sp.Matrix([a, b])
-        adot, bdot = ab_dot = st.perform_time_derivative(ab, ab)
-        addot, bddot = ab_ddot = st.perform_time_derivative(ab, ab, order=2)
+        adot, bdot = ab_dot = st.time_deriv(ab, ab)
+        addot, bddot = ab_ddot = st.time_deriv(ab, ab, order=2)
 
         sab = sp.Matrix([s*a, s*b])
         abs = sp.Matrix([a*s, b*s])
@@ -332,7 +332,7 @@ class NCTTest(unittest.TestCase):
     def test_make_all_symbols_commutative3(self):
         x1, x2, x3 = xx = st.symb_vector('x1, x2, x3', commutative=False)
 
-        xxd = st.perform_time_derivative(xx, xx)
+        xxd = st.time_deriv(xx, xx)
 
         xxd_c = nct.make_all_symbols_commutative(xxd)[0]
 
@@ -343,7 +343,7 @@ class NCTTest(unittest.TestCase):
         a, b, c = abc = sp.symbols("a, b, c", commutative=True)
         x, y = xy = sp.symbols("x, y", commutative=False)
 
-        adddot = st.perform_time_derivative(a, abc, order=3)
+        adddot = st.time_deriv(a, abc, order=3)
 
         exp1 = a*b*x + b*c*y
         
@@ -398,10 +398,10 @@ class NCTTest(unittest.TestCase):
     def test_unimod_inv(self):
         y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
         s = sp.Symbol('s', commutative=False)
-        ydot1, ydot2 = yyd1 = st.perform_time_derivative(yy, yy, order=1, commutative=False)
-        yddot1, yddot2 = yyd2 = st.perform_time_derivative(yy, yy, order=2, commutative=False)
-        yyd3 = st.perform_time_derivative(yy, yy, order=3, commutative=False)
-        yyd4 = st.perform_time_derivative(yy, yy, order=4, commutative=False)
+        ydot1, ydot2 = yyd1 = st.time_deriv(yy, yy, order=1, commutative=False)
+        yddot1, yddot2 = yyd2 = st.time_deriv(yy, yy, order=2, commutative=False)
+        yyd3 = st.time_deriv(yy, yy, order=3, commutative=False)
+        yyd4 = st.time_deriv(yy, yy, order=4, commutative=False)
         yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
 
         if 1:
@@ -424,10 +424,10 @@ class NCTTest(unittest.TestCase):
     def test_unimod_inv2(self):
         y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
         s = sp.Symbol('s', commutative=False)
-        ydot1, ydot2 = yyd1 = st.perform_time_derivative(yy, yy, order=1, commutative=False)
-        yddot1, yddot2 = yyd2 = st.perform_time_derivative(yy, yy, order=2, commutative=False)
-        yyd3 = st.perform_time_derivative(yy, yy, order=3, commutative=False)
-        yyd4 = st.perform_time_derivative(yy, yy, order=4, commutative=False)
+        ydot1, ydot2 = yyd1 = st.time_deriv(yy, yy, order=1, commutative=False)
+        yddot1, yddot2 = yyd2 = st.time_deriv(yy, yy, order=2, commutative=False)
+        yyd3 = st.time_deriv(yy, yy, order=3, commutative=False)
+        yyd4 = st.time_deriv(yy, yy, order=4, commutative=False)
         yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
 
         # this Matrix is not unimodular due to factor 13 (should be 1)
@@ -442,10 +442,10 @@ class NCTTest(unittest.TestCase):
     def test_unimod_inv3(self):
         y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
         s = sp.Symbol('s', commutative=False)
-        ydot1, ydot2 = yyd1 = st.perform_time_derivative(yy, yy, order=1, commutative=False)
-        yddot1, yddot2 = yyd2 = st.perform_time_derivative(yy, yy, order=2, commutative=False)
-        yyd3 = st.perform_time_derivative(yy, yy, order=3, commutative=False)
-        yyd4 = st.perform_time_derivative(yy, yy, order=4, commutative=False)
+        ydot1, ydot2 = yyd1 = st.time_deriv(yy, yy, order=1, commutative=False)
+        yddot1, yddot2 = yyd2 = st.time_deriv(yy, yy, order=2, commutative=False)
+        yyd3 = st.time_deriv(yy, yy, order=3, commutative=False)
+        yyd4 = st.time_deriv(yy, yy, order=4, commutative=False)
         yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
 
         M3 = sp.Matrix([[ydot2,                                              y1*s],

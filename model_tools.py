@@ -80,8 +80,8 @@ def new_model_from_equations_of_motion(eqns, theta, tau):
     mod = SymbolicModel()
     mod.eqns = eqns
     mod.tt = theta
-    mod.ttd = st.perform_time_derivative(theta, theta)
-    mod.ttdd = st.perform_time_derivative(theta, theta, order=2)
+    mod.ttd = st.time_deriv(theta, theta)
+    mod.ttdd = st.time_deriv(theta, theta, order=2)
     mod.extforce_list = tau
     mod.tau = tau
 
@@ -301,7 +301,7 @@ class SymbolicModel(object):
         # setting input tau and acceleration to 0 in the equations of motion
         C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
 
-        N = st.perform_time_derivative(M11inv*M12, self.tt)
+        N = st.time_deriv(M11inv*M12, self.tt)
         ww_dot = -M11inv*C1K1.subs(zip(uu, uu_expr)) + N.subs(zip(uu, uu_expr))*vv
 
         self.fz[2*nq:2*nq+np, :] = uu_expr
@@ -440,8 +440,8 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
 
     # introducing symbols for the derivatives
     tt = sp.Matrix(tt)
-    ttd = st.perform_time_derivative(tt, tt, **kwargs)
-    ttdd = st.perform_time_derivative(tt, tt, order=2, **kwargs)
+    ttd = st.time_deriv(tt, tt, **kwargs)
+    ttdd = st.time_deriv(tt, tt, order=2, **kwargs)
 
     #Lagrange function
     L = T - U
@@ -457,7 +457,7 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
 
     # time-depended_symbols
     tds = list(tt) + list(ttd)
-    L_diff_ttd_dt = st.perform_time_derivative(L_diff_ttd, tds, **kwargs)
+    L_diff_ttd_dt = st.time_deriv(L_diff_ttd, tds, **kwargs)
 
     #lagrange equation 2nd kind
     model_eq = sp.zeros(n, 1)
@@ -538,7 +538,7 @@ def transform_2nd_to_1st_order_matrices(P0, P1, P2, xx):
     assert P0.shape == P1.shape == P2.shape
     assert xx.shape == (P0.shape[1]*2, 1)
 
-    xxd = st.perform_time_derivative(xx, xx)
+    xxd = st.time_deriv(xx, xx)
     N = xx.shape[0]/2
 
     # definitional equations like xdot1 - x3 = 0 (for N=2)

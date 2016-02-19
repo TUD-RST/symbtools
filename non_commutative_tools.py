@@ -32,7 +32,7 @@ def apply_deriv(term, power, s, t, func_symbols=[]):
 
         return res
 
-    tmp = st.perform_time_derivative(term, func_symbols) + term*s
+    tmp = st.time_deriv(term, func_symbols) + term*s
     res = apply_deriv(tmp, power-1, s, t, func_symbols).expand()
 
     return res
@@ -44,7 +44,7 @@ def right_shift(mul, s=None, t=None, func_symbols=[]):
     s:              Laplace variable (optional)
     t:              time variable (optional)
     func_symbols:   sequence of time dependend symbols
-                    (see `perform_time_derivative`)
+                    (see `time_deriv`)
     Vorgehen:
         index des ersten Auftauchens einer s-Potenz finden
         -> mul = L *s**p * X* R0

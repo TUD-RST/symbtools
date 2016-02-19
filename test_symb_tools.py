@@ -203,8 +203,8 @@ class LieToolsTest(unittest.TestCase):
         # incorporating the input
         h2 = u1
 
-        udot1, udot2 = uudot = st.perform_time_derivative(uu, uu, order=1)
-        uddot1, uddot2 = st.perform_time_derivative(uu, uu, order=2)
+        udot1, udot2 = uudot = st.time_deriv(uu, uu, order=1)
+        uddot1, uddot2 = st.time_deriv(uu, uu, order=2)
 
         res_a1 = st.lie_deriv_cartan(h2, f, xx, uu, order=1)
         res_a2 = st.lie_deriv_cartan(h2, f, xx, uu, order=2)
@@ -325,16 +325,16 @@ class SymbToolsTest(unittest.TestCase):
         res5 = st.depends_on_t(t, t, [])
         self.assertEqual(res5, True)
 
-        adot = st.perform_time_derivative(a, [a])
+        adot = st.time_deriv(a, [a])
         res5 = st.depends_on_t(adot, t, [])
         self.assertEqual(res5, True)
 
         x1, x2 = xx = sp.symbols("x1, x2")
-        x1dot = st.perform_time_derivative(x1, xx)
+        x1dot = st.time_deriv(x1, xx)
         self.assertTrue(st.depends_on_t(x1dot, t))
 
         y1, y2 = yy = sp.Matrix(sp.symbols("y1, y2", commutative=False))
-        yydot = st.perform_time_derivative(yy, yy, order=1, commutative=False)
+        yydot = st.time_deriv(yy, yy, order=1, commutative=False)
         self.assertTrue(st.depends_on_t(yydot, t))
 
     def test_symbs_to_func(self):
@@ -348,13 +348,13 @@ class SymbToolsTest(unittest.TestCase):
     def test_perform_time_deriv1(self):
         a, b, t = sp.symbols("a, b, t")
         f1 = a**2 + 10*sin(b)
-        f1_dot = st.perform_time_derivative(f1, (a, b))
+        f1_dot = st.time_deriv(f1, (a, b))
         self.assertEquals(str(f1_dot), "2*a*adot + 10*bdot*cos(b)")
 
         f2 = sin(a)
-        f2_dot2 = st.perform_time_derivative(f2, [a, b], order=2)
-        f2_dot = st.perform_time_derivative(f2, [a])
-        f2_ddot = st.perform_time_derivative(f2_dot, [a, sp.Symbol('adot')])
+        f2_dot2 = st.time_deriv(f2, [a, b], order=2)
+        f2_dot = st.time_deriv(f2, [a])
+        f2_ddot = st.time_deriv(f2_dot, [a, sp.Symbol('adot')])
         self.assertEqual(f2_ddot, f2_dot2)
 
     def test_perform_time_deriv2(self):
@@ -365,10 +365,10 @@ class SymbToolsTest(unittest.TestCase):
         a, b, t = sp.symbols("a, b, t")
         x, y = sp.symbols("x, y")
 
-        adot, bdot = st.perform_time_derivative( sp.Matrix([a, b]), (a, b) )
+        adot, bdot = st.time_deriv( sp.Matrix([a, b]), (a, b) )
 
         A = sp.Matrix([sin(a), exp(a*b), -t**2*7*0, x + y]).reshape(2, 2)
-        A_dot = st.perform_time_derivative(A, (a, b))
+        A_dot = st.time_deriv(A, (a, b))
 
         A_dot_manual = \
             sp.Matrix([adot*cos(a), b*adot*exp(a*b) + a*bdot*exp(a*b),
@@ -384,13 +384,13 @@ class SymbToolsTest(unittest.TestCase):
         a, b, adot, bdot, addot, bddot = sp.symbols("a, b, adot, bdot, addot, bddot")
 
         f1 = 8*a*b**2
-        f1d = st.perform_time_derivative(f1, (a, b), (adot, bdot))
+        f1d = st.time_deriv(f1, (a, b), (adot, bdot))
         self.assertEquals(f1d, 8*adot*b**2 + 16*a*bdot*b)
 
-        f1d_2 = st.perform_time_derivative(f1, (a, b), (adot, bdot)+ (addot, bddot),
+        f1d_2 = st.time_deriv(f1, (a, b), (adot, bdot)+ (addot, bddot),
                                            order=2)
 
-        f1d_2_altntv = st.perform_time_derivative(f1d, (a, b, adot, bdot),
+        f1d_2_altntv = st.time_deriv(f1d, (a, b, adot, bdot),
                                                  (adot, bdot)+ (addot, bddot) )
         self.assertEquals(f1d_2, f1d_2_altntv)
 
@@ -401,7 +401,7 @@ class SymbToolsTest(unittest.TestCase):
 
         f1 = 8*a*b**2
 
-        res_a1 = st.perform_time_derivative(f1, (a, b), order=5)
+        res_a1 = st.time_deriv(f1, (a, b), order=5)
 
         a_str = 'a adot addot adddot addddot a_d5'
         b_str = a_str.replace('a', 'b')
@@ -421,37 +421,37 @@ class SymbToolsTest(unittest.TestCase):
         x1, x2 = xx = sp.symbols("x1, x_2")
 
 
-        res_a1 = st.perform_time_derivative(x1, xx)
+        res_a1 = st.time_deriv(x1, xx)
         self.assertEqual(str(res_a1), 'xdot1')
 
-        res_a2 = st.perform_time_derivative(x1, xx, order=2)
+        res_a2 = st.time_deriv(x1, xx, order=2)
         self.assertEqual(str(res_a2), 'xddot1')
 
-        res_a3 = st.perform_time_derivative(x1, xx, order=3)
+        res_a3 = st.time_deriv(x1, xx, order=3)
         self.assertEqual(str(res_a3), 'xdddot1')
 
-        res_a4 = st.perform_time_derivative(x1, xx, order=4)
+        res_a4 = st.time_deriv(x1, xx, order=4)
         self.assertEqual(str(res_a4), 'xddddot1')
 
         # FIXME:
-        res_a5 = st.perform_time_derivative(x1, xx, order=5)
+        res_a5 = st.time_deriv(x1, xx, order=5)
         #self.assertEqual(str(res_a5), 'x1_d5')
 
 
-        res_b1 = st.perform_time_derivative(x2, xx)
+        res_b1 = st.time_deriv(x2, xx)
         self.assertEqual(str(res_b1), 'x_dot2')
 
-        res_b2 = st.perform_time_derivative(x2, xx, order=2)
+        res_b2 = st.time_deriv(x2, xx, order=2)
         self.assertEqual(str(res_b2), 'x_ddot2')
 
-        res_b3 = st.perform_time_derivative(x2, xx, order=3)
+        res_b3 = st.time_deriv(x2, xx, order=3)
         self.assertEqual(str(res_b3), 'x_dddot2')
 
-        res_b4 = st.perform_time_derivative(x2, xx, order=4)
+        res_b4 = st.time_deriv(x2, xx, order=4)
         self.assertEqual(str(res_b4), 'x_ddddot2')
 
         # FIXME
-        res_b5 = st.perform_time_derivative(x2, xx, order=5)
+        res_b5 = st.time_deriv(x2, xx, order=5)
         #self.assertEqual(str(res_b5), 'x_2_d5')
 
     @unittest.expectedFailure
@@ -463,45 +463,45 @@ class SymbToolsTest(unittest.TestCase):
         # TODO: These two assertions should pass
         # Then the above FIXME-issues can be resolved and this test is obsolete
 
-        res_a5 = st.perform_time_derivative(x1, xx, order=5)
+        res_a5 = st.time_deriv(x1, xx, order=5)
         self.assertEqual(str(res_a5), 'x1_d5')
 
-        res_b5 = st.perform_time_derivative(x2, xx, order=5)
+        res_b5 = st.time_deriv(x2, xx, order=5)
         self.assertEqual(str(res_b5), 'x_2_d5')
 
-    def test_perform_time_derivative7(self):
+    def test_time_deriv7(self):
         a, b, t = sp.symbols("a, b, t", commutative=False)
 
         f1 = sp.Function('f1')(t)
         f2 = sp.Function('f2')(t)
 
-        res1 = st.perform_time_derivative(f1, [a])
+        res1 = st.time_deriv(f1, [a])
         self.assertEqual(res1, f1.diff(t))
 
-        res2 = st.perform_time_derivative(f1, [])
+        res2 = st.time_deriv(f1, [])
         self.assertEqual(res2, f1.diff(t))
 
-        res3 = st.perform_time_derivative(a*f1, [a, b])
-        adot = st.perform_time_derivative(a, [a])
+        res3 = st.time_deriv(a*f1, [a, b])
+        adot = st.time_deriv(a, [a])
         self.assertEqual(res3, a*f1.diff(t) + adot*f1)
 
-    def test_perform_time_derivative8(self):
+    def test_time_deriv8(self):
 
         y1, y2 = yy = sp.Matrix( sp.symbols('y1, y2', commutative=False) )
 
-        ydot1 = st.perform_time_derivative(y1, yy)
-        ydot2 = st.perform_time_derivative(y2, yy)
+        ydot1 = st.time_deriv(y1, yy)
+        ydot2 = st.time_deriv(y2, yy)
 
-        yddot1 = st.perform_time_derivative(y1, yy, order=2)
-        ydddot1 = st.perform_time_derivative(y1, yy, order=3)
+        yddot1 = st.time_deriv(y1, yy, order=2)
+        ydddot1 = st.time_deriv(y1, yy, order=3)
 
-        res1 = st.perform_time_derivative(ydot1, yy)
+        res1 = st.time_deriv(ydot1, yy)
         self.assertEqual(res1, yddot1)
 
-        res2 = st.perform_time_derivative(ydot1, yy, order=2)
+        res2 = st.time_deriv(ydot1, yy, order=2)
         self.assertEqual(res2, ydddot1)
 
-        res3 = st.perform_time_derivative(yddot1, yy)
+        res3 = st.time_deriv(yddot1, yy)
         self.assertEqual(res3, ydddot1)
 
     def test_match_symbols_by_name(self):
@@ -1037,19 +1037,19 @@ class SymbToolsTest3(unittest.TestCase):
 
         self.assertEqual(x1.difforder, 0)
 
-        xddddot1 = st.perform_time_derivative(x1, [x1], order=4)
+        xddddot1 = st.time_deriv(x1, [x1], order=4)
         self.assertEquals(xddddot1.difforder, 4)
 
         xx = sp.Matrix(sp.symbols("x1, x2, x3"))
-        xxd = st.perform_time_derivative(xx, xx)
-        xxdd = st.perform_time_derivative(xx, xx, order=2)
+        xxd = st.time_deriv(xx, xx)
+        xxdd = st.time_deriv(xx, xx, order=2)
         for xdd in xxdd:
             self.assertEqual(xdd.difforder, 2)
 
         # once, this was a bug
         y = sp.Symbol('y')
-        ydot = st.perform_time_derivative(y, [y])
-        yddot = st.perform_time_derivative(ydot, [y, ydot])
+        ydot = st.time_deriv(y, [y])
+        yddot = st.time_deriv(ydot, [y, ydot])
         self.assertEqual(yddot.difforder, 2)
 
         z = sp.Symbol('z')
@@ -1057,7 +1057,7 @@ class SymbToolsTest3(unittest.TestCase):
         st.global_data.attribute_store[(zdot_false, 'difforder')] = -7
         
         with self.assertRaises(ValueError) as cm:
-            st.perform_time_derivative( z, [z])
+            st.time_deriv( z, [z])
 
     def test_introduce_abreviations(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
@@ -1085,11 +1085,11 @@ class SymbToolsTest3(unittest.TestCase):
     def test_pickle_full_dump_and_load(self):
 
         xx = st.symb_vector("x1, x2, x3")
-        xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
+        xdot1, xdot2, xdot3 = xxd = st.time_deriv(xx, xx)
 
         y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
-        yyd = st.perform_time_derivative(yy, yy)
-        yydd = st.perform_time_derivative(yy, yy, order=2)
+        yyd = st.time_deriv(yy, yy)
+        yydd = st.time_deriv(yy, yy, order=2)
 
         xxd.data = st.Container()
 
@@ -1128,11 +1128,11 @@ class SymbToolsTest3(unittest.TestCase):
         """
 
         xx = st.symb_vector("x1, x2, x3")
-        xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
+        xdot1, xdot2, xdot3 = xxd = st.time_deriv(xx, xx)
 
         y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
-        yyd = st.perform_time_derivative(yy, yy)
-        yydd = st.perform_time_derivative(yy, yy, order=2)
+        yyd = st.time_deriv(yy, yy)
+        yydd = st.time_deriv(yy, yy, order=2)
 
         pdata = st.Container()
 
@@ -1175,11 +1175,11 @@ class SymbToolsTest3(unittest.TestCase):
         """
 
         xx = st.symb_vector("x1, x2, x3")
-        xdot1, xdot2, xdot3 = xxd = st.perform_time_derivative(xx, xx)
+        xdot1, xdot2, xdot3 = xxd = st.time_deriv(xx, xx)
 
         y1, y2, y3 = yy = st.symb_vector("y1, y2, y3")
-        yyd = st.perform_time_derivative(yy, yy)
-        yydd = st.perform_time_derivative(yy, yy, order=2)
+        yyd = st.time_deriv(yy, yy)
+        yydd = st.time_deriv(yy, yy, order=2)
         s_nc = sp.Symbol('s', commutative=False)
         sk_nc = sp.Symbol('sk', commutative=False)
         s_c = sp.Symbol('s')
