@@ -68,8 +68,24 @@ class ModelToolsTest(unittest.TestCase):
         T = T_rot + T_trans[0]
 
         V = m1*g*S1[1]
+        
+        with self.assertRaises(ValueError) as cm:
+            # wrong length of external forces
+            mt.generate_symbolic_model(T, V, ttheta, [F1])
+            
+        with self.assertRaises(ValueError) as cm:
+            # wrong length of external forces
+            mt.generate_symbolic_model(T, V, ttheta, [F1, 0, 0])
+            
 
+        QQ = sp.Matrix([0, F1])
         mod = mt.generate_symbolic_model(T, V, ttheta, [0, F1])
+        mod_1 = mt.generate_symbolic_model(T, V, ttheta, QQ)
+        mod_2 = mt.generate_symbolic_model(T, V, ttheta, QQ.T)
+        
+        self.assertEqual(mod.eqns, mod_1.eqns)
+        self.assertEqual(mod.eqns, mod_2.eqns)
+        
         mod.eqns.simplify()
 
         M = mod.MM

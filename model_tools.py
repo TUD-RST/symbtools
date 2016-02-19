@@ -435,8 +435,15 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
         assert isinstance(theta_i, sp.Symbol)
 
     F = sp.Matrix(F)
-    # TODO: raise informative ValueError instead of assert
-    assert F.shape == (n, 1)
+    
+    if F.shape[0] == 1:
+        # convert to column vector
+        F = F.T
+    if not F.shape == (n, 1):
+        msg = "Vector of external forces has the wrong length. Should be " + \
+        str(n) + " but is %i!"  % F.shape[0]
+        raise ValueError(msg)
+    
 
     # introducing symbols for the derivatives
     tt = sp.Matrix(tt)
