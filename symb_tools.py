@@ -1254,7 +1254,7 @@ def symmetryDict(M):
 # TODO: unit test
 # TODO: make it intuitivly work in IPyton NB
 # (currently up_count=1 is neccessary)
-def make_global(varList, up_count=0):
+def make_global(varList, up_count=1):
     """
     injects the symbolic variables of a collection to the global namespace
     useful for interactive sessions
@@ -3866,6 +3866,43 @@ def do_laplace_deriv(laplace_expr, s, t):
         res += coeff.diff(t, exponent)
 
     return res
+
+
+def sca_integrate(f, x):
+    """
+    special case aware integrate
+
+    :param f: expression to be integrated
+    :param x: variable
+    :return: F witht the property: F.diff(x) == f
+
+    Background: sympy.integrate sometimes gives results which are technically correct
+    but unnecessary complicated example:
+     integrate(tan(x), x) -> -log(sin(x)**2 - 1)/2
+     expand_log(integrate(tan(x), x).trigsimp(), force=True)
+     -log(cos(x)) - I*pi/2 #  i.e. imaginary integration constant (which can be ignored)
+
+    This function handles such special cases to provide "cleaner results".
+    """
+    assert is_symbol(x)
+
+    w1, w2, w3, w4 = ww = sp.symbols('w1, w2, w3, w4', cls=sp.Wild)
+
+    # first special case
+    f = sp.trigsimp(f)
+    thematch = f.match(w1*sp.tan(w2*x + w3) + w4) # -> dict or None
+    if thematch and not thematch.get(w1) == 0 and not thematch.get(w2, 0).has(x):
+
+        w4_int = sca_integrate(w4.subs(thematch), x)
+        result = (-w1/(w2*2)*sp.log(sp.cos(w2*x + w3)**2)).subs(thematch) + w4_int
+
+        # elimante the remaining Wildcard Symbols
+        result = result.subs(zip0(ww))
+        return result
+
+    # no special case matches
+    else:
+        return sp.integrate(f, x)
 
 
 def simplify_derivs(expr):

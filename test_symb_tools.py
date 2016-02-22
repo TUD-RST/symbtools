@@ -1262,6 +1262,28 @@ class SymbToolsTest4(unittest.TestCase):
         self.assertFalse(st.is_scalar( sp.zeros(2, 4)*x2 ))
         self.assertFalse(st.is_scalar( sp.eye(0)*x2 ))
 
+    def test_sca_integrate(self):
+        """
+        test special case aware integrate
+        """
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        f = sp.log(cos(x1)**2)
+        df = f.diff(x1)
+        F = st.sca_integrate(df, x1)
+        self.assertEqual(F, f)
+
+        if 1:
+            f = 5*x1
+            df = f.diff(x1)
+            F = st.sca_integrate(df, x1)
+            self.assertEqual(F, f)
+
+            f = cos(x1)*x1
+            df = f.diff(x1)
+            F = st.sca_integrate(df, x1)
+            self.assertEqual(F, f)
+
 class TestNumTools(unittest.TestCase):
 
     def setUp(self):
