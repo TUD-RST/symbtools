@@ -1254,28 +1254,43 @@ def symmetryDict(M):
 # TODO: unit test
 # TODO: make it intuitivly work in IPyton NB
 # (currently up_count=1 is neccessary)
-def make_global(varList, up_count=1):
+def make_global(*args, **kwargs):
     """
     injects the symbolic variables of a collection to the global namespace
     useful for interactive sessions
 
-    :up_count: is the number of frames to go back;
-    up_count = 0 means up to the upper_most frame
+    :upcount: is the number of frames to go back;
+    upcount = 0 means up to the upper_most frame
     """
 
-    if not isinstance(varList, (list, tuple)):
-        if isinstance(varList, sp.MatrixBase):
-            varList = list(varList)
-        elif isinstance(varList, set):
-            varList = list(varList)
+    assert len(args) > 0
+
+    upcount = kwargs.pop('upcount', 1)
+
+    if len(kwargs) > 0:
+        msg = "The following kwargs are unknown: %s" % ", ".join(kwargs.keys)
+        raise ValueError(msg)
+
+    if isinstance(args[-1], int):
+        msg = "The signature of this function changed. Now, upcount must be passed separately."
+        #raise NotImplementedError(msg)
+        warnings.warn(msg)
+        upcount = args[-1]
+        args = args[:-1]
+
+    varList = []
+    for i, a in enumerate(args):
+        if isinstance(a, (list, tuple, set, sp.MatrixBase)):
+            varList.extend(list(a))
         else:
-            raise TypeError('Unexpected type for varList')
+            msg = "Unexpected type for argument %i: %s" %(i, type(a))
+            raise TypeError(msg)
 
     import inspect
 
     # get the topmost frame
     frame = inspect.currentframe()
-    i = up_count
+    i = upcount
     while True:
         if frame.f_back == None:
             break
@@ -1294,7 +1309,7 @@ def make_global(varList, up_count=1):
             elif hasattr(v, '__name__'):
                 frame.f_globals[v.__name__] = v
             else:
-                raise ValueError, 'Object %s has no name' % str(v)
+                raise ValueError( 'Object %s has no name' % str(v) )
     finally:
         # we should explicitly break cyclic dependencies as stated in inspect
         # doc
@@ -1394,10 +1409,9 @@ def poly_occ_matrix(expr, arg1, arg2, n = 2):
     for i in range(n+1):
         for j in range(n+1):
             if p.coeff(i,j) != 0:
-                M[i,j] = star
+                M[i, j] = star
             else:
-                pass
-                M[i,j] = space
+                M[i, j] = space
     return M
 
 

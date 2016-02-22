@@ -35,6 +35,7 @@ def skip_slow(func):
 # but still make use of st.make_global
 x1 = x2 = x3 = x4 = None
 y1 = y2 = None
+a1 = z4 = z7 = z10 = None
 
 
 class InteractiveConvenienceTest(unittest.TestCase):
@@ -157,7 +158,7 @@ class LieToolsTest(unittest.TestCase):
 
     def test_involutivity_test(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
-        st.make_global(xx, 1)
+        st.make_global(xx)
 
         # not involutive
         f1 = sp.Matrix([x2*x3 + x1**2, 3*x1, 4 + x2*x3])
@@ -1204,20 +1205,34 @@ class SymbToolsTest3(unittest.TestCase):
             st.pickle_full_dump(pdata2, pfname)
 
 
-    def test_make_global(self):
+    def _test_make_global(self):
 
         xx = st.symb_vector('x1:4')
         yy = st.symb_vector('y1:4')
 
-        st.make_global(xx, 1)
+        st.make_global(xx)
         self.assertEqual(x1 + x2, xx[0] + xx[1])
 
         # test if set is accepted
-        st.make_global(yy.atoms(sp.Symbol), 1)
+        st.make_global(yy.atoms(sp.Symbol))
         self.assertEqual(y1 + y2, yy[0] + yy[1])
 
         with self.assertRaises(TypeError) as cm:
-            st.make_global(dict(), 1)
+            st.make_global(dict())
+
+    def test_make_global(self):
+
+        aa = tuple(st.symb_vector('a1:4'))
+        xx = st.symb_vector('x1:4')
+        yy = st.symb_vector('y1:4')
+        zz = st.symb_vector('z1:11').reshape(2, 5)
+
+        st.make_global(xx, yy, zz, aa)
+
+        res = a1 + x2 + y3 + z4 + z7 + z10
+        res2 = aa[0] + xx[1] + yy[2] + zz[3] + zz[6] + zz[9]
+
+        self.assertEqual(res, res2)
 
 class SymbToolsTest4(unittest.TestCase):
 

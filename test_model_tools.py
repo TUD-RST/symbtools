@@ -118,16 +118,13 @@ class ModelToolsTest(unittest.TestCase):
         pp = st.symb_vector("p1:{0}".format(np+1))
         qq = st.symb_vector("q1:{0}".format(nq+1))
 
-        theta = st.row_stack(pp, qq)
-        mu = st.time_deriv(theta, theta)
-        mud = st.time_deriv(theta, theta, order=2)
-        st.make_global(theta, 1)
-        st.make_global(mu, 1)
-
+        p1, q1, q2 = ttheta = st.row_stack(pp, qq)
+        pdot1, qdot1, qdot2 = tthetad = st.time_deriv(ttheta, ttheta)
+        mud = st.time_deriv(ttheta, ttheta, order=2)
         params = sp.symbols('l3, l4, s3, s4, J3, J4, m1, m2, m3, m4, g')
-        st.make_global(params, 1)
+        l3, l4, s3, s4, J3, J4, m1, m2, m3, m4, g = params
 
-        Q1, Q2 = QQ = st.symb_vector("Q1, Q2")
+        tau1, tau2 = ttau= st.symb_vector("tau1, tau2")
 
         ## Geometry
 
@@ -143,7 +140,7 @@ class ModelToolsTest(unittest.TestCase):
         S3 = G3 + Rz(p1)*ey*s3
 
         # Zeitableitungen der Schwerpunktskoordinaten
-        Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), theta)) ##
+        Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), ttheta)) ##
 
         # Energy
         T_rot = ( J3*pdot1**2 )/2
@@ -151,9 +148,9 @@ class ModelToolsTest(unittest.TestCase):
         T = T_rot + T_trans[0]
         V = m1*g*S1[1] + m2*g*S2[1] + m3*g*S3[1]
 
-        external_forces = [0, Q1, Q2]
+        external_forces = [0, tau1, tau2]
         assert not any(external_forces[:np])
-        mod = mt.generate_symbolic_model(T, V, theta, external_forces)
+        mod = mt.generate_symbolic_model(T, V, ttheta, external_forces)
         mod.calc_coll_part_lin_state_eq(simplify=True)
 
         #pdot1, qdot1, qdot2 = mod.ttd
