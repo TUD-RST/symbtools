@@ -1283,7 +1283,7 @@ class SymbToolsTest4(unittest.TestCase):
         """
         x1, x2, x3 = xx = st.symb_vector('x1:4')
 
-        f = sp.log(cos(x1)**2)
+        f = sp.log(cos(x1))
         df = f.diff(x1)
         F = st.sca_integrate(df, x1)
         self.assertEqual(F, f)

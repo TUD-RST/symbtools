@@ -3888,7 +3888,7 @@ def sca_integrate(f, x):
 
     :param f: expression to be integrated
     :param x: variable
-    :return: F witht the property: F.diff(x) == f
+    :return: F with the property: F.diff(x) == f
 
     Background: sympy.integrate sometimes gives results which are technically correct
     but unnecessary complicated example:
@@ -3908,7 +3908,7 @@ def sca_integrate(f, x):
     if thematch and not thematch.get(w1) == 0 and not thematch.get(w2, 0).has(x):
 
         w4_int = sca_integrate(w4.subs(thematch), x)
-        result = (-w1/(w2*2)*sp.log(sp.cos(w2*x + w3)**2)).subs(thematch) + w4_int
+        result = (-w1/(w2)*sp.log(sp.cos(w2*x + w3))).subs(thematch) + w4_int
 
         # elimante the remaining Wildcard Symbols
         result = result.subs(zip0(ww))
