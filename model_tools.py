@@ -159,12 +159,13 @@ class SymbolicModel(object):
     MM = property(calc_mass_matrix)  # short hand
 
     def solve_for_acc(self, simplify=False):
+
         self.calc_mass_matrix()
         if simplify:
             self.M.simplify()
         M = self.M
 
-        rhs = self.eqns.subs(st.zip0(self.ttdd)) * -(1)
+        rhs = self.eqns.subs(st.zip0(self.ttdd)) * -1
         d = M.berkowitz_det()
         adj = M.adjugate()
         if simplify:
@@ -175,17 +176,16 @@ class SymbolicModel(object):
 
         return res
 
-    def calc_state_eq(self, **kwargs):
+    def calc_state_eq(self, simplify=True):
         """
         reformulate the second order model to a first order statespace model
         xd = f(x)+g(x)*u
         """
-        simplify = kwargs.get('simplify', False)
 
         self.xx = st.row_stack(self.tt, self.ttd)
         self.x = self.xx # xx is preferred now
 
-        eq2nd_order = self.solve_for_acc(**kwargs)
+        eq2nd_order = self.solve_for_acc(simplify=simplify)
         self.state_eq = st.row_stack(self.ttd, eq2nd_order)
 
         self.f = self.state_eq.subs(st.zip0(self.tau))
@@ -195,13 +195,12 @@ class SymbolicModel(object):
             self.f.simplify()
             self.g.simplify()
 
-    def calc_coll_part_lin_state_eq(self, **kwargs):
+    def calc_coll_part_lin_state_eq(self, simplify=True):
         """
         calc vectorfields ff, and gg of collocated linearization
         """
-        simplify = kwargs.get('simplify', False)
         self.xx = st.row_stack(self.tt, self.ttd)
-        self.x = self.xx # xx is preferred now
+        self.x = self.xx  # xx is preferred now
         
         nq = len(self.tau)
         np = len(self.tt) - nq
@@ -239,13 +238,12 @@ class SymbolicModel(object):
             self.ff.simplify()
             self.gg.simplify()
 
-    def calc_lbi_nf_state_eq(self, **kwargs):
+    def calc_lbi_nf_state_eq(self, simplify=False):
         """
         calc vectorfields fz, and gz of the Lagrange-Byrnes-Isidori-Normalform
 
         instead of the state xx
         """
-        simplify = kwargs.get('simplify', False)
 
         n = len(self.tt)
         nq = len(self.tau)
@@ -415,20 +413,17 @@ def generate_model(T, U, qq, F, **kwargs):
     return model1
 
 
-def generate_symbolic_model(T, U, tt, F, **kwargs):
+def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
     """
-    T kinetic energy
-    U potential energy
-    tt sequence of independent deflection variables ("theta")
-    F external forces
+    T:          kinetic energy
+    U:          potential energy
+    tt:         sequence of independent deflection variables ("theta")
+    F:          external forces
+    simplify:   determines whether the equations of motion should be simplified
+                (default=True)
 
-    kwargs: might be something like 'real=True'
+    kwargs: optional assumptions like 'real=True'
     """
-
-    # if not kwargs:
-    #     # assumptions for the symbols (facilitating the postprocessing)
-    #     kwargs ={"real": True}
-    #
     n = len(tt)
 
     for theta_i in tt:
@@ -492,6 +487,9 @@ def generate_symbolic_model(T, U, tt, F, **kwargs):
     # also store kinetic and potential energy
     mod.T = T
     mod.U = U
+
+    if simplify:
+        mod.eqns.simplify()
 
     return mod
 
