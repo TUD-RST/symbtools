@@ -634,7 +634,9 @@ def lie_deriv(sf, *args, **kwargs):
         kwargs['order'] = kwargs.pop('n')
 
     #determine the calling convenntion (cc):
-    if len(args) == 3 and not kwargs.get('xx') and not kwargs.get('order') and is_number(args[2]):
+    if len(args) == 3 and not kwargs.get('xx')\
+            and not kwargs.get('order') and isinstance(args[2], int):
+
         cc = 1
         order = args[2]
         xx = args[1]
@@ -1103,7 +1105,7 @@ def is_symbol(expr):
 
 
 # TODO: rename is_real_number
-def is_number(expr):
+def is_number(expr, eps=1e-25):
     """
     Test whether or not expr is a real number.
 
@@ -1113,6 +1115,19 @@ def is_number(expr):
     Background:
     avoids the additional test whether an arbitrary is a sympy object (has .is_Symbol)
     """
+
+    if isinstance(expr, (basestring, sp.MatrixBase, list, tuple, np.ndarray, np.matrix, dict)):
+        # filter out most likely erroneous calls
+        msg = "Unexpected type for is_number: %s." % type(expr)
+        raise TypeError(msg)
+
+    try:
+        cond = expr.is_Number or expr.is_NumberSymbol
+        if cond:
+            return True
+    except AttributeError:
+        pass
+
     try:
         f = float(expr)
     except TypeError:
@@ -1124,18 +1139,27 @@ def is_number(expr):
     if f == expr:
         return True
 
-    # now: expr can be converted to float but float(expr) differs from expr
+    # Situation: expr can be converted to float but float(expr) differs from expr
     # there might be a problem with different precisions
 
     L = len(str(expr))
-    f2 = expr.evalf(n=L+10)
+    N = L + 20
+    f2 = expr.evalf(n=N)
 
-    if isinstance(f2, sp.Float) and f2 == expr:
+    if isinstance(f2, sp.Float) and abs((f2 - expr).evalf(N)) < eps:
         return True
     else:
         msg = "Could not decide, whether the following is a number: " + str(expr)
         raise ValueError(msg)
 
+
+def is_scalar(expr):
+    if isinstance(expr, sp.Basic):
+        return True
+    if isinstance(expr, (sp.MatrixBase, np.ndarray)):
+        return False
+
+    return is_number(expr)
 
 def symb_vector(*args, **kwargs):
     return sp.Matrix(sp.symbols(*args, **kwargs))
@@ -3921,6 +3945,7 @@ def perform_time_derivative(*args, **kwargs):
     msg = "This function name is deprecated. Use time_deriv instead. "
     #raise DeprecationWarning, msg
     warnings.warn(msg)
+    1/0
     
     return time_deriv(*args, **kwargs)
 

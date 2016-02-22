@@ -149,6 +149,7 @@ class InteractiveConvenienceTest(unittest.TestCase):
         zz = konst + xx + 5*yy 
         self.assertEqual(zz.subz0(xx, yy), konst)
 
+
 class LieToolsTest(unittest.TestCase):
 
     def setUp(self):
@@ -1218,6 +1219,48 @@ class SymbToolsTest3(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             st.make_global(dict(), 1)
 
+class SymbToolsTest4(unittest.TestCase):
+
+    def setUp(self):
+        st.init_attribute_store(reinit=True)
+
+    def test_is_number(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        self.assertTrue(st.is_number(x1/x1))
+        self.assertTrue(st.is_number(5))
+        self.assertTrue(st.is_number(5.3))
+        self.assertTrue(st.is_number(sp.pi))
+        self.assertTrue(st.is_number(sp.Rational(2, 7)))
+        self.assertTrue(st.is_number(sp.Rational(2, 7).evalf(30)))
+        self.assertTrue(st.is_number(sin(7)))
+        self.assertTrue(st.is_number(np.float(9000)))
+
+        self.assertFalse(st.is_number(x1))
+        self.assertFalse(st.is_number(sin(x1)))
+
+        with self.assertRaises(TypeError) as cm:
+            st.is_number( sp.eye(3) )
+
+        with self.assertRaises(TypeError) as cm:
+            st.is_number( "567" )
+
+    def test_is_scalar(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+
+        self.assertTrue(st.is_scalar(x1/x1))
+        self.assertTrue(st.is_scalar(5))
+        self.assertTrue(st.is_scalar(5.3))
+        self.assertTrue(st.is_scalar(sp.pi))
+        self.assertTrue(st.is_scalar(sp.Rational(2, 7)))
+        self.assertTrue(st.is_scalar(sp.Rational(2, 7).evalf(30)))
+        self.assertTrue(st.is_scalar(sin(7)))
+        self.assertTrue(st.is_scalar(np.float(9000)))
+        self.assertTrue(st.is_scalar(x1**2 + x3))
+
+        self.assertFalse(st.is_scalar( sp.eye(3)*x2 ))
+        self.assertFalse(st.is_scalar( sp.zeros(2, 4)*x2 ))
+        self.assertFalse(st.is_scalar( sp.eye(0)*x2 ))
 
 class TestNumTools(unittest.TestCase):
 
