@@ -15,7 +15,7 @@ import numpy as np
 import scipy as sc
 import scipy.integrate
 
-import symb_tools as st
+import symbtools as st
 import inspect
 from IPython import embed as IPS
 

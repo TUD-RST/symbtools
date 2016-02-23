@@ -7,7 +7,7 @@ Authors: Thomas Mutzke (2013), Carsten Knoll (2013-2015)
 """
 
 import sympy as sp
-import symb_tools as st
+import symbtools as st
 from IPython import embed as IPS
 
 

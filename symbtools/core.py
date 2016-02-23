@@ -1268,7 +1268,7 @@ def make_global(*args, **kwargs):
     upcount = kwargs.pop('upcount', 1)
 
     if len(kwargs) > 0:
-        msg = "The following kwargs are unknown: %s" % ", ".join(kwargs.keys)
+        msg = "The following kwargs are unknown: %s" % ", ".join(kwargs.keys())
         raise ValueError(msg)
 
     if isinstance(args[-1], int):

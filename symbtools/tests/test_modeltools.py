@@ -8,9 +8,8 @@ Created on Wed Nov 26 11:25:00 2014
 import unittest
 import sympy as sp
 from sympy import sin, cos, Matrix
-import symb_tools as st
-import model_tools as mt
-from model_tools import Rz
+import symbtools as st
+import symbtools.modeltools as mt
 
 
 from IPython import embed as IPS
@@ -137,7 +136,7 @@ class ModelToolsTest(unittest.TestCase):
         G3 = S2 # Gelenk
 
         # Schwerpunkt des Pendels #zeigt nach oben
-        S3 = G3 + Rz(p1)*ey*s3
+        S3 = G3 + mt.Rz(p1)*ey*s3
 
         # Zeitableitungen der Schwerpunktskoordinaten
         Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), ttheta)) ##
@@ -234,8 +233,8 @@ class ModelToolsTest(unittest.TestCase):
 
         M0 = Matrix([-r*p1, r])
 
-        S1 = M0 + Rz(p1+q1)*ey*s1
-        S2 = M0 + Rz(p1+q1)*ey*l1+Rz(p1+q1+q2)*ey*s2
+        S1 = M0 + mt.Rz(p1+q1)*ey*s1
+        S2 = M0 + mt.Rz(p1+q1)*ey*l1+mt.Rz(p1+q1+q2)*ey*s2
 
         M0d = st.time_deriv(M0, theta)
         S1d = st.time_deriv(S1, theta)

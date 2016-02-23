@@ -9,8 +9,8 @@ import unittest, sys
 
 import sympy as sp
 
-import symb_tools as st
-import non_commutative_tools as nct
+import symbtools as st
+import symbtools.noncommutativetools as nct
 import pickle
 
 from IPython import embed as IPS

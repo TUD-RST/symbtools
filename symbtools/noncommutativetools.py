@@ -2,7 +2,7 @@
 
 from functools import partial
 import sympy as sp
-import symb_tools as st
+import symbtools as st
 
 
 from IPython import embed as IPS
