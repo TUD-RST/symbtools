@@ -1,4 +1,7 @@
 
+.. image:: https://badge.fury.io/py/symbtools.svg
+    :target: https://badge.fury.io/py/symbtools
+
 (English version below)
 
 Allgemeines
@@ -40,3 +43,21 @@ basing on the present code, is planned for 4th quater of 2015.
 
 An older (and currently not maintained) prototype of this toolbox
 can be found at https://bitbucket.org/cvk/pycontroltools/ .
+
+Installation
+============
+Make sure you have the following dependencies installed:
+
+- sympy
+- numpy
+- scipy
+- ipython
+
+Get symbtools using PyPI::
+
+    $ pip install symbtools
+
+or the latest git version::
+
+    $ git clone https://github.com/cknoll/rst_symbtools.git
+
