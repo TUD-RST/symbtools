@@ -18,7 +18,6 @@ from IPython import embed as IPS
 
 if 'all' in sys.argv:
     FLAG_all = True
-    sys.argv.remove('all')
 else:
     FLAG_all = False
 
@@ -483,7 +482,12 @@ class NCTTest(unittest.TestCase):
 
 
 def main():
+    # remove command line args which should not be passed to the testframework
+    if 'all' in sys.argv:
+        sys.argv.remove('all')
+    
     unittest.main()
+
 
 if __name__ == '__main__':
     main()

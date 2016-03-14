@@ -1,6 +1,9 @@
 
 .. image:: https://badge.fury.io/py/symbtools.svg
     :target: https://badge.fury.io/py/symbtools
+    
+.. image:: https://travis-ci.org/cknoll/rst_symbtools.svg?branch=master
+    :target: https://travis-ci.org/cknoll/rst_symbtools
 
 (English version below)
 

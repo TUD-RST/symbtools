@@ -1,0 +1,23 @@
+language: python
+
+python:
+  - "2.7"
+
+before_install:
+  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b
+  - export PATH=/home/travis/miniconda2/bin:$PATH
+  - export DEPS="sympy numpy scipy matplotlib ipython pytest"
+  - conda update --yes --no-deps conda
+  - conda update --yes conda
+
+install:
+ - conda install --yes -c conda conda-env
+ - conda create -n testenv --yes $DEPS pip python=$TRAVIS_PYTHON_VERSION
+ - source activate testenv
+ - python setup.py install
+
+# command to run tests
+script:
+ - python symbtools/tests/test_all.py all

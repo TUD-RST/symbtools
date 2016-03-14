@@ -22,7 +22,6 @@ from IPython import embed as IPS
 
 if 'all' in sys.argv:
     FLAG_all = True
-    sys.argv.remove('all')
 else:
     FLAG_all = False
 
@@ -1572,8 +1571,12 @@ class TestControlMethods1(unittest.TestCase):
 
 
 def main():
+    # remove command line args which should not be passed to the testframework
+    if 'all' in sys.argv:
+        sys.argv.remove('all')
+    
     unittest.main()
 
-# see also the skip_slow logic at the beginning of the file
+
 if __name__ == '__main__':
     main()

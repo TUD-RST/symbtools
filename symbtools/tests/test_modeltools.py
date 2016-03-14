@@ -342,7 +342,12 @@ class ModelToolsTest2(unittest.TestCase):
 
 
 def main():
+    # remove command line args which should not be passed to the testframework
+    if 'all' in sys.argv:
+        sys.argv.remove('all')
+    
     unittest.main()
+
 
 if __name__ == '__main__':
     main()
