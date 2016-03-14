@@ -404,22 +404,20 @@ class NCTTest(unittest.TestCase):
         yyd4 = st.time_deriv(yy, yy, order=4, commutative=False)
         yya = st.row_stack(yy, yyd1, yyd2, yyd3, yyd4)
 
-        if 1:
-            M1 = sp.Matrix([yy[0]])
-            M1inv = nct.unimod_inv(M1, s, time_dep_symbs=yy)
-            self.assertEqual(M1inv, M1.inv())
+        M1 = sp.Matrix([yy[0]])
+        M1inv = nct.unimod_inv(M1, s, time_dep_symbs=yy)
+        self.assertEqual(M1inv, M1.inv())
 
-        if 0:
-            M2 = sp.Matrix([[y1, y1*s], [0, y2]])
-            M2inv = nct.unimod_inv(M2, s, time_dep_symbs=yy)
+        M2 = sp.Matrix([[y1, y1*s], [0, y2]])
+        M2inv = nct.unimod_inv(M2, s, time_dep_symbs=yy)
 
-            product2a = nct.right_shift_all( nct.nc_mul(M2, M2inv), s, func_symbols=yya)
-            product2b = nct.right_shift_all( nct.nc_mul(M2inv, M2), s, func_symbols=yya)
+        product2a = nct.right_shift_all( nct.nc_mul(M2, M2inv), s, func_symbols=yya)
+        product2b = nct.right_shift_all( nct.nc_mul(M2inv, M2), s, func_symbols=yya)
 
-            res2a = nct.make_all_symbols_commutative( product2a)[0]
-            res2b = nct.make_all_symbols_commutative( product2b)[0]
-            self.assertEqual(res2a, sp.eye(2))
-            self.assertEqual(res2b, sp.eye(2))
+        res2a = nct.make_all_symbols_commutative( product2a)[0]
+        res2b = nct.make_all_symbols_commutative( product2b)[0]
+        self.assertEqual(res2a, sp.eye(2))
+        self.assertEqual(res2b, sp.eye(2))
 
     def test_unimod_inv2(self):
         y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
