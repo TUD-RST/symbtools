@@ -5,7 +5,7 @@ Created on Wed Oct 22 11:35:00 2014
 @author: Carsten Knoll
 """
 
-import sys
+import unittest, sys
 
 if 'all' in sys.argv:
     FLAG_all = True

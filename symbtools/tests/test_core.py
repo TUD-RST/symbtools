@@ -7,6 +7,8 @@ Created on Wed Oct 22 11:35:00 2014
 
 import unittest
 import sys
+import os
+import inspect
 
 import sympy as sp
 from sympy import sin, cos, exp
@@ -16,7 +18,6 @@ import scipy as sc
 import scipy.integrate
 
 import symbtools as st
-import inspect
 from IPython import embed as IPS
 
 
@@ -29,6 +30,13 @@ else:
 # own decorator for skipping slow tests
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
+    
+def make_abspath(*args):
+    """
+    returns new absolute path, basing on the path of this module
+    """
+    current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    return os.path.join(current_dir, *args)
 
 # Avoid warnings of undefined symbols from the IDE,
 # but still make use of st.make_global
@@ -1453,7 +1461,8 @@ class RandNumberTest(unittest.TestCase):
     @skip_slow
     def test_rnd_number_rank2(self):
         import pickle
-        with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
+        path = make_abspath('test_data', 'rank_test_matrices.pcl')
+        with open(path, 'r') as pfile:
             matrix_list = pickle.load(pfile)
 
         for i, m in enumerate(matrix_list):
@@ -1509,7 +1518,8 @@ class RandNumberTest(unittest.TestCase):
     @skip_slow
     def test_generic_rank2(self):
         import pickle
-        with open('test_data/rank_test_matrices.pcl', 'r') as pfile:
+        path = make_abspath('test_data', 'rank_test_matrices.pcl')
+        with open(path, 'r') as pfile:
             matrix_list = pickle.load(pfile)
 
         N = len(matrix_list)

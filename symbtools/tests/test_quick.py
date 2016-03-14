@@ -7,7 +7,8 @@ Created on Mo 2016-03-14
 This file contains just dummy tests to quickly test the test-infrastructure
 """
 
-import unittest, sys
+import unittest
+import inspect, os, sys
 
 
 
@@ -19,7 +20,13 @@ else:
 # own decorator for skipping slow tests
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
-
+    
+def make_abspath(*args):
+    """
+    returns new absolute path, basing on the path of this module
+    """
+    current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    return os.path.join(current_dir, *args)
 
 class NCTTest(unittest.TestCase):
 
@@ -28,6 +35,9 @@ class NCTTest(unittest.TestCase):
 
     def test_func1(self):
         self.assertTrue(1)
+        path = make_abspath('test_data', 'rank_test_matrices.pcl')
+        with open(path, 'r') as pfile:
+            pass
         
     @skip_slow
     def test_func2(self):

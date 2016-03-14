@@ -6,8 +6,10 @@ Created on Fri 2015-03-20
 """
 
 import unittest, sys
+import inspect, os
 
 import sympy as sp
+
 
 import symbtools as st
 import symbtools.noncommutativetools as nct
@@ -29,6 +31,13 @@ s = nct.s
 # own decorator for skipping slow tests
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
+
+def make_abspath(*args):
+    """
+    returns new absolute path, basing on the path of this module
+    """
+    current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    return os.path.join(current_dir, *args)
 
 
 class NCTTest(unittest.TestCase):
@@ -322,8 +331,8 @@ class NCTTest(unittest.TestCase):
 
     def test_make_all_symbols_commutative2(self):
         import pickle
-        fname = "test_data/Q_matrix_wagen_pendel.pcl"
-        with open(fname, 'r') as pfile:
+        path = make_abspath('test_data', 'Q_matrix_wagen_pendel.pcl')
+        with open(path, 'r') as pfile:
             Q = pickle.load(pfile)
 
         Qc, stl = nct.make_all_symbols_commutative(Q, '')
@@ -462,7 +471,8 @@ class NCTTest(unittest.TestCase):
 
     @skip_slow
     def test_unimod_inv4(self):
-        with open('test_data/unimod_maxtrix_unicycle.pcl', "r") as pfile:
+        path = make_abspath('test_data', 'unimod_maxtrix_unicycle.pcl')
+        with open(path, 'r') as pfile:
             pdict = pickle.load(pfile)
 
         PQ = pdict['PQ']
