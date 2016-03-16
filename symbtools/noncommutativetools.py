@@ -317,6 +317,9 @@ def nc_degree(expr, var, max_deg=20):
 
 def nc_mul(L, R):
     """
+    Sympy >=1.0 has fixed multiplication of noncommutative symbols
+    with matrices, so nc_mul(L, R) is not necessary anymore.
+
     This function performs matrix multiplication while respecting the multiplication
     order of noncommutative symbols
 
@@ -325,12 +328,12 @@ def nc_mul(L, R):
     :return:
     """
 
-    if isinstance(L, sp.Expr) and isinstance(R, sp.Expr):
+    if st.is_scalar(L) and st.is_scalar(R):
         return L*R
-    elif isinstance(L, sp.Expr):
+    elif st.is_scalar(L):
         assert isinstance(R, sp.MatrixBase)
         res = R.applyfunc(lambda x: L*x)
-    elif isinstance(R, sp.Expr):
+    elif st.is_scalar(R):
         assert isinstance(L, sp.MatrixBase)
         res = L.applyfunc(lambda x: x*R)
     elif isinstance(L, sp.MatrixBase) and isinstance(R, sp.MatrixBase):
