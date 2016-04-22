@@ -1234,6 +1234,10 @@ class SymbToolsTest3(unittest.TestCase):
         yy = st.symb_vector('y1:4')
         zz = st.symb_vector('z1:11').reshape(2, 5)
 
+        # tollerate if there are numbers in the sequences:
+        zz[0] = 0
+        zz[1] = 10
+
         st.make_global(xx, yy, zz, aa)
 
         res = a1 + x2 + y3 + z4 + z7 + z10

@@ -1302,12 +1302,17 @@ def make_global(*args, **kwargs):
     # this is strongly inspired by sympy.var
     try:
         for v in varList:
+            
             if getattr(v, 'is_Function', False):
                 v = v.func
             if hasattr(v, 'name'):
                 frame.f_globals[v.name] = v
             elif hasattr(v, '__name__'):
                 frame.f_globals[v.__name__] = v
+            elif is_number(v):
+                # conveniece: allow sequences like [0, x1, x2]
+                continue
+            
             else:
                 raise ValueError( 'Object %s has no name' % str(v) )
     finally:
