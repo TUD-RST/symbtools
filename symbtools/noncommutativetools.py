@@ -5,11 +5,6 @@ import sympy as sp
 import symbtools as st
 
 
-from IPython import embed as IPS
-#from ipHelp import IPS, Tracer, ip_syshook, sys
-
-#ip_syshook(1)
-
 
 """
 Collection of Code for noncommutative calculations ("s = d/dt")
@@ -18,7 +13,7 @@ Collection of Code for noncommutative calculations ("s = d/dt")
 
 gC = st.Container()  # global Container
 t = gC.t = sp.Symbol('t', commutative=False)  # time
-s = gC.s = sp.Symbol('s', commutative=False)  # Laplace-Variable (d/dt)
+s = gC.s = sp.Symbol('s', commutative=False)  # "Laplace-Variable" (d/dt)
 
 
 def apply_deriv(term, power, s, t, func_symbols=[]):
@@ -434,7 +429,11 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
 
     na = nsm.shape[1]
     if na < n:
-        msg = 'Could not determine sufficiently large nullspace. Probably M is not unimodular.'
+        msg = 'Could not determine sufficiently large nullspace. '\
+        'Either M is not unimodular or the expressions are to complicated.'
+        # TODO: decide which of the two cases occurs, via substitution of
+        # random numbers and singular value decomposition
+        # (or application of st.generic_rank)
         raise ValueError(msg)
 
     # parameterize the inhomogenous equations with the solution of the homogeneous equations
