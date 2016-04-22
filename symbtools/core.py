@@ -1104,12 +1104,12 @@ def is_symbol(expr):
     return hasattr(expr, 'is_Symbol') and expr.is_Symbol
 
 
-# TODO: rename is_real_number
-def is_number(expr, eps=1e-25):
+def is_number(expr, eps=1e-25, allow_complex=False):
     """
-    Test whether or not expr is a real number.
+    Test whether or not expr is a real (or complex) number.
 
-    :param expr: any object
+    :param expr:                any object
+    :param allow_complex:       False (default) or True
     :return: True or False
 
     Background:
@@ -1128,6 +1128,16 @@ def is_number(expr, eps=1e-25):
     except AttributeError:
         pass
 
+    if allow_complex:
+        try:
+            c = np.complex(expr)
+        except TypeError:
+            return False
+        if c == expr:
+            return True
+        else:
+            msg = "Unexpected behavior: np.complex not equal to original expression"
+            raise NotImplementedError(msg)
     try:
         f = float(expr)
     except TypeError:
@@ -1378,6 +1388,37 @@ def kalman_matrix(A, B):
 
 # for backward compatibility:
 cont_mat = kalman_matrix
+
+
+def siso_place(A, b, ev):
+    """
+    :param A:       system matrix
+    :param b:       input vector
+    :param ev:      sequence of eigenvalues
+    :return:        feedback f such that A + b*f.T has the desired eigenvalues
+    """
+    n, n2 = A.shape
+    assert n == n2
+    assert b.shape == (n, 1)
+    assert len(ev) == n
+
+    assert all([is_number(v, allow_complex=True) for v in ev])
+    assert all([is_number(v) for v in list(A.atoms().union(b.atoms()))])
+
+    coeffs = sp.Matrix(np.poly(ev))[::-1]  # reverse. now: low -> high
+
+    QT = kalman_matrix(A, b).T
+    en = sp.zeros(n, 1)
+    en[-1, 0] = 1
+    qn = QT.solve(en).T
+
+    factor = sp.eye(n)
+    res = QT*0#qn*0
+    for c in coeffs:
+        res += c*factor
+        factor = A*factor
+
+    return -(qn*res).T
 
 
 def get_rows(A):
@@ -2453,6 +2494,24 @@ def trig_term_poly(expr, s):
     return poly
 
 
+def re(M):
+    """extend sympy.re to matrix classes (elementwise)
+    """
+    if isinstance(M, sp.MatrixBase):
+        return M.applyfunc(sp.re)
+    else:
+        return sp.re(M)
+
+
+def im(M):
+    """extend sympy.im to matrix classes (elementwise)
+    """
+    if isinstance(M, sp.MatrixBase):
+        return M.applyfunc(sp.im)
+    else:
+        return sp.im(M)
+
+
 def matrix_atoms(M, *args, **kwargs):
     sets = [m.atoms(*args, **kwargs) for m in list(M)]
     S = set().union(*sets)
@@ -3260,7 +3319,7 @@ For more information see #7853 and the lambdify doc string.
 """
 
 
-def expr_to_func(args, expr, modules = 'numpy', **kwargs):
+def expr_to_func(args, expr, modules='numpy', **kwargs):
     """
     wrapper for sympy.lambdify to handle constant expressions
     (shall return a numpyfied function as well)
@@ -3841,15 +3900,50 @@ def sorted_eigenvalues(M, **kwargs):
     return res
 
 
-def sorted_eigenvector_matrix(M, **kwargs):
+def sorted_eigenvector_matrix(M, numpy=False, increase=False, eps=1e-14, **kwargs):
     """
     returns a matrix whose columns are the normalized eigenvectors of M
 
-    :param M:      square matrix (entries are assumed to be numbers)
-    :return:
+    :M:         square matrix (entries are assumed to be numbers)
+    :numpy:     use numyp instead of sympy
+    :increase:  sort in increasing order (default False)
+    :return:    V (Matrix whose cols are the eigenvectors corresponding to the sorted ev.)
     """
 
+    assert increase in (True, False)
+
+    if numpy:
+        # use numpy
+        N = to_np(M)
+        ev, V = np.linalg.eig(N)
+        idcs = np.argsort(ev)
+        if not increase:
+            idcs = idcs[::-1] # reverse
+
+        ev = ev[idcs]
+        V = V[:, idcs]
+
+        diff = abs(np.diff(ev))
+        if min(diff) < 1e-5:
+            msg = "There might be an eigenvalue with algebraic multiplicity > 1. " \
+                  "Handling of such cases is currently not implemented for the numpy approach."
+            raise NotImplementedError(msg)
+
+        # remove numeric noise
+        realpart  = np.real(V)*1.0
+        imagpart  = np.imag(V)*1.0
+
+        realpart[np.abs(realpart) < eps] = 0
+        imagpart[np.abs(imagpart) < eps] = 0
+        V2 = realpart + 1j*imagpart
+        return sp.Matrix(V2)
+
+    # np_flag was false
+
+    # get the triples in decresing order
     sorted_triples = sorted_eigenvalues(M, get_triples=True, **kwargs)
+    if increase:
+        sorted_triples = sorted_triples[::-1]  # reverse
 
     cols = []
     for value, multiplicity, vects in sorted_triples:
@@ -4547,7 +4641,8 @@ def my_trig_simp(expr):
     subslist.reverse()
 
     return expr.subs(subslist), subslist
-    
+
+
 def gen_primes():
     """ Generate an infinite sequence of prime numbers.
     """

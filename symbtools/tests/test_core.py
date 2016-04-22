@@ -265,7 +265,6 @@ class LieToolsTest(unittest.TestCase):
         res2d = st.lie_deriv(h1, f, f, xx=xx).expand()
         self.assertEqual(res2c, eres2)
         self.assertEqual(res2d, eres2)
-        # IPS()
 
         F = f[:-1, :]
         with self.assertRaises(ValueError) as cm:
@@ -663,6 +662,9 @@ class SymbToolsTest(unittest.TestCase):
         self.assertFalse(st.is_number(float('nan')))
         self.assertFalse(st.is_number(float('inf')))
         self.assertFalse(st.is_number(-float('inf')))
+
+        self.assertTrue(st.is_number(np.pi*1j + np.exp(1), allow_complex=True) )
+        self.assertFalse(st.is_number(np.pi*1j + np.exp(1)))
 
     def test_deriv_2nd_order_chain_rule(self):
         a, b, x = sp.symbols('a, b, x')
@@ -1250,6 +1252,18 @@ class SymbToolsTest4(unittest.TestCase):
     def setUp(self):
         st.init_attribute_store(reinit=True)
 
+    def test_re_im(self):
+        x, y = sp.symbols('x, y', real=True)
+        M1 = sp.Matrix([[x, 0], [sp.pi, 5*x**2]])
+        M2 = sp.Matrix([[y, 3], [sp.exp(1), 7/y]])
+
+        M = M1 + 1j*M2
+        R = st.re(M)
+        I = st.im(M)
+
+        self.assertEqual(R-M1, R*0)
+        self.assertEqual(I-M2, R*0)
+
     def test_is_number(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
 
@@ -1353,6 +1367,17 @@ class TestNumTools(unittest.TestCase):
             res = (res_vect.T*res_vect)[0]
             self.assertTrue(res < 1e-15)
             self.assertAlmostEqual( (vect.T*vect)[0] - 1, 0)
+
+        V2 = st.sorted_eigenvector_matrix(self.M1, numpy=True)
+        V3 = st.sorted_eigenvector_matrix(self.M1, numpy=True, increase=True)
+
+        # quotients should be +-1
+        res1 = np.abs( st.to_np(V1) / st.to_np(V2) ) - np.ones_like(V1)
+        res2 = np.abs( st.to_np(V1) / st.to_np(V3[:, ::-1]) ) - np.ones_like(V1)
+
+        self.assertTrue(np.max(np.abs(res1)) < 1e-5)
+        self.assertTrue(np.max(np.abs(res2)) < 1e-5)
+
 
 
 class RandNumberTest(unittest.TestCase):
@@ -1582,6 +1607,37 @@ class TestControlMethods1(unittest.TestCase):
         Q = st.kalman_matrix(A, B)
 
         self.assertEqual(Q, Qref)
+
+    def test_siso_place(self):
+
+        n = 6
+        A = sp.randMatrix(n, n, seed=1648, min=-10, max=10)
+        b = sp.randMatrix(n, 1, seed=1649, min=-10, max=10)
+        ev = np.sort(np.random.random(n) * 10)
+
+        f = st.siso_place(A, b, ev)
+
+        A2 = st.to_np(A + b*f.T)
+        ev2 = np.sort( np.linalg.eigvals(A2) )
+
+        diff = np.sum(np.abs((ev - ev2)/ev))
+        self.assertTrue(diff < 1e-6)
+
+    def test_siso_place2(self):
+
+        n = 4
+        A = sp.randMatrix(n, n, seed=1648, min=-10, max=10)
+        b = sp.randMatrix(n, 1, seed=1649, min=-10, max=10)
+
+        omega = np.pi*2/2.0
+        ev = np.sort([1j*omega, -1j*omega, -2, -3])
+        f = st.siso_place(A, b, ev)
+
+        A2 = st.to_np(A + b*f.T)
+        ev2 = np.sort( np.linalg.eigvals(A2) )
+        diff = np.sum(np.abs((ev - ev2)/ev))
+
+        self.assertTrue(diff < 1e-6)
 
 
 def main():

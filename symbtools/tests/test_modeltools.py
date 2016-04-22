@@ -10,6 +10,7 @@ import sympy as sp
 from sympy import sin, cos, Matrix
 import symbtools as st
 import symbtools.modeltools as mt
+import sys
 
 
 from IPython import embed as IPS
