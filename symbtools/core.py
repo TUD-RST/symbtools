@@ -452,7 +452,7 @@ def condition_poly(var, *conditions):
 
 def trans_poly(var, cn, left, right):
     """
-    returns a polynomial y(t) that is cn times continous differentiable
+    returns a polynomial y(var) that is cn times continously differentiable
 
     left and right are sequences of conditions for the boundaries, e.g.,
         left = (t1, y1,  *derivs) # derivs contains cn derivatives
@@ -476,8 +476,6 @@ def trans_poly(var, cn, left, right):
     condNbr = 2 + 2*cn
 
     coeffs = map(lambda i: sp.Symbol('a%d' %i), range(condNbr))
-    #poly =  (map(lambda i, a: a*var**i, range(condNbr), coeffs))
-    #1/0
     poly =  sum(map(lambda i, a: a*var**i, range(condNbr), coeffs))
 
     Dpoly = map(lambda i: sp.diff(poly, var, i), range(1,cn+1))
@@ -533,6 +531,17 @@ def make_pw(var, transpoints, fncs, ignore_warning=False):
 def create_piecewise(var, interface_positions, fncs):
     """
     Creates a sympy.Piecewise object, streamlined to trajectory planning.
+    
+    :var:                       variable (e.g. time t)
+    :interface_positions:       sequence of n-1 values
+    :fncs:                      sequence of n expressions (in depenence of var)
+    
+    
+    example: 
+    
+    create_piecewise(t, (0, 2), (0, t/2, 1))
+    
+    results in a ramp from 0 to 1 within 2 time units.
     """
     
     interface_positions= list(interface_positions)
