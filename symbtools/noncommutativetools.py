@@ -236,6 +236,77 @@ def make_all_symbols_noncommutative(expr, appendix='_n'):
     return expr.subs(zip(c_symbols, new_symbols)), tup_list
 
 
+def commutative_simplification(expr, exclude, max_deg=20):
+    """
+    :param expr:    expression or matrix
+    :return:        simplified expression
+
+    This function assumes that all symbols commute with each other except of exclude,
+    which is required to occur only polynomial (with maximum degree <= max_deg)
+    and placed at the right. Than simplifications like x*y*s - y*x*s = 0 are performed.
+    """
+
+    if isinstance(expr, sp.MatrixBase):
+        def fnc(element):
+            return commutative_simplification(element, exclude)
+        return expr.applyfunc(fnc)
+
+    assert isinstance(expr, sp.Basic)
+    if not isinstance(exclude, sp.Symbol):
+        msg = "Argument `exclude` must be a single symbol. Got %s" % type(exclude)
+        raise ValueError(msg)
+
+    expr = expr.expand()
+
+    from IPython import embed as IPS
+
+    # check all symbols are noncommutative
+    all_symbols = list(expr.atoms(sp.Symbol))
+    com_symbs = [symb for symb in all_symbols if symb.is_commutative]
+    if len(com_symbs) > 0:
+        msg = "All symbols in `expr` are expected to be non_commutative. "\
+              "The following are not: %s" % str(com_symbs)
+        raise ValueError(msg)
+
+    functions = expr.atoms(sp.function.AppliedUndef)
+    if not len(functions) == 0:
+        msg = "Undefined functions currently not supported."
+        raise NotImplementedError(msg)
+    # Funktionen ausschließen
+
+    include = all_symbols*1
+    if exclude in all_symbols:
+       include.remove(exclude)
+
+    # check `exclude` is at the right border
+    shift_res = right_shift_all(expr, s=exclude, func_symbols=include)
+    if not shift_res == expr:
+        msg = "Excluded var must be placed at the right. This is not the case."
+        raise ValueError(msg)
+
+    deg = nc_degree(expr, exclude, max_deg)
+
+    coeffs = nc_coeffs(expr, exclude, deg)
+
+    simplified_coeffs = []
+
+
+
+    for c in coeffs:
+        c_commutative, replacements = make_all_symbols_commutative(c)
+        # simplify and afterwards substitute the original symbols back
+        simplified_coeffs.append(c_commutative.simplify().subs(replacements))
+
+    res = 0
+    for i, c in enumerate(simplified_coeffs):
+        res += c*s**i
+
+    return res
+
+
+
+
+
 def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     """Returns a list of the coeffs w.r.t. var (expecting a monovariate polynomial)
 
@@ -257,10 +328,18 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     # TODO: use nc_degree (after performance-testing)
     # workarround: pass the maximum expected degree as kwarg
 
-    D0 = sp.Dummy('D0')
-    poly = poly.expand() + D0  # ensure class add
 
-    assert isinstance(poly, sp.Add)
+    if poly == 0:
+        return [sp.sympify(0)]*(max_deg + 1)
+
+    D0 = sp.Dummy('D0')
+    poly = sp.sympify(poly).expand() + D0  # ensure class add
+
+    if not isinstance(poly, sp.Add):
+        msg = "Expected sp.Add. Got %s" % type(poly)
+        raise TypeError(msg)
+
+
     res = []
     # special case: 0-th power of var
     coeff = 0
@@ -270,8 +349,9 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     res.append(coeff.subs(D0, 0))
 
     # special case: 1st power of var
-    coeff = poly.diff(var).subs(var, 0)
-    res.append(coeff)
+    if max_deg >= 1:
+        coeff = poly.diff(var).subs(var, 0)
+        res.append(coeff)
 
     # powers > 1:
     for i in xrange(2, max_deg+1):

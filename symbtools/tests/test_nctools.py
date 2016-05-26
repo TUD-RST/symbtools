@@ -382,6 +382,19 @@ class NCTTest(unittest.TestCase):
         self.assertEqual(c2, [a, b**2 - c - 1, -a*b*a] + [0]*8)
         self.assertEqual(c8, [a, b**2 - c, -a*b*a, ] + [0]*5 + [-c] + [0]*2)
 
+        d01 = nct.nc_coeffs(p0, s, 3)
+        d02 = nct.nc_coeffs(p0, s, 1)
+        d03 = nct.nc_coeffs(p0, s, 0)
+
+        self.assertEqual(d01, [p0] + [0]*3)
+        self.assertEqual(d02, [p0] + [0])
+        self.assertEqual(d03, [p0])
+
+        d11 = nct.nc_coeffs(0, s, 5)
+        d12 = nct.nc_coeffs(0, s, 0)
+        self.assertEqual(d11, [0]*6)
+        self.assertEqual(d12, [0])
+
     def test_nc_degree(self):
         a, b, c, s = sp.symbols("a, b, c, s", commutative=False)
 
@@ -489,6 +502,64 @@ class NCTTest(unittest.TestCase):
         res3, tmp = nct.make_all_symbols_commutative(res2)
         res4 = st.subs_random_numbers(res3, prime=True)
         self.assertEqual(res4, sp.eye(3))
+
+
+class NCTTest2(unittest.TestCase):
+
+    def setUp(self):
+        st.init_attribute_store(reinit=True)
+
+    def test_commutative_simplification(self):
+
+        x1, x2 = xx = st.symb_vector('x1, x2', commutative=False)
+        y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
+        s, z, t = sz = st.symb_vector('s, z, t', commutative=False)
+
+        a, b = ab = st.symb_vector('a, b', commutative=True)
+
+        F = sp.Function('F')(t)
+
+        e1 = x1*y1 - y1*x1
+        e2 = e1*s + x2
+        e3 = e1*s + x2*s
+
+        M1 = sp.Matrix([[e1, 1], [e2, e3]])
+
+        r1 = nct.commutative_simplification(e1, s)
+        self.assertEqual(r1, 0)
+
+        r2 = nct.commutative_simplification(e2, s)
+        self.assertEqual(r2, x2)
+
+        r3 = nct.commutative_simplification(e3, s)
+        self.assertEqual(r3, x2*s)
+
+        r4 = nct.commutative_simplification(M1, s)
+        r4_expected = sp.Matrix([[0, 1], [x2, x2*s]])
+        self.assertEqual(r4, r4_expected)
+
+        f1 = x1*s*x2*s
+        f2 = s**2*x1*x2
+        f3 = a*x1*s**2
+        f4 = F*s
+
+        with self.assertRaises(ValueError) as cm:
+            nct.commutative_simplification(f1, s)
+
+        with self.assertRaises(ValueError) as cm:
+            nct.commutative_simplification(f2, s)
+
+        with self.assertRaises(ValueError) as cm:
+            nct.commutative_simplification(e1, [s, z])
+
+        with self.assertRaises(ValueError) as cm:
+            nct.commutative_simplification(f3, s)
+
+        with self.assertRaises(NotImplementedError) as cm:
+            nct.commutative_simplification(f4, s)
+
+
+
 
 
 def main():
