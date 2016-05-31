@@ -319,9 +319,15 @@ def pickle_full_load(path):
 
     global_data.attribute_store.update(new_items)
     
+    # allow to load older containers without that flag
+    if not hasattr(pdata, 'container_flag'):
+        return pdata
+    
     if pdata.container_flag:
+        # return the whole container
         return pdata
     else:
+        # return just that attribute (legacy code)
         return pdata.obj
 
 class equation(object):
