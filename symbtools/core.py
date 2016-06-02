@@ -107,6 +107,7 @@ def subz0(self, *args):
     return self.subs(zip0(all_args))
 new_methods.append(('subz0', subz0))
 
+
 @property
 def smplf(self):
     """
@@ -119,6 +120,7 @@ def smplf(self):
     return sp.simplify(self)
 new_methods.append(('smplf', smplf))
 
+
 @property
 def srn01(self):
     """
@@ -128,6 +130,7 @@ def srn01(self):
     return subs_random_numbers(self)
 new_methods.append(('srn01', srn01))
 
+
 @property
 def srn(self):
     """
@@ -136,6 +139,7 @@ def srn(self):
     """
     return subs_random_numbers(self, minmax=(1, 10))
 new_methods.append(('srn', srn))
+
 
 @property
 def srnp(self):
@@ -211,7 +215,6 @@ sp.Symbol.difforder = difforder
 
 
 # handling of _attribute_store makes custom pickle interface necessary
-
 def pickle_full_dump(obj, path):
     """write sympy object (expr, matrix, ...) or Container object to file
     via pickle serialization and additionally also dump the corresponding
