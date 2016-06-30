@@ -3973,13 +3973,17 @@ def sorted_eigenvector_matrix(M, numpy=False, increase=False, eps=1e-14, **kwarg
 
 ## !! Laplace specific
 
-def do_laplace_deriv(laplace_expr, s, t):
+def do_laplace_deriv(laplace_expr, s, t, tds=None):
     """
     Example:
     laplace_expr = s*(t**3+7*t**2-2*t+4)
     returns: 3*t**2  +14*t - 2
+    
+    optional arguments
+    tds: sequence of time dependend symbols (passed to time_deriv)
     """
 
+    laplace_expr = sp.sympify(laplace_expr)
     if isinstance(laplace_expr, sp.Matrix):
         return laplace_expr.applyfunc(lambda x: do_laplace_deriv(x, s,t))
 
@@ -3989,12 +3993,15 @@ def do_laplace_deriv(laplace_expr, s, t):
 
     P = sp.Poly(exp, s, domain = "EX")
     items = P.as_dict().items()
+    
+    if not tds:
+        tds = []
 
     res = 0
     for key, coeff in items:
         exponent = key[0] # exponent wrt s
 
-        res += coeff.diff(t, exponent)
+        res += time_deriv(coeff, tds, order=exponent)
 
     return res
 

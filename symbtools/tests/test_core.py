@@ -1589,6 +1589,36 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEquals(expr1.subs(t, 12), x**3)
         self.assertEquals(expr1.subs(t, 12.00000001), -13)
         self.assertEquals(expr1.subs(t, 1e50), -13)
+        
+    def test_do_laplace_deriv(self):
+        t, s = sp.symbols('t, s')
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        
+        x1dot, x2dot, x3dot = st.time_deriv(xx, xx)
+        x1ddot, x2ddot, x3ddot = st.time_deriv(xx, xx, order=2)
+        
+        
+        expr1 = 5
+        expr2 = 5*s*t**2 - 7*t + 2
+        expr3 = 1*s**2*x1 - 7*s*x2*t + 2
+        
+        res = st.do_laplace_deriv(expr1, s, t)
+        ex_res = 5
+        self.assertEqual(res, ex_res)
+        
+        res = st.do_laplace_deriv(expr2, s, t)
+        ex_res = 10*t - 7*t + 2
+        self.assertEqual(res, ex_res)
+        
+        res = st.do_laplace_deriv(expr3, s, t)
+        ex_res = -7 * x2 + 2
+        self.assertEqual(res, ex_res)
+        
+        res = st.do_laplace_deriv(expr3, s, t, tds=xx)
+        ex_res = x1ddot - 7 * x2 + - 7*x2dot*t +  2
+        self.assertEqual(res, ex_res)
+        
+        
 
 
 class TestControlMethods1(unittest.TestCase):
