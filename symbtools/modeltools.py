@@ -208,7 +208,7 @@ class SymbolicModel(object):
         cond1 = B[:np, :] == sp.zeros(np, nq)
         cond2 = B[np:, :] == -sp.eye(nq)
         if not cond1 and cond2:
-            msg = "The jacobian of the equations of motion do not have the expected structure: %s"
+            msg = "The jacobian of the equations of motion does not have the expected structure: %s"
             raise NotImplementedError(msg % str(B))
 
         # set the actuated accelearations as new inputs

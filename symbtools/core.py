@@ -822,7 +822,7 @@ def lie_bracket(f, g, *args, **kwargs):
 
     if hasattr(args[0], '__len__'):
         args = args[0]
-    n = kwargs.get('n', 1)  # wenn n nicht gegeben, dann n=1
+    n = kwargs.get('n', 1)
 
     if n == 0:
         return g
@@ -2165,8 +2165,7 @@ def hoderiv(f, x, N=2):
     return res
 
 
-
-def get_expr_var(expr, var = None):
+def get_expr_var(expr, var=None):
     """
     auxillary function
     if var == None returns the unique symbol which is contained in expr:
@@ -2318,6 +2317,7 @@ def rationalize_expression(expr, tol=1e-10):
     b = [rat_if_close(aa, tol) for aa in a]
 
     return expr.subs(zip(a,b))
+
 
 def matrix_with_rationals(A):
     A = sp.Matrix(A)
@@ -2610,7 +2610,6 @@ def get_diffterms(xx, order, order_list=False):
     return terms
 
 
-
 def multi_series(expr, xx, order, poly=False):
     """
     Reihenentwicklung (um 0) eines Ausdrucks in mehreren Variablen
@@ -2664,6 +2663,7 @@ def linear_input_trafo(B, row_idcs):
     res = sp.solve(leqs)
 
     return to_np(P.subs(res))
+
 
 def poly_scalar_field(xx, symbgen, order, poly=False):
     """
@@ -2798,6 +2798,7 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
         raise ValueError("This vectorfield cannot be symbolically integrated with this algorithm")
 
     return calc_flow_from_vectorfield(new_vf, func_symbs, flow_parameter, sol_subs=sol_subs, iv_list=iv_list)
+
 
 def reformulate_integral_args(expr):
     """
