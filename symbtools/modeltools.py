@@ -8,6 +8,7 @@ Authors: Thomas Mutzke (2013), Carsten Knoll (2013-2015)
 
 import sympy as sp
 import symbtools as st
+from symbtools import lzip
 from IPython import embed as IPS
 
 
@@ -32,11 +33,11 @@ def point_velocity(point, coord_symbs, velo_symbs, t):
         coord_funcs.append(sp.Function(c.name + "f")(t))
 
     coord_funcs = sp.Matrix(coord_funcs)
-    p1 = point.subs(zip(coord_symbs, coord_funcs))
+    p1 = point.subs(lzip(coord_symbs, coord_funcs))
 
     v1_f = p1.diff(t)
 
-    backsubs = zip(coord_funcs, coord_symbs) + zip(coord_funcs.diff(t),
+    backsubs = lzip(coord_funcs, coord_symbs) + lzip(coord_funcs.diff(t),
                                                    velo_symbs)
 
     return v1_f.subs(backsubs)
@@ -136,7 +137,7 @@ class SymbolicModel(object):
         assert self.eqns != None
         assert (self.f, self.solved_eq, self.state_eq) == (None,) * 3
 
-        subslist = zip(old_F, new_F)
+        subslist = lzip(old_F, new_F)
         self.eqns = self.eqns.subs(subslist)
         self.extforce_list = new_F_symbols
 
@@ -300,7 +301,7 @@ class SymbolicModel(object):
         C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
 
         N = st.time_deriv(M11inv*M12, self.tt)
-        ww_dot = -M11inv*C1K1.subs(zip(uu, uu_expr)) + N.subs(zip(uu, uu_expr))*vv
+        ww_dot = -M11inv*C1K1.subs(lzip(uu, uu_expr)) + N.subs(lzip(uu, uu_expr))*vv
 
         self.fz[2*nq:2*nq+np, :] = uu_expr
         self.fz[2*nq+np:, :] = ww_dot
@@ -369,7 +370,7 @@ def generate_model(T, U, qq, F, **kwargs):
     #substitute functions with symbols for partial derivatives
 
     #highest derivative first
-    subslist = zip(qdd, qdds) + zip(qd, qds) + zip(qq, qs)
+    subslist = lzip(qdd, qdds) + lzip(qd, qds) + lzip(qq, qs)
     L = L.subs(subslist)
 
     # partial derivatives of L

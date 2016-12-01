@@ -3,6 +3,7 @@
 from functools import partial
 import sympy as sp
 import symbtools as st
+from symbtools import lzip
 
 
 
@@ -210,8 +211,8 @@ def make_all_symbols_commutative(expr, appendix='_c'):
 
     # preserve difforder attributes
     st.copy_custom_attributes(nc_symbols, new_symbols)
-    tup_list = zip(new_symbols, nc_symbols)
-    return expr.subs(zip(nc_symbols, new_symbols)), tup_list
+    tup_list = lzip(new_symbols, nc_symbols)
+    return expr.subs(lzip(nc_symbols, new_symbols)), tup_list
 
 
 def make_all_symbols_noncommutative(expr, appendix='_n'):
@@ -232,8 +233,8 @@ def make_all_symbols_noncommutative(expr, appendix='_n'):
 
     # preserve difforder attributes
     st.copy_custom_attributes(c_symbols, new_symbols)
-    tup_list = zip(new_symbols, c_symbols)
-    return expr.subs(zip(c_symbols, new_symbols)), tup_list
+    tup_list = lzip(new_symbols, c_symbols)
+    return expr.subs(lzip(c_symbols, new_symbols)), tup_list
 
 
 def commutative_simplification(expr, exclude, max_deg=20):
@@ -521,7 +522,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     aa = st.symb_vector('_a1:{0}'.format(na+1))
     nsm_a = nsm*aa
 
-    eqns_inh2 = eqns_inh.subs(zip(free_params_c, nsm_a))
+    eqns_inh2 = eqns_inh.subs(lzip(free_params_c, nsm_a))
 
     # now solve the remaining equations
 
@@ -531,7 +532,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     assert rhs_inh == sp.ones(n, 1)
     
     sol_vect = Jinh.solve(rhs_inh)
-    sol = zip(aa, sol_vect)
+    sol = lzip(aa, sol_vect)
 
     # get the values for all free_params (now they are not free anymore)
     free_params_sol_c = nsm_a.subs(sol)
@@ -539,7 +540,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     # replace the commutative symbols with the original non_commutative symbols (of M)
     free_params_sol = free_params_sol_c.subs(st_c_nc)
 
-    Minv = C.subs(zip(free_params, free_params_sol))
+    Minv = C.subs(lzip(free_params, free_params_sol))
 
     return Minv
 

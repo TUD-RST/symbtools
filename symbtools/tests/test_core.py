@@ -18,6 +18,7 @@ import scipy as sc
 import scipy.integrate
 
 import symbtools as st
+from symbtools import lzip
 from IPython import embed as IPS
 
 
@@ -123,10 +124,10 @@ class InteractiveConvenienceTest(unittest.TestCase):
         M1 = sp.Matrix([x2, x1*x2, x3**2])
         M2 = sp.ImmutableDenseMatrix(M1)
 
-        self.assertEqual(x1.subs(zip(xx, yy)), x1.subz(xx, yy))
-        self.assertEqual(a.subs(zip(xx, yy)), a.subz(xx, yy))
-        self.assertEqual(M1.subs(zip(xx, yy)), M1.subz(xx, yy))
-        self.assertEqual(M2.subs(zip(xx, yy)), M2.subz(xx, yy))
+        self.assertEqual(x1.subs(lzip(xx, yy)), x1.subz(xx, yy))
+        self.assertEqual(a.subs(lzip(xx, yy)), a.subz(xx, yy))
+        self.assertEqual(M1.subs(lzip(xx, yy)), M1.subz(xx, yy))
+        self.assertEqual(M2.subs(lzip(xx, yy)), M2.subz(xx, yy))
 
     def test_smplf(self):
         x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
@@ -828,12 +829,12 @@ class SymbToolsTest2(unittest.TestCase):
         vf2 = sp.Matrix([0, 1, x3, sin(a*x2)])
 
         res1, fp, iv1 = st.calc_flow_from_vectorfield(vf1, xx[:-1], flow_parameter=t)
-        vf1_sol = vf1.subs(zip(xx[:-1], res1))
+        vf1_sol = vf1.subs(lzip(xx[:-1], res1))
         self.assertEqual(fp, t)
         self.assertEqual(res1.diff(t), vf1_sol)
 
         res2, fp, iv2 = st.calc_flow_from_vectorfield(vf2, xx, flow_parameter=t)
-        vf2_sol = vf2.subs(zip(xx[:-1], res2))
+        vf2_sol = vf2.subs(lzip(xx[:-1], res2))
         self.assertEqual(fp, t)
         self.assertEqual(res2.diff(t), vf2_sol)
 
@@ -855,7 +856,7 @@ class SymbToolsTest2(unittest.TestCase):
         v4 = B[2, 1]
         B[2, 1] = p4
 
-        par_vals = zip(pp, [v1, v2, v3, v4])
+        par_vals = lzip(pp, [v1, v2, v3, v4])
 
         f = A*xx
         G = B
@@ -870,7 +871,7 @@ class SymbToolsTest2(unittest.TestCase):
         rhs0 = mod.create_simfunction()
 
         res0_1 = rhs0(x0, 0)
-        dres0_1 = st.to_np(fxu.subs(zip(xx, x0) + st.zip0(uu))).squeeze()
+        dres0_1 = st.to_np(fxu.subs(lzip(xx, x0) + st.zip0(uu))).squeeze()
 
         bin_res01 = np.isclose(res0_1, dres0_1)  # binary array
         self.assertTrue( np.all(bin_res01) )
@@ -1362,7 +1363,7 @@ class TestNumTools(unittest.TestCase):
         ev1 = st.sorted_eigenvalues(self.M1)
         self.assertEqual(len(ev1), V1.shape[1])
 
-        for val, vect in zip(ev1, st.col_split(V1)):
+        for val, vect in lzip(ev1, st.col_split(V1)):
             res_vect = self.M1*vect - val*vect
             res = (res_vect.T*res_vect)[0]
             self.assertTrue(res < 1e-15)
@@ -1409,7 +1410,7 @@ class RandNumberTest(unittest.TestCase):
         res_b1 = st.rnd_number_subs_tuples(ff)
 
         expct_b1_set = set([f, fdot, fddot, t, x1, x2])
-        res_b1_atom_set = set( zip(*res_b1)[0] )
+        res_b1_atom_set = set( lzip(*res_b1)[0] )
 
         self.assertEqual(expct_b1_set, res_b1_atom_set)
         self.assertEqual(res_b1[0][0], fddot)

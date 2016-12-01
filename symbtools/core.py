@@ -27,6 +27,12 @@ except ImportError:
     pass
 
 
+def lzip(*args):
+    """
+    this function emulates the python2 behavior of zip (saving parentheses in py3)
+    """
+    return list(zip(*args))
+
 # placeholder to inject a custom simplify function for the enullspace function
 nullspace_simplify_func = None
 
@@ -89,9 +95,9 @@ new_methods.append(('co', sco))
 def subz(self, args1, args2):
     '''
     convenience property for interactive usage:
-    returns self.subs(zip(args1, args2))
+    returns self.subs(lzip(args1, args2))
     '''
-    return self.subs(zip(args1, args2))
+    return self.subs(lzip(args1, args2))
 new_methods.append(('subz', subz))
 
 
@@ -171,7 +177,7 @@ def copy_custom_attributes(old_symbs, new_symbs):
     new_symbs = list(new_symbs)
     assert len(old_symbs) == len(new_symbs)
 
-    map_old_to_new = dict(zip(old_symbs, new_symbs))
+    map_old_to_new = dict(lzip(old_symbs, new_symbs))
 
     new_items = []
 
@@ -517,7 +523,7 @@ def make_pw(var, transpoints, fncs, ignore_warning=False):
         raise DeprecationWarning, msg
     
     transpoints = list(transpoints)
-    upper_borders = list(zip(*transpoints)[0])
+    upper_borders = lzip(*transpoints)[0]
 
     var = sp.sympify(var)
 
@@ -534,7 +540,7 @@ def make_pw(var, transpoints, fncs, ignore_warning=False):
     #fncs+=[fncs[-1]] # use the last fnc beyond the last transpoint
 
     # generate a list of tuples
-    pieces = [(fnc, var < ub) for ub, fnc in zip(upper_borders, fncs)]
+    pieces = [(fnc, var < ub) for ub, fnc in lzip(upper_borders, fncs)]
     return piece_wise(*pieces)
 
 def create_piecewise(var, interface_positions, fncs):
@@ -562,7 +568,7 @@ def create_piecewise(var, interface_positions, fncs):
     assert len(upper_borders) == len(fncs) - 1
     #upper_borders += [inf]
 
-    pieces = [(fnc, var < ub) for ub, fnc in zip(upper_borders[:-1], fncs[:-2])]
+    pieces = [(fnc, var < ub) for ub, fnc in lzip(upper_borders[:-1], fncs[:-2])]
 
     # the last finite border sould be included, hence we use '<=' instead of '<'
     last_two_pieces = [(fncs[-2], var <= upper_borders[-1]), (fncs[-1], var < inf)]
@@ -579,18 +585,18 @@ def integrate_pw(fnc, var, transpoints):
 
     F=sp.integrate(fnc, var)
 
-    fncs, conds = zip(*F.args)
+    fncs, conds = lzip(*F.args)
 
-    transpoints = list(zip(*transpoints)[0])
+    transpoints = lzip(*transpoints)[0]
 
     oldfnc = fncs[0]
     new_fncs = [oldfnc]
-    for f, tp  in zip(fncs[1:], transpoints):
+    for f, tp  in lzip(fncs[1:], transpoints):
         fnew = f + oldfnc.subs(var, tp) - f.subs(var, tp)
         new_fncs.append(fnew)
         oldfnc = fnew
 
-    pieces = zip(new_fncs, conds)
+    pieces = lzip(new_fncs, conds)
 
     return piece_wise(*pieces)
 
@@ -625,12 +631,12 @@ def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
     funcs2 = sp.Matrix(list(funcs2))
 
     H = sp.hessian(f, args1)
-    H1 = H.subs(zip(args1, funcs2))
+    H1 = H.subs(lzip(args1, funcs2))
     J = gradient(f, args1)
 
     v = funcs2.diff(arg2)
     Hterm = (v.T*H1*v)[0]
-    J2 = (J*v).diff(arg2).subs(zip(args1, funcs2))[0]
+    J2 = (J*v).diff(arg2).subs(lzip(args1, funcs2))[0]
 
     return Hterm + J2
 
@@ -960,7 +966,7 @@ def system_pronlongation(f, gg, xx, prl_list, **kwargs):
     nr, nc = gg.shape
     assert len(f) == nr == len(xx)
     # resort the prolongation_list
-    idcs, orders = zip(*prl_list)
+    idcs, orders = lzip(*prl_list)
     for idx, order in prl_list:
         assert 0 <= idx < nc
         assert 0 <= order == int(order)
@@ -1025,7 +1031,7 @@ def multi_taylor(expr, args, x0 = None, order=1):
     x0 = list(x0) # to handle matrices
     assert len(args) == len(x0)
 
-    x0list = zip(args, x0)
+    x0list = lzip(args, x0)
 
     res = expr.subs(x0list)
 
@@ -1231,7 +1237,7 @@ def symbs_to_func(expr, symbs=None, arg=None):
     if isinstance(expr, (tuple, list)):
         expr = sp.Matrix(expr)
 
-    return expr.subs(zip(symbs, funcs))
+    return expr.subs(lzip(symbs, funcs))
 
 
 # TODO: Unittest
@@ -1251,7 +1257,7 @@ def funcs_to_symbs(expr, funcs=None, symbs=None, arg=None, kwargs = None):
     funcs = list(atoms(expr, sp.function.AppliedUndef))
     symbs = [sp.Symbol(str(type(f)), **kwargs) for f in funcs]
 
-    return expr.subs(zip(funcs, symbs))
+    return expr.subs(lzip(funcs, symbs))
 
 
 def getOccupation(M):
@@ -1375,7 +1381,7 @@ def tup0(xx):
     returns [(x1, 0), (x2, 0), ...]
     """
 
-    return zip(xx, [0]*len(xx))
+    return lzip(xx, [0]*len(xx))
 
 
 def jac(expr, *args):
@@ -1599,7 +1605,7 @@ def solve_linear_system(eqns, vars):
         k = M.shape[0] + 1
         rr = sp.Matrix(sp.symbols('r1:%i' % k))
 
-        subs_rest = zip(rr, rest)
+        subs_rest = lzip(rr, rest)
 
         EQNs_yz = M*y + rr
 
@@ -1612,7 +1618,7 @@ def solve_linear_system(eqns, vars):
 
     y_sol = y.subs(sol).subs(subs_rest + replm1 + replm2)
 
-    return zip(y, y_sol)
+    return lzip(y, y_sol)
 
 
 def _simplest_regular_submatrix(A):
@@ -1639,7 +1645,7 @@ def _simplest_regular_submatrix(A):
     co = A.applyfunc(_extended_count_ops)
     col_sums = np.sum(to_np(co), axis=0)
 
-    sum_tuples = zip(col_sums, range(n))
+    sum_tuples = lzip(col_sums, range(n))
     # [(sum0, 0), (sum1, 1), ...]
 
     # combinations of tuples
@@ -1651,14 +1657,14 @@ def _simplest_regular_submatrix(A):
 
     def comb_sum(comb):
         # unpack the column sums
-        col_sums = zip(*comb)[0]
+        col_sums = lzip(*comb)[0]
         return sum(col_sums)
 
     combs.sort(key=comb_sum)
 
     # now take the first column combination which leads to a regular matrix
     for comb in combs:
-        idcs = zip(*comb)[1]
+        idcs = lzip(*comb)[1]
         M = col_select(A, *idcs)
 
         M_num = subs_random_numbers(M, seed=1107)
@@ -2270,7 +2276,7 @@ def poly_expr_coeffs(expr, variables, maxorder=2):
     value = expr.subs(v0)
     result[key] = value
 
-    for diff_tup, order_tup in zip(diff_list, order_tuples):
+    for diff_tup, order_tup in lzip(diff_list, order_tuples):
         gamma = sp.Mul(*[sp.factorial(o) for o in order_tup])
         tmp = expr.diff(*diff_tup).subs(v0) / gamma
         result[order_tup] = tmp
@@ -2287,7 +2293,7 @@ def monomial_from_signature(sig, variables):
     assert len(sig) == len(variables)
 
     res = 1
-    for i, v in zip(sig, variables):
+    for i, v in lzip(sig, variables):
         res *= v**i
 
     return res
@@ -2316,7 +2322,7 @@ def rationalize_expression(expr, tol=1e-10):
     a = list(expr.atoms(sp.Number))
     b = [rat_if_close(aa, tol) for aa in a]
 
-    return expr.subs(zip(a,b))
+    return expr.subs(lzip(a,b))
 
 
 def matrix_with_rationals(A):
@@ -2396,7 +2402,7 @@ def div(vf, x):
     x = list(x)
     assert len(vf) == len(x)
 
-    return sum([c.diff(xi) for c,xi in zip(vf, x)])
+    return sum([c.diff(xi) for c,xi in lzip(vf, x)])
 
 
 def chop(expr, tol = 1e-10):
@@ -2615,7 +2621,7 @@ def multi_series(expr, xx, order, poly=False):
     Reihenentwicklung (um 0) eines Ausdrucks in mehreren Variablen
     """
 
-    xx0 = zip(xx, [0]*len(xx)) # Entwicklungsstelle
+    xx0 = lzip(xx, [0]*len(xx)) # Entwicklungsstelle
     res = 0
     for i in range(order+1):
         if i == 0:
@@ -2782,7 +2788,7 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
     for i in aut_indices:
         rhs = vf[i]
         fs = func_symbs[i]
-        if sol_subs and fs in zip(*sol_subs)[0]:
+        if sol_subs and fs in lzip(*sol_subs)[0]:
             continue
         sol, iv = solve_scalar_ode_1sto(rhs, fs, flow_parameter, return_iv = True)
         sol_subs.append((fs, sol))
@@ -2881,8 +2887,8 @@ def clean_numbers(expr, eps=1e-10):
         rats.append(rat)
         dummy_symbs.append(symb_gen.next())
 
-    res1 = expr.subs(zip(floats, dummy_symbs))
-    res2 = res1.subs(zip(dummy_symbs, rats))
+    res1 = expr.subs(lzip(floats, dummy_symbs))
+    res2 = res1.subs(lzip(dummy_symbs, rats))
 
     return res2
 
@@ -2902,7 +2908,7 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
         def func(exp1, exp2):
             return random_equaltest(exp1, exp2, info, integer, seed,
                                                             tol, min, max)
-        res = [func(e1, e2) for e1,e2 in zip(list(exp1), list(exp2))]
+        res = [func(e1, e2) for e1,e2 in lzip(list(exp1), list(exp2))]
 
         if info == True:
             res = [tup[1] for tup in res]
@@ -3021,7 +3027,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
 
     # for back substitution
     reverse_dict = dict( rev_tuple(SL) +
-                         zip(regular_symbol_list, regular_symbol_list) )
+                         lzip(regular_symbol_list, regular_symbol_list) )
 
     if not seed is None:
         random.seed(seed)
@@ -3137,7 +3143,7 @@ def generic_rank(M, **kwargs):
     # define the precisions
     prec1, prec2, prec3 = plist = 100, 200, 300
     # rnst1, rnst2, rnst3 = rnst_list = [rnd_number_subs_tuples(M, seed=seed, prec=p) for p in plist]
-    # M1, M2, M3 = [M.subs(r).evalf(prec=p) for (r, p) in zip(rnst_list, plist)]
+    # M1, M2, M3 = [M.subs(r).evalf(prec=p) for (r, p) in lzip(rnst_list, plist)]
 
     rnst = rnd_number_subs_tuples(M, seed=seed, rational=True)
     M1, M2, M3 = [M.subs(rnst).evalf(prec=p) for p in plist]
@@ -3168,7 +3174,7 @@ def generic_rank(M, **kwargs):
 
     err_msg = "unexpected behavior of berkowitz coeffs during rank calculation"
     threshold = 1e-2
-    for i, (c1, c2, c3) in enumerate(zip(coeffs1, coeffs2, coeffs3)):
+    for i, (c1, c2, c3) in enumerate(lzip(coeffs1, coeffs2, coeffs3)):
         if 0 in (c1, c2, c3):
             # assume that this coeff indeed vanishes
             continue
@@ -4287,10 +4293,10 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     for ds_list in deriv_symbols1:
         deriv_symbols.extend(ds_list)
 
-    subs1 = zip(func_symbols, funcs)
+    subs1 = lzip(func_symbols, funcs)
 
     # important: begin substitution with highest order
-    subs2 = zip(derivs + funcs, deriv_symbols + func_symbols)
+    subs2 = lzip(derivs + funcs, deriv_symbols + func_symbols)
 
     expr1 = expr.subs(subs1)
     expr2 = expr1.diff(t, order)
@@ -4344,7 +4350,7 @@ def match_symbols_by_name(symbols1, symbols2, strict=True):
         symbols1 = atoms(symbols1, sp.Symbol)
 
     str_list1 = [str(s.name) for s in symbols1]
-    sdict1 = dict( zip(str_list1, symbols1) )
+    sdict1 = dict( lzip(str_list1, symbols1) )
 
     str_list2 = [str(s) for s in symbols2]
     # sympy expects str here (unicode not allowed)
@@ -4424,7 +4430,7 @@ def symbolify_matrix(M):
         result.append(ns)
 
     res = sp.Matrix(result).reshape(*M.shape)
-    replacements = zip(new_symbol, replaced)
+    replacements = lzip(new_symbol, replaced)
     return replacements, res
 
 
@@ -4610,7 +4616,7 @@ def sort_trig_terms(expr):
     res = {}
 
     for a in expr.args:
-        coeff = a.subs(zip(trig_terms, [1]*len(trig_terms)))
+        coeff = a.subs(lzip(trig_terms, [1]*len(trig_terms)))
 
 
         sign = 1
@@ -4663,7 +4669,7 @@ def my_trig_simp(expr):
 
     symbs = sp.symbols( 'x1:%i' %( len(args)+1) )
 
-    subslist = zip(args, symbs)
+    subslist = lzip(args, symbs)
     subslist.reverse()
 
     return expr.subs(subslist), subslist
