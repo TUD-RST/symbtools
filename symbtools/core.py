@@ -22,8 +22,8 @@ from functools import reduce
 
 try:
     # usefull for debugging but not mandatory
-    #from IPython import embed as IPS
-    from ipHelp import IPS
+    from IPython import embed as IPS
+    #from ipHelp import IPS
 except ImportError:
     pass
 
@@ -304,7 +304,7 @@ def pickle_full_dump(obj, path):
     
     pdata.attribute_store = dict(relevant_items)
 
-    with open(path, 'w') as pfile:
+    with open(path, 'wb') as pfile:
         pickle.dump(pdata, pfile)
 
 
@@ -314,7 +314,7 @@ def pickle_full_load(path):
     entries of _attribute_store (such as difforder).
     """
 
-    with open(path, 'r') as pfile:
+    with open(path, 'rb') as pfile:
         pdata = pickle.load(pfile)
 
     new_items = list(pdata.attribute_store.items())
