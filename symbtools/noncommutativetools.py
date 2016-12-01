@@ -355,7 +355,7 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
         res.append(coeff)
 
     # powers > 1:
-    for i in xrange(2, max_deg+1):
+    for i in range(2, max_deg+1):
         coeff = 0
         for a in poly.args:
             if a.has(var**(i)):
@@ -376,7 +376,7 @@ def nc_degree(expr, var, max_deg=20):
         return 0
 
     res = [-1]  # we dont know about the 0th order term (and it does not matter)
-    for i in xrange(0, max_deg):
+    for i in range(0, max_deg):
         if expr.has(var**(i + 1)):
             res.append(1)
         else:
@@ -420,12 +420,12 @@ def nc_mul(L, R):
 
         res = sp.zeros(nrL, ncR)
 
-        for i in xrange(nrL):  # iterate over the rows of L
-            for j in xrange(ncR):  # iterate over the columns of R
+        for i in range(nrL):  # iterate over the rows of L
+            for j in range(ncR):  # iterate over the columns of R
 
                 res_elt = 0
                 # dot product of row and column
-                for k in xrange(ncL):
+                for k in range(ncL):
                     res_elt += L[i, k] * R[k, j]
 
                 res[i, j] = res_elt
@@ -467,7 +467,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     C = M*0
     free_params = []
 
-    for i in xrange(max_deg+1):
+    for i in range(max_deg+1):
         prefix = 'c{0}_'.format(i)
         c_part = st.symbMatrix(n, n, prefix, commutative=False)
         C += c_part*s**i
@@ -480,7 +480,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     deg_P = nc_degree(P2, s)
 
     part_eqns = []
-    for i in xrange(deg_P + 1):
+    for i in range(deg_P + 1):
         # omit the highest order (because it behaves like in the commutative case)
         res = P2.diff(s, i).subs(s, 0)#/sp.factorial(i)
         part_eqns.append(res)

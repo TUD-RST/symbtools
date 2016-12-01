@@ -18,6 +18,7 @@ import random
 import itertools as it
 import collections as col
 import pickle
+from functools import reduce
 
 try:
     # usefull for debugging but not mandatory
@@ -51,7 +52,7 @@ class Container(object):
     """
 
     def __init__(self, **kwargs):
-        assert len( set(dir(self)).intersection(kwargs.keys()) ) == 0
+        assert len( set(dir(self)).intersection(list(kwargs.keys())) ) == 0
         self.__dict__.update(kwargs)
 
 # data structure to store some data on module level without using `global` keyword
@@ -183,7 +184,7 @@ def copy_custom_attributes(old_symbs, new_symbs):
 
     # attribute_store is a dict like {(xddot, 'difforder'): 2}
     # i.e. keys are 2-tuples like (variable, attr_name)
-    for key, value in global_data.attribute_store.items():
+    for key, value in list(global_data.attribute_store.items()):
 
         if key[0] in old_symbs:
             # there is an relevant attribute
@@ -267,7 +268,7 @@ def pickle_full_dump(obj, path):
 
     # no apply it to all items in additional_data
     
-    for new_obj in additional_data.__dict__.values():
+    for new_obj in list(additional_data.__dict__.values()):
         get_symbols(new_obj)
 
     # make each symbol occur only once
@@ -297,7 +298,7 @@ def pickle_full_dump(obj, path):
     # now look in global_data.attribute_store (see above) if there are
     # some attributes stored concerning the relevant_symbols
     # global_data.attribute_store looks like {(xdot, 'difforder'): 1, ...}
-    relevant_items = [item for item in global_data.attribute_store.items()
+    relevant_items = [item for item in list(global_data.attribute_store.items())
                                     if item[0][0] in pdata.relevant_symbols]
 
     
@@ -316,7 +317,7 @@ def pickle_full_load(path):
     with open(path, 'r') as pfile:
         pdata = pickle.load(pfile)
 
-    new_items = pdata.attribute_store.items()
+    new_items = list(pdata.attribute_store.items())
 
     for key, value in new_items:
         old_value = global_data.attribute_store.get(key)
@@ -434,12 +435,12 @@ def condition_poly(var, *conditions):
     condNbr = sum(cond_lengths)
     cn = max(cond_lengths)
 
-    coeffs = map(lambda i: sp.Symbol('a%d' %i), range(condNbr))
+    coeffs = [sp.Symbol('a%d' %i) for i in range(condNbr)]
     #poly =  (map(lambda i, a: a*var**i, range(condNbr), coeffs))
     #1/0
-    poly =  sum(map(lambda i, a: a*var**i, range(condNbr), coeffs))
+    poly =  sum(map(lambda i, a: a*var**i, list(range(condNbr)), coeffs))
 
-    Dpoly_list = [poly]+map(lambda i: sp.diff(poly, var, i), range(1,cn+1))
+    Dpoly_list = [poly]+[sp.diff(poly, var, i) for i in range(1,cn+1)]
 
     new_conds = []
     for c in conditions:
@@ -490,10 +491,10 @@ def trans_poly(var, cn, left, right):
     # preparations
     condNbr = 2 + 2*cn
 
-    coeffs = map(lambda i: sp.Symbol('a%d' %i), range(condNbr))
-    poly =  sum(map(lambda i, a: a*var**i, range(condNbr), coeffs))
+    coeffs = [sp.Symbol('a%d' %i) for i in range(condNbr)]
+    poly =  sum(map(lambda i, a: a*var**i, list(range(condNbr)), coeffs))
 
-    Dpoly = map(lambda i: sp.diff(poly, var, i), range(1,cn+1))
+    Dpoly = [sp.diff(poly, var, i) for i in range(1,cn+1)]
 
 
     # create the conditions
@@ -520,7 +521,7 @@ def make_pw(var, transpoints, fncs, ignore_warning=False):
     if not ignore_warning:
         msg = "This function is deprecated. Use create_piecewise(...) "\
         "with slightly different syntax."
-        raise DeprecationWarning, msg
+        raise DeprecationWarning(msg)
     
     transpoints = list(transpoints)
     upper_borders = lzip(*transpoints)[0]
@@ -922,7 +923,7 @@ def involutivity_test(dist, xx, **kwargs):
     assert isinstance(dist, sp.Matrix)
     nr, nc = dist.shape
     assert len(xx) == nr
-    combs = it.combinations(range(nc), 2)
+    combs = it.combinations(list(range(nc)), 2)
 
     rank0 = generic_rank(dist)
 
@@ -1035,9 +1036,9 @@ def multi_taylor(expr, args, x0 = None, order=1):
 
     res = expr.subs(x0list)
 
-    arg_idx_list = range( len(args) )
+    arg_idx_list = list(range( len(args)))
 
-    for o in xrange(1,order+1):
+    for o in range(1,order+1):
 
         diff_list = it.product( *([arg_idx_list]*o) )
 
@@ -1140,7 +1141,7 @@ def is_number(expr, eps=1e-25, allow_complex=False):
     avoids the additional test whether an arbitrary is a sympy object (has .is_Symbol)
     """
 
-    if isinstance(expr, (basestring, sp.MatrixBase, list, tuple, np.ndarray, np.matrix, dict)):
+    if isinstance(expr, (str, sp.MatrixBase, list, tuple, np.ndarray, np.matrix, dict)):
         # filter out most likely erroneous calls
         msg = "Unexpected type for is_number: %s." % type(expr)
         raise TypeError(msg)
@@ -1302,7 +1303,7 @@ def make_global(*args, **kwargs):
     upcount = kwargs.pop('upcount', 1)
 
     if len(kwargs) > 0:
-        msg = "The following kwargs are unknown: %s" % ", ".join(kwargs.keys())
+        msg = "The following kwargs are unknown: %s" % ", ".join(list(kwargs.keys()))
         raise ValueError(msg)
 
     if isinstance(args[-1], int):
@@ -1498,9 +1499,9 @@ def get_coeff_row(eq, variables):
         variables = list(variables)
 
     get_coeff = lambda var: sp.diff(eq.lhs(), var)
-    coeffs =  map(get_coeff, variables)
+    coeffs =  list(map(get_coeff, variables))
     rest = eq.lhs() - sum([coeffs[i]*variables[i] for i in range( len(variables) )])
-    coeff_row = map(get_coeff, variables) + [eq.rhs() - rest]
+    coeff_row = list(map(get_coeff, variables)) + [eq.rhs() - rest]
     return coeff_row
 
 
@@ -1573,7 +1574,7 @@ def solve_linear_system(eqns, vars):
     A = eqns.jacobian(vars)
 
     if atoms(A).intersection(vars):
-        raise ValueError, "The equations seem to be non-linear."
+        raise ValueError("The equations seem to be non-linear.")
 
     b = eqns.subs(zip0(vars))
 
@@ -1645,7 +1646,7 @@ def _simplest_regular_submatrix(A):
     co = A.applyfunc(_extended_count_ops)
     col_sums = np.sum(to_np(co), axis=0)
 
-    sum_tuples = lzip(col_sums, range(n))
+    sum_tuples = lzip(col_sums, list(range(n)))
     # [(sum0, 0), (sum1, 1), ...]
 
     # combinations of tuples
@@ -1741,7 +1742,7 @@ def extract_independent_eqns(M):
 
         list_of_occtuples.append(tuple(tmplist))
 
-    print list_of_occtuples
+    print(list_of_occtuples)
 
     #list_of_occtuples_save = list_of_occtuples[:]
 
@@ -1785,8 +1786,8 @@ def cancel_rows_cols(M, rows, cols):
     cols ... cols to be canceled
     """
 
-    idxs_col = range(M.shape[1])
-    idxs_row = range(M.shape[0])
+    idxs_col = list(range(M.shape[1]))
+    idxs_row = list(range(M.shape[0]))
 
     rows.sort(reverse=True)
     cols.sort(reverse=True)
@@ -1810,7 +1811,7 @@ def norm2(v):
     assumes that v is a n x 1 matrix (column vector)
     returns (v.T*v)[0,0] i.e. the squared 2-norm
     """
-    assert isinstance(v, (sp.Matrix,))
+    assert isinstance(v, sp.Matrix)
     return (v.T*v)[0,0]
 
 
@@ -1832,7 +1833,7 @@ def concat_cols(*args):
         if a.shape[1] == 1:
             col_list.append( list(a) )
             continue
-        for i in xrange(a.shape[1]):
+        for i in range(a.shape[1]):
             col_list.append( list(a[:,i]) )
     m = sp.Matrix(col_list).T
 
@@ -1847,7 +1848,7 @@ def col_split(A, *indices):
     returns a list of columns corresponding to the passed indices
     """
     if not indices:
-        indices = range(A.shape[1])
+        indices = list(range(A.shape[1]))
     res = [ A[:, i] for i in indices ]
     return res
 
@@ -1857,13 +1858,13 @@ def row_split(A, *indices):
     returns a list of rows corresponding to the passed indices
     """
     if not indices:
-        indices = range(A.shape[0])
+        indices = list(range(A.shape[0]))
     res = [ A[i, :] for i in indices ]
     return res
 
 
 def crow_split(*args):
-    raise DeprecationWarning, 'use row_split(..) instead'
+    raise DeprecationWarning('use row_split(..) instead')
 
 
 # TODO: Doctest
@@ -1883,7 +1884,7 @@ def concat_rows(*args):
         if a.shape[0] == 1:
             row_list.append( list(a) )
             continue
-        for i in xrange(a.shape[0]):
+        for i in range(a.shape[0]):
             row_list.append( list(a[i, :]) )
     m = sp.Matrix(row_list)
 
@@ -1938,8 +1939,8 @@ def all_k_minors(M, k, **kwargs):
     assert k<= m
     assert k<= n
 
-    row_idcs = list(it.combinations(range(m), k))
-    col_idcs = list(it.combinations(range(n), k))
+    row_idcs = list(it.combinations(list(range(m)), k))
+    col_idcs = list(it.combinations(list(range(n)), k))
 
     rc_idx_tuples = list(it.product(row_idcs, col_idcs))
 
@@ -2048,7 +2049,7 @@ def is_left_coprime(Ap, Bp=None, eps = 1e-10):
     assert len(symbs) == 1
     symb = symbs[0]
 
-    combinations = it.combinations(range(r+m), r)
+    combinations = it.combinations(list(range(r+m)), r)
 
     minors = [col_minor(M, *cols) for cols in combinations]
 
@@ -2088,7 +2089,7 @@ def is_left_coprime(Ap, Bp=None, eps = 1e-10):
             if np.all(min_dist < eps):
                 # the test root was found in all other minors
 
-                print "critical root:", tr
+                print("critical root:", tr)
                 return False
 
     return True
@@ -2103,7 +2104,7 @@ def series(expr, var, order):
     taylor expansion at zero (without O(.) )
     """
     if isinstance(expr, sp.Matrix):
-        return type(expr)(map(lambda x: series(x, var, order), expr))
+        return type(expr)([series(x, var, order) for x in expr])
 
     # expr is scalar
     expr = expr.series(var, 0, order).removeO()
@@ -2145,7 +2146,7 @@ def hoderiv(f, x, N=2):
     k = 0
 
 
-    list_of_idcs = list(it.product(*[range(L)]*N))
+    list_of_idcs = list(it.product(*[list(range(L))]*N))
 
     # example: [(0, 0), (0, 1), (1, 0), (1, 1)]
 
@@ -2189,7 +2190,7 @@ def get_expr_var(expr, var=None):
             return symbs[0]
         else:
             errmsg = "%s contains more than one variable: %s " % (expr, symbs)
-            raise ValueError, errmsg
+            raise ValueError(errmsg)
 
 
 def poly_degree(expr, var=None):
@@ -2219,7 +2220,7 @@ def poly_coeffs(expr, var=None):
 
     d = P.degree()
 
-    return [pdict.get((i,), 0) for i in reversed(xrange(d+1))]
+    return [pdict.get((i,), 0) for i in reversed(range(d+1))]
 
 
 def coeffs(expr, var = None):
@@ -2228,7 +2229,7 @@ def coeffs(expr, var = None):
     """if var == None, assumes that there is only one variable in expr"""
     expr = sp.sympify(expr)
     if var == None:
-        vars = filter(lambda a:a.is_Symbol, list(expr.atoms()))
+        vars = [a for a in list(expr.atoms()) if a.is_Symbol]
         if len(vars) == 0:
             return [expr] # its a constant
         assert len(vars) == 1
@@ -2266,7 +2267,7 @@ def poly_expr_coeffs(expr, variables, maxorder=2):
 
     v0 = zip0(variables)
 
-    orders = range(1, maxorder + 1)
+    orders = list(range(1, maxorder + 1))
 
     diff_list, order_tuples = get_diffterms(variables, orders, order_list=True)
     # -> lists like [(x1,x1), (x1, x2), ...], [(2, 0, 0), (1, 1, 0), ...]
@@ -2452,7 +2453,7 @@ def trigsimp2(expr):
             expr += dd[(2,0)] - dd[(2,0)]*sp.sin(s)**2 - dd[(2,0)]*sp.cos(s)**2
 
 
-        print dd[(2,0)]
+        print(dd[(2,0)])
 
     return expr.expand()
 
@@ -2477,10 +2478,10 @@ def introduce_abreviations(M, prefix='A', time_dep_symbs=[]):
 
     gen = sp.numbered_symbols(prefix)
 
-    for i, j in it.product(range(Nc), range(Nr)):
+    for i, j in it.product(list(range(Nc)), list(range(Nr))):
         elt0 = M_new[i, j]
         if not is_number(elt0):
-            symb = gen.next()
+            symb = next(gen)
             all_symbols.append(symb)
             M_new[i, j] = symb
             subs_tuples.append((symb, elt0))
@@ -2630,7 +2631,7 @@ def multi_series(expr, xx, order, poly=False):
         terms = get_diffterms(xx, i)
         for tup in terms:
             cnt = Counter(tup) # returns a dict
-            fac_list = [sp.factorial(n) for n in cnt.values()]
+            fac_list = [sp.factorial(n) for n in list(cnt.values())]
             #fac = 1/sp.Mul(*fac_list)
             res += expr.diff(*tup).subs(xx0)*sp.Mul(*tup) / sp.Mul(*fac_list)
 
@@ -2687,7 +2688,7 @@ def poly_scalar_field(xx, symbgen, order, poly=False):
     coeff_list = []
     for i in orders:
         if i == 0:
-            c = symbgen.next()
+            c = next(symbgen)
             res += c
             coeff_list.append(c)
             continue
@@ -2695,7 +2696,7 @@ def poly_scalar_field(xx, symbgen, order, poly=False):
         terms = get_diffterms(xx, i)
 
         for tup in terms:
-            c = symbgen.next()
+            c = next(symbgen)
             res += c*sp.Mul(*tup)
             coeff_list.append(c)
 
@@ -2738,7 +2739,7 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
     if len(sol) > 2:
         msg = 'Warning: multiple solutions for initial values; taking the first.'
         warnings.warn(msg)
-    sol = sol[0].items()
+    sol = list(sol[0].items())
 
     # selecting the rhs of the first solution and look for other C-vars
     free_symbols = list(sol[0][1].atoms().intersection(CC))
@@ -2885,7 +2886,7 @@ def clean_numbers(expr, eps=1e-10):
     for f in floats:
         rat = sp_fff(f, maxden)
         rats.append(rat)
-        dummy_symbs.append(symb_gen.next())
+        dummy_symbs.append(next(symb_gen))
 
     res1 = expr.subs(lzip(floats, dummy_symbs))
     res2 = res1.subs(lzip(dummy_symbs, rats))
@@ -2929,7 +2930,7 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
     funcs = exp1.atoms(func_class).union(exp2.atoms(func_class))
 
     # replace all functions and derivs with symbols
-    SL = [(X, gen.next()) for X in list(derivs)+list(funcs)]
+    SL = [(X, next(gen)) for X in list(derivs)+list(funcs)]
 
 
     exp1 = exp1.subs(SL)
@@ -2966,7 +2967,7 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
 
 
 def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
-    raise DeprecationWarning, "use random_equaltest instead"
+    raise DeprecationWarning("use random_equaltest instead")
 
 
 def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=None, **kwargs):
@@ -3007,7 +3008,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
     SL = []
     dummy_symbol_list = []
     for X in list(derivs) + list(funcs):
-        dummy = gen.next()
+        dummy = next(gen)
         SL.append( (X, dummy) )
         dummy_symbol_list.append(dummy)
 
@@ -3022,7 +3023,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
 
     # the order does matter (highest derivative first)
     # inherit the order from the symb number which inherited it from deriv-order
-    dummy_symbol_list.sort(key=unicode)
+    dummy_symbol_list.sort(key=str)
     atoms_list = dummy_symbol_list + regular_symbol_list
 
     # for back substitution
@@ -3862,7 +3863,7 @@ def vect_to_symm_matrix(v):
     n = -.5 + sp.sqrt(.25+2*L)
 
     if not int(n) == n:
-        raise ValueError, "invalid length"
+        raise ValueError("invalid length")
     n = int(n)
 
     M = sp.zeros(n,n)
@@ -3999,7 +4000,7 @@ def do_laplace_deriv(laplace_expr, s, t, tds=None):
     #assert isinstance(exp, sp.Add)
 
     P = sp.Poly(exp, s, domain = "EX")
-    items = P.as_dict().items()
+    items = list(P.as_dict().items())
     
     if not tds:
         tds = []
@@ -4342,7 +4343,7 @@ def match_symbols_by_name(symbols1, symbols2, strict=True):
      ordering is determined by ´symbols2´
     """
 
-    if isinstance(symbols2, basestring):
+    if isinstance(symbols2, str):
         assert " " not in symbols2
         symbols2 = [symbols2]
 
@@ -4424,7 +4425,7 @@ def symbolify_matrix(M):
         else:
             replaced.append(e)
             # create a new symbol
-            ns = gen.next()
+            ns = next(gen)
             new_symbol.append(ns)
 
         result.append(ns)
@@ -4569,7 +4570,7 @@ class SimulationModel(object):
         res = np.zeros(N)
         eqnerr_arr = np.zeros((N, 2))
 
-        for i in xrange(N):
+        for i in range(N):
             x = xx[i,:]
             xd = xdot_num[i,:]
             u = uu[i, :]
@@ -4642,7 +4643,7 @@ def simp_trig_dict(sdict):
     takes a sorted dict, simplifies each value and adds all up
     """
 
-    items = sdict.items()
+    items = list(sdict.items())
 
     res = 0
     for k, v in items:
@@ -4715,7 +4716,7 @@ def gen_primes():
         
 def prime_list(n):
     a = gen_primes()
-    res = [a.next() for i in xrange(n)]
+    res = [next(a) for i in range(n)]
     return res
 
 

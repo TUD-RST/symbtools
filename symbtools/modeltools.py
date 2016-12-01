@@ -63,7 +63,7 @@ def symbColVector(n, s='a'):
     TypeError: unsupported operand type(s) for +: 'int' and 'str'
     """
     if n <= 0 or int(n) != n:
-        raise ValueError, "Positive integer required"
+        raise ValueError("Positive integer required")
 
     A = sp.Matrix(n, 1, lambda i, j: sp.Symbol(s + '%i' % (i + 1)))
     return A
