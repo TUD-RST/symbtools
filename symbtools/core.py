@@ -706,7 +706,6 @@ def lie_deriv(sf, *args, **kwargs):
 
     assert int(order) == order
     assert order >= 0
-    #IPS()
     assert order == len(vf_list)
 
     # check whether xx and the vectorfields all have the correct length
@@ -945,7 +944,6 @@ def involutivity_test(dist, xx, **kwargs):
             fail = c
             break
 
-    #IPS()
     return res, fail
 
 

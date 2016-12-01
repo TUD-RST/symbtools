@@ -545,7 +545,8 @@ def transform_2nd_to_1st_order_matrices(P0, P1, P2, xx):
     assert xx.shape == (P0.shape[1]*2, 1)
 
     xxd = st.time_deriv(xx, xx)
-    N = xx.shape[0]/2
+
+    N = int(xx.shape[0]/2)
 
     # definitional equations like xdot1 - x3 = 0 (for N=2)
     eqns_def = xx[N:, :] - xxd[:N, :]

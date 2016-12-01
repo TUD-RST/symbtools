@@ -890,7 +890,9 @@ class SymbToolsTest2(unittest.TestCase):
         xt = [ np.dot( sc.linalg.expm(Anum*T), x0 ) for T in tt ]
         xt = np.array(xt)
 
-        bin_res1 = np.isclose(res1, xt)  # binary array
+        # test whether numeric results are close within given tolerance
+        bin_res1 = np.isclose(res1, xt, rtol=2e-5)  # binary array
+        
         self.assertTrue( np.all(bin_res1) )
 
         # test handling of parameter free models:
