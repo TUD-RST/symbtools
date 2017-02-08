@@ -98,22 +98,22 @@ class NCTTest(unittest.TestCase):
         res1 = nct.right_shift(s*f1, s, t)
         ex1 = f1.diff(t) + f1*s
 
-        self.assertEquals(res1, ex1)
+        self.assertEqual(res1, ex1)
 
         res2 = nct.right_shift(f2*s*f1, s, t)
         ex2= f2*f1.diff(t) + f2*f1*s
 
-        self.assertEquals(res2, ex2)
+        self.assertEqual(res2, ex2)
 
         res3 = nct.right_shift(a*f2*s*f1d, s, t)
         ex3= a*f2*f1.diff(t, 2) + a*f2*f1d*s
 
-        self.assertEquals(res3, ex3)
+        self.assertEqual(res3, ex3)
 
         res4 = nct.right_shift(s*f1*f2, s, t)
         ex4 = f1.diff(t)*f2 + f1*f2*s + f1*f2.diff(t)
 
-        self.assertEquals(res4, ex4)
+        self.assertEqual(res4, ex4)
 
         self.assertRaises( ValueError, nct.right_shift, s*f1*(f2+1), s, t)
 
@@ -136,27 +136,27 @@ class NCTTest(unittest.TestCase):
         f2 = sp.Function('f2')(t)
 
         res1 = nct.right_shift(s*t, s, t)
-        self.assertEquals(res1, 1 + t*s)
+        self.assertEqual(res1, 1 + t*s)
 
         res2 = nct.right_shift(s, s, t)
-        self.assertEquals(res2, s)
+        self.assertEqual(res2, s)
 
         res3 = nct.right_shift(s**4, s, t)
-        self.assertEquals(res3, s**4)
+        self.assertEqual(res3, s**4)
 
         res4 = nct.right_shift(s**4*a*b, s, t)
-        self.assertEquals(res4, a*b*s**4)
+        self.assertEqual(res4, a*b*s**4)
 
         res5 = nct.right_shift(s**2*a*s*b*s, s, t)
         ex5 = a*b*s**4
-        self.assertEquals(res5, ex5)
+        self.assertEqual(res5, ex5)
 
         res6 = nct.right_shift(s**2*(a*t**3), s, t)
         ex6 = a*(6*t + 6*t**2*s + t**3*s**2)
-        self.assertEquals(res6, ex6)
+        self.assertEqual(res6, ex6)
 
         res7 = nct.right_shift(f1*s*a*s*b, s, t)
-        self.assertEquals(res7, f1*a*b*s**2)
+        self.assertEqual(res7, f1*a*b*s**2)
 
     def test_right_shift3(self):
         a, b = sp.symbols("a, b", commutative = False)
@@ -170,13 +170,13 @@ class NCTTest(unittest.TestCase):
         res1 = nct.right_shift(s*f1d*f2d, s, t)
         ex1 = f1dd*f2d + f1d*f2dd + f1d*f2d*s
 
-        self.assertEquals(res1, ex1)
+        self.assertEqual(res1, ex1)
 
         test = s*f2*f2d
         res2 = nct.right_shift(test, s, t)
         ex2 = f2d**2 + f2*f2dd + f2*f2d*s
 
-        self.assertEquals(res2, ex2)
+        self.assertEqual(res2, ex2)
 
     def test_right_shift4(self):
 

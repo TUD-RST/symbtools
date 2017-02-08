@@ -18,6 +18,7 @@ import scipy as sc
 import scipy.integrate
 
 import symbtools as st
+from symbtools import lzip
 from IPython import embed as IPS
 
 
@@ -60,7 +61,7 @@ class InteractiveConvenienceTest(unittest.TestCase):
             idx, line = tup
             return 'IPS()' in line and not line.strip()[0] == '#'
 
-        res = filter(filter_func, enumerate(srclines, 1))
+        res = list(filter(filter_func, enumerate(srclines, 1)))
 
         self.assertEqual(res, [])
 
@@ -123,10 +124,10 @@ class InteractiveConvenienceTest(unittest.TestCase):
         M1 = sp.Matrix([x2, x1*x2, x3**2])
         M2 = sp.ImmutableDenseMatrix(M1)
 
-        self.assertEqual(x1.subs(zip(xx, yy)), x1.subz(xx, yy))
-        self.assertEqual(a.subs(zip(xx, yy)), a.subz(xx, yy))
-        self.assertEqual(M1.subs(zip(xx, yy)), M1.subz(xx, yy))
-        self.assertEqual(M2.subs(zip(xx, yy)), M2.subz(xx, yy))
+        self.assertEqual(x1.subs(lzip(xx, yy)), x1.subz(xx, yy))
+        self.assertEqual(a.subs(lzip(xx, yy)), a.subz(xx, yy))
+        self.assertEqual(M1.subs(lzip(xx, yy)), M1.subz(xx, yy))
+        self.assertEqual(M2.subs(lzip(xx, yy)), M2.subz(xx, yy))
 
     def test_smplf(self):
         x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
@@ -351,13 +352,13 @@ class SymbToolsTest(unittest.TestCase):
         #M = sp.Matrix([x, t, a**2])
 
         f_x = st.symbs_to_func(x, [a, b], t)
-        self.assertEquals(str(f_x), "a(t) + b(t)")
+        self.assertEqual(str(f_x), "a(t) + b(t)")
 
     def test_perform_time_deriv1(self):
         a, b, t = sp.symbols("a, b, t")
         f1 = a**2 + 10*sin(b)
         f1_dot = st.time_deriv(f1, (a, b))
-        self.assertEquals(str(f1_dot), "2*a*adot + 10*bdot*cos(b)")
+        self.assertEqual(str(f1_dot), "2*a*adot + 10*bdot*cos(b)")
 
         f2 = sin(a)
         f2_dot2 = st.time_deriv(f2, [a, b], order=2)
@@ -393,14 +394,14 @@ class SymbToolsTest(unittest.TestCase):
 
         f1 = 8*a*b**2
         f1d = st.time_deriv(f1, (a, b), (adot, bdot))
-        self.assertEquals(f1d, 8*adot*b**2 + 16*a*bdot*b)
+        self.assertEqual(f1d, 8*adot*b**2 + 16*a*bdot*b)
 
         f1d_2 = st.time_deriv(f1, (a, b), (adot, bdot)+ (addot, bddot),
                                            order=2)
 
         f1d_2_altntv = st.time_deriv(f1d, (a, b, adot, bdot),
                                                  (adot, bdot)+ (addot, bddot) )
-        self.assertEquals(f1d_2, f1d_2_altntv)
+        self.assertEqual(f1d_2, f1d_2_altntv)
 
     def test_perform_time_deriv4(self):
         # test higher order derivatives
@@ -519,11 +520,11 @@ class SymbToolsTest(unittest.TestCase):
         self.assertFalse(a == a1 or b == b1 or c == c1)
 
         abc2 = st.match_symbols_by_name(abc0, abc1)
-        self.assertEquals(abc0, tuple(abc2))
+        self.assertEqual(abc0, tuple(abc2))
 
         input3 = [a1, b, "c", "x"]
         res = st.match_symbols_by_name(abc0, input3, strict=False)
-        self.assertEquals(abc0, tuple(res))
+        self.assertEqual(abc0, tuple(res))
 
         with self.assertRaises(ValueError) as cm:
             res = st.match_symbols_by_name(abc0, input3)  # implies strict=True
@@ -535,17 +536,17 @@ class SymbToolsTest(unittest.TestCase):
             msg = err.message
         self.assertTrue('symbol x' in msg)
 
-        self.assertEquals(abc0, tuple(res))
+        self.assertEqual(abc0, tuple(res))
 
         r = st.match_symbols_by_name(abc0, 'a5')
-        self.assertEquals(len(r), 1)
-        self.assertEquals(r[0], a)
+        self.assertEqual(len(r), 1)
+        self.assertEqual(r[0], a)
 
         # test expression as first argument
 
         expr = a*b**c + 5
         r3 = st.match_symbols_by_name(expr, ['c', 'a5'])
-        self.assertEquals(r3, [c, a])
+        self.assertEqual(r3, [c, a])
 
     def test_symbs_to_func(self):
         a, b, t = sp.symbols("a, b, t")
@@ -786,21 +787,21 @@ class SymbToolsTest2(unittest.TestCase):
         rhs6 = cos(b*t)  # coeff must be nonzero to prevent case distinction
 
         res1 = st.solve_scalar_ode_1sto(rhs1, x1, t)
-        self.assertEquals(res1.diff(t), rhs1.subs(x1, res1))
+        self.assertEqual(res1.diff(t), rhs1.subs(x1, res1))
 
         res2 = st.solve_scalar_ode_1sto(rhs2, x1, t)
-        self.assertEquals(res2.diff(t), rhs2.subs(x1, res2))
+        self.assertEqual(res2.diff(t), rhs2.subs(x1, res2))
 
         res3, iv3 = st.solve_scalar_ode_1sto(rhs3, x1, t, return_iv=True)
-        self.assertEquals(res3.diff(t), rhs3.subs(x1, res3))
-        self.assertEquals(res3, iv3*exp(t))
+        self.assertEqual(res3.diff(t), rhs3.subs(x1, res3))
+        self.assertEqual(res3, iv3*exp(t))
 
         res5 = st.solve_scalar_ode_1sto(rhs5, x1, t)
         test_difference5 = res5.diff(t) - rhs5.subs(x1, res5)
-        self.assertEquals(test_difference5.expand(), 0)
+        self.assertEqual(test_difference5.expand(), 0)
 
         res6 = st.solve_scalar_ode_1sto(rhs6, x1, t)
-        self.assertEquals(res6.diff(t), rhs6.subs(x1, res6).expand())
+        self.assertEqual(res6.diff(t), rhs6.subs(x1, res6).expand())
 
     @skip_slow
     def test_solve_scalar_ode_1sto_2(self):
@@ -828,12 +829,12 @@ class SymbToolsTest2(unittest.TestCase):
         vf2 = sp.Matrix([0, 1, x3, sin(a*x2)])
 
         res1, fp, iv1 = st.calc_flow_from_vectorfield(vf1, xx[:-1], flow_parameter=t)
-        vf1_sol = vf1.subs(zip(xx[:-1], res1))
+        vf1_sol = vf1.subs(lzip(xx[:-1], res1))
         self.assertEqual(fp, t)
         self.assertEqual(res1.diff(t), vf1_sol)
 
         res2, fp, iv2 = st.calc_flow_from_vectorfield(vf2, xx, flow_parameter=t)
-        vf2_sol = vf2.subs(zip(xx[:-1], res2))
+        vf2_sol = vf2.subs(lzip(xx[:-1], res2))
         self.assertEqual(fp, t)
         self.assertEqual(res2.diff(t), vf2_sol)
 
@@ -855,7 +856,7 @@ class SymbToolsTest2(unittest.TestCase):
         v4 = B[2, 1]
         B[2, 1] = p4
 
-        par_vals = zip(pp, [v1, v2, v3, v4])
+        par_vals = lzip(pp, [v1, v2, v3, v4])
 
         f = A*xx
         G = B
@@ -870,7 +871,7 @@ class SymbToolsTest2(unittest.TestCase):
         rhs0 = mod.create_simfunction()
 
         res0_1 = rhs0(x0, 0)
-        dres0_1 = st.to_np(fxu.subs(zip(xx, x0) + st.zip0(uu))).squeeze()
+        dres0_1 = st.to_np(fxu.subs(lzip(xx, x0) + st.zip0(uu))).squeeze()
 
         bin_res01 = np.isclose(res0_1, dres0_1)  # binary array
         self.assertTrue( np.all(bin_res01) )
@@ -889,7 +890,9 @@ class SymbToolsTest2(unittest.TestCase):
         xt = [ np.dot( sc.linalg.expm(Anum*T), x0 ) for T in tt ]
         xt = np.array(xt)
 
-        bin_res1 = np.isclose(res1, xt)  # binary array
+        # test whether numeric results are close within given tolerance
+        bin_res1 = np.isclose(res1, xt, rtol=2e-5)  # binary array
+        
         self.assertTrue( np.all(bin_res1) )
 
         # test handling of parameter free models:
@@ -995,7 +998,7 @@ class SymbToolsTest2(unittest.TestCase):
 
         i1 = sp.Integral(F(t), t)
         j1 = st.reformulate_integral_args(i1)
-        self.assertEquals(j1.subs(t, 0).doit(), 0)
+        self.assertEqual(j1.subs(t, 0).doit(), 0)
 
         ode = x.diff(t) + x -a(t)*x**c
         sol = sp.dsolve(ode, x).rhs
@@ -1025,11 +1028,11 @@ class SymbToolsTest3(unittest.TestCase):
                            1/F(x).diff(x)*C1*Y])
 
         res1 = st.get_symbols_by_name(expr1, 'c1')
-        self.assertEquals(res1, c1)
+        self.assertEqual(res1, c1)
         res2 = st.get_symbols_by_name(expr1, 'C1')
-        self.assertEquals(res2, C1)
+        self.assertEqual(res2, C1)
         res3 = st.get_symbols_by_name(expr1, *'c1 x a'.split())
-        self.assertEquals(res3, [c1, x, a])
+        self.assertEqual(res3, [c1, x, a])
 
         with self.assertRaises(ValueError) as cm:
             st.get_symbols_by_name(expr1, 'Y')
@@ -1037,11 +1040,11 @@ class SymbToolsTest3(unittest.TestCase):
             st.get_symbols_by_name(expr1, 'c1', 'Y')
 
         res4 = st.get_symbols_by_name(expr2, 'Y')
-        self.assertEquals(res4, Y)
+        self.assertEqual(res4, Y)
         res5 = st.get_symbols_by_name(expr2, 'C1')
-        self.assertEquals(res5, C1)
+        self.assertEqual(res5, C1)
         res6 = st.get_symbols_by_name(expr2, *'C1 x a'.split())
-        self.assertEquals(res6, [C1, x, a])
+        self.assertEqual(res6, [C1, x, a])
 
     def test_difforder_attribute(self):
         x1 = sp.Symbol('x1')
@@ -1049,7 +1052,7 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(x1.difforder, 0)
 
         xddddot1 = st.time_deriv(x1, [x1], order=4)
-        self.assertEquals(xddddot1.difforder, 4)
+        self.assertEqual(xddddot1.difforder, 4)
 
         xx = sp.Matrix(sp.symbols("x1, x2, x3"))
         xxd = st.time_deriv(xx, xx)
@@ -1362,7 +1365,7 @@ class TestNumTools(unittest.TestCase):
         ev1 = st.sorted_eigenvalues(self.M1)
         self.assertEqual(len(ev1), V1.shape[1])
 
-        for val, vect in zip(ev1, st.col_split(V1)):
+        for val, vect in lzip(ev1, st.col_split(V1)):
             res_vect = self.M1*vect - val*vect
             res = (res_vect.T*res_vect)[0]
             self.assertTrue(res < 1e-15)
@@ -1409,7 +1412,7 @@ class RandNumberTest(unittest.TestCase):
         res_b1 = st.rnd_number_subs_tuples(ff)
 
         expct_b1_set = set([f, fdot, fddot, t, x1, x2])
-        res_b1_atom_set = set( zip(*res_b1)[0] )
+        res_b1_atom_set = set( lzip(*res_b1)[0] )
 
         self.assertEqual(expct_b1_set, res_b1_atom_set)
         self.assertEqual(res_b1[0][0], fddot)
@@ -1495,7 +1498,7 @@ class RandNumberTest(unittest.TestCase):
             matrix_list = pickle.load(pfile)
 
         for i, m in enumerate(matrix_list):
-            print i
+            print(i)
             r1 = m.srnp.rank()
             r2 = st.rnd_number_rank(m)
 
@@ -1553,7 +1556,7 @@ class RandNumberTest(unittest.TestCase):
 
         N = len(matrix_list)
         for i, m in enumerate(matrix_list):
-            print "%i / %i" %(i, N)
+            print("%i / %i" %(i, N))
             r1 = m.srnp.rank()
             r2 = st.generic_rank(m)
 
@@ -1570,25 +1573,55 @@ class TestTrajectoryPlanning(unittest.TestCase):
         interface_points1 = [0, 4]
         expr1 = st.create_piecewise(t, interface_points1, [-1, x, -13])
 
-        self.assertEquals(expr1.subs(t, -3), -1)
-        self.assertEquals(expr1.subs(t, 0), x)
-        self.assertEquals(expr1.subs(t, 3), x)
-        self.assertEquals(expr1.subs(t, 4), x)
-        self.assertEquals(expr1.subs(t, 4.00000001), -13)
-        self.assertEquals(expr1.subs(t, 10**100), -13)
+        self.assertEqual(expr1.subs(t, -3), -1)
+        self.assertEqual(expr1.subs(t, 0), x)
+        self.assertEqual(expr1.subs(t, 3), x)
+        self.assertEqual(expr1.subs(t, 4), x)
+        self.assertEqual(expr1.subs(t, 4.00000001), -13)
+        self.assertEqual(expr1.subs(t, 10**100), -13)
 
         interface_points2 = [0, 4, 8, 12]
         expr1 = st.create_piecewise(t, interface_points2, [-1, x, x**2, x**3, -13])
 
-        self.assertEquals(expr1.subs(t, -2), -1)
-        self.assertEquals(expr1.subs(t, 0), x)
-        self.assertEquals(expr1.subs(t, 4), x**2)
-        self.assertEquals(expr1.subs(t, 7), x**2)
-        self.assertEquals(expr1.subs(t, 8), x**3)
-        self.assertEquals(expr1.subs(t, 9), x**3)
-        self.assertEquals(expr1.subs(t, 12), x**3)
-        self.assertEquals(expr1.subs(t, 12.00000001), -13)
-        self.assertEquals(expr1.subs(t, 1e50), -13)
+        self.assertEqual(expr1.subs(t, -2), -1)
+        self.assertEqual(expr1.subs(t, 0), x)
+        self.assertEqual(expr1.subs(t, 4), x**2)
+        self.assertEqual(expr1.subs(t, 7), x**2)
+        self.assertEqual(expr1.subs(t, 8), x**3)
+        self.assertEqual(expr1.subs(t, 9), x**3)
+        self.assertEqual(expr1.subs(t, 12), x**3)
+        self.assertEqual(expr1.subs(t, 12.00000001), -13)
+        self.assertEqual(expr1.subs(t, 1e50), -13)
+        
+    def test_do_laplace_deriv(self):
+        t, s = sp.symbols('t, s')
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        
+        x1dot, x2dot, x3dot = st.time_deriv(xx, xx)
+        x1ddot, x2ddot, x3ddot = st.time_deriv(xx, xx, order=2)
+        
+        
+        expr1 = 5
+        expr2 = 5*s*t**2 - 7*t + 2
+        expr3 = 1*s**2*x1 - 7*s*x2*t + 2
+        
+        res = st.do_laplace_deriv(expr1, s, t)
+        ex_res = 5
+        self.assertEqual(res, ex_res)
+        
+        res = st.do_laplace_deriv(expr2, s, t)
+        ex_res = 10*t - 7*t + 2
+        self.assertEqual(res, ex_res)
+        
+        res = st.do_laplace_deriv(expr3, s, t)
+        ex_res = -7 * x2 + 2
+        self.assertEqual(res, ex_res)
+        
+        res = st.do_laplace_deriv(expr3, s, t, tds=xx)
+        ex_res = x1ddot - 7 * x2 + - 7*x2dot*t +  2
+        self.assertEqual(res, ex_res)
+        
+        
 
 
 class TestControlMethods1(unittest.TestCase):

@@ -1,21 +1,31 @@
 language: python
 
 python:
-  - "2.7"
+  - "3.4"
 
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda2/bin:$PATH
-  - export DEPS="sympy numpy scipy matplotlib ipython pytest"
+#  - export DEPS="sympy numpy scipy matplotlib ipython pytest"
   - conda update --yes --no-deps conda
-  - conda update --yes conda
+  - pip install enum34
+  - pip install ruamel.yaml
+  - pip install scipy
+  - pip install numpy
+  - pip install sympy
+  - pip install ipython
+  #- conda update --yes conda
+  - python -c "import sympy; print(sympy.__version__)"
 
 install:
- - conda install --yes -c conda conda-env
- - conda create -n testenv --yes $DEPS pip python=$TRAVIS_PYTHON_VERSION
- - source activate testenv
+ #- conda install --yes -c conda conda-env
+ #- python -c "import sympy; print(sympy.__version__)"
+ #- conda create -n testenv --yes $DEPS pip python=$TRAVIS_PYTHON_VERSION
+ #- python -c "import sympy; print(sympy.__version__)"
+ #- source activate testenv
+ #- python -c "import sympy; print(sympy.__version__)"
  - python setup.py install
 
 # command to run tests

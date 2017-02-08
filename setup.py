@@ -1,8 +1,16 @@
 from distutils.core import setup
+import os
+
+# This directory
+dir_setup = os.path.dirname(os.path.realpath(__file__))
+
+with open(os.path.join(dir_setup, 'symbtools', 'release.py')) as f:
+    # Defines __version__
+    exec(f.read())
 
 setup(
     name='symbtools',
-    version='0.1.8',
+    version=__version__,
     author='Carsten Knoll, Klemens Fritzsche',
     author_email='Carsten.Knoll@tu-dresden.de',
     packages=['symbtools'],
@@ -12,7 +20,7 @@ setup(
     long_description="""
     A collection of functions to facilitate the (symbolic) calculations
     associated with the investigation of nonlinear dynamical systems in
-    the field of control theory.
+    the field of control theory (0.1.10+ has python3 support).
     """,
     requires=[
         "sympy (>= 0.7.6)",

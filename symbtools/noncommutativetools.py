@@ -3,6 +3,7 @@
 from functools import partial
 import sympy as sp
 import symbtools as st
+from symbtools import lzip
 
 
 
@@ -210,8 +211,8 @@ def make_all_symbols_commutative(expr, appendix='_c'):
 
     # preserve difforder attributes
     st.copy_custom_attributes(nc_symbols, new_symbols)
-    tup_list = zip(new_symbols, nc_symbols)
-    return expr.subs(zip(nc_symbols, new_symbols)), tup_list
+    tup_list = lzip(new_symbols, nc_symbols)
+    return expr.subs(lzip(nc_symbols, new_symbols)), tup_list
 
 
 def make_all_symbols_noncommutative(expr, appendix='_n'):
@@ -232,8 +233,8 @@ def make_all_symbols_noncommutative(expr, appendix='_n'):
 
     # preserve difforder attributes
     st.copy_custom_attributes(c_symbols, new_symbols)
-    tup_list = zip(new_symbols, c_symbols)
-    return expr.subs(zip(c_symbols, new_symbols)), tup_list
+    tup_list = lzip(new_symbols, c_symbols)
+    return expr.subs(lzip(c_symbols, new_symbols)), tup_list
 
 
 def commutative_simplification(expr, exclude, max_deg=20):
@@ -354,7 +355,7 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
         res.append(coeff)
 
     # powers > 1:
-    for i in xrange(2, max_deg+1):
+    for i in range(2, max_deg+1):
         coeff = 0
         for a in poly.args:
             if a.has(var**(i)):
@@ -375,7 +376,7 @@ def nc_degree(expr, var, max_deg=20):
         return 0
 
     res = [-1]  # we dont know about the 0th order term (and it does not matter)
-    for i in xrange(0, max_deg):
+    for i in range(0, max_deg):
         if expr.has(var**(i + 1)):
             res.append(1)
         else:
@@ -419,12 +420,12 @@ def nc_mul(L, R):
 
         res = sp.zeros(nrL, ncR)
 
-        for i in xrange(nrL):  # iterate over the rows of L
-            for j in xrange(ncR):  # iterate over the columns of R
+        for i in range(nrL):  # iterate over the rows of L
+            for j in range(ncR):  # iterate over the columns of R
 
                 res_elt = 0
                 # dot product of row and column
-                for k in xrange(ncL):
+                for k in range(ncL):
                     res_elt += L[i, k] * R[k, j]
 
                 res[i, j] = res_elt
@@ -466,7 +467,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     C = M*0
     free_params = []
 
-    for i in xrange(max_deg+1):
+    for i in range(max_deg+1):
         prefix = 'c{0}_'.format(i)
         c_part = st.symbMatrix(n, n, prefix, commutative=False)
         C += c_part*s**i
@@ -479,7 +480,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     deg_P = nc_degree(P2, s)
 
     part_eqns = []
-    for i in xrange(deg_P + 1):
+    for i in range(deg_P + 1):
         # omit the highest order (because it behaves like in the commutative case)
         res = P2.diff(s, i).subs(s, 0)#/sp.factorial(i)
         part_eqns.append(res)
@@ -521,7 +522,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     aa = st.symb_vector('_a1:{0}'.format(na+1))
     nsm_a = nsm*aa
 
-    eqns_inh2 = eqns_inh.subs(zip(free_params_c, nsm_a))
+    eqns_inh2 = eqns_inh.subs(lzip(free_params_c, nsm_a))
 
     # now solve the remaining equations
 
@@ -531,7 +532,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     assert rhs_inh == sp.ones(n, 1)
     
     sol_vect = Jinh.solve(rhs_inh)
-    sol = zip(aa, sol_vect)
+    sol = lzip(aa, sol_vect)
 
     # get the values for all free_params (now they are not free anymore)
     free_params_sol_c = nsm_a.subs(sol)
@@ -539,7 +540,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     # replace the commutative symbols with the original non_commutative symbols (of M)
     free_params_sol = free_params_sol_c.subs(st_c_nc)
 
-    Minv = C.subs(zip(free_params, free_params_sol))
+    Minv = C.subs(lzip(free_params, free_params_sol))
 
     return Minv
 
