@@ -45,5 +45,5 @@ Get symbtools using PyPI::
 
 or the latest git version::
 
-    $ git clone https://github.com/cknoll/rst_symbtools.git
+    $ git clone https://github.com/TUD-RST/symbtools.git
 
