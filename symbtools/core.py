@@ -3358,7 +3358,7 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
 
 
     Some special kwargs:
-    np_wrapper == True:
+    np_wrapper (default False):
         the return-value of the resulting function is passed through
         to_np(..) before returning
 
@@ -3377,6 +3377,9 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
 
     new_expr = []
     arg_set = set(arg_tup)
+
+    # be prepared for the case that the args might not occur in the expression
+    # constant function (special case of a polynomial)
     for e in expr_tup:
         assert isinstance(e, sp.Expr)
         # args (Symbols) which are not in that expression
@@ -3393,6 +3396,17 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
     # if not hasattr(expr, '__len__'):
     #     assert len(new_expr) == 1
     #     new_expr = new_expr[0]
+
+    # warn if expr contains symbols which are not in args
+    unexpected_symbols = []
+
+    for xpr in expr_tup:
+        unexpected_symbols.extend(xpr.atoms(sp.Symbol).difference(arg_tup))
+    unexpected_symbols = list(set(unexpected_symbols))  # dismiss duplicates
+    unexpected_symbols.sort(key=lambda s: str(s))
+    if unexpected_symbols != []:
+        msg = "the following symbols where in expr, but not in args:\n{}\n"
+        warnings.warn(msg.format(unexpected_symbols))
 
     # TODO: Test how this works with np_wrapper and vectorized arguments
     if hasattr(expr, 'shape'):
