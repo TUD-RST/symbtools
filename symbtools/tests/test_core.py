@@ -31,7 +31,8 @@ else:
 # own decorator for skipping slow tests
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
-    
+
+
 def make_abspath(*args):
     """
     returns new absolute path, basing on the path of this module
@@ -42,7 +43,7 @@ def make_abspath(*args):
 # Avoid warnings of undefined symbols from the IDE,
 # but still make use of st.make_global
 x1 = x2 = x3 = x4 = None
-y1 = y2 = None
+y1 = y2 = y3 = None
 a1 = z4 = z7 = z10 = None
 
 
