@@ -416,7 +416,6 @@ class NCTTest(unittest.TestCase):
         self.assertEqual(d3, 20)
         self.assertEqual(d4, 20)
 
-
     def test_unimod_inv(self):
         y1, y2 = yy = st.symb_vector('y1, y2', commutative=False)
         s = sp.Symbol('s', commutative=False)

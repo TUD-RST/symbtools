@@ -6,7 +6,6 @@ import symbtools as st
 from symbtools import lzip
 
 
-
 """
 Collection of Code for noncommutative calculations ("s = d/dt")
 """
@@ -329,7 +328,6 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     # TODO: use nc_degree (after performance-testing)
     # workarround: pass the maximum expected degree as kwarg
 
-
     if poly == 0:
         return [sp.sympify(0)]*(max_deg + 1)
 
@@ -339,7 +337,6 @@ def nc_coeffs(poly, var, max_deg=10, order='increasing'):
     if not isinstance(poly, sp.Add):
         msg = "Expected sp.Add. Got %s" % type(poly)
         raise TypeError(msg)
-
 
     res = []
     # special case: 0-th power of var
@@ -470,7 +467,7 @@ def unimod_inv(M, s=None, t=None, time_dep_symbs=[], simplify_nsm=True, max_deg=
     for i in range(max_deg+1):
         prefix = 'c{0}_'.format(i)
         c_part = st.symbMatrix(n, n, prefix, commutative=False)
-        C += c_part*s**i
+        C += nc_mul(c_part, s**i)
         free_params.extend(list(c_part))
 
     P = nc_mul(C, M) - sp.eye(n)
