@@ -1135,6 +1135,8 @@ class SymbToolsTest3(unittest.TestCase):
 
         new_y1_assumptions = xxd.data.z1[0].assumptions0
         self.assertEqual(new_y1_assumptions, y1_assumptions)
+
+        os.remove(pfname)
         
     def test_pickle_full_dump_and_load2(self):
         """
@@ -1183,6 +1185,8 @@ class SymbToolsTest3(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             st.pickle_full_dump(st.Container, pfname)
 
+        os.remove(pfname)
+
     def test_pickle_full_dump_and_load3(self):
         """
         Test for correct handling of assumptions
@@ -1216,6 +1220,7 @@ class SymbToolsTest3(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             st.pickle_full_dump(pdata2, pfname)
 
+        os.remove(pfname)
 
     def _test_make_global(self):
 
@@ -1494,7 +1499,7 @@ class RandNumberTest(unittest.TestCase):
     def test_rnd_number_rank2(self):
         import pickle
         path = make_abspath('test_data', 'rank_test_matrices.pcl')
-        with open(path, 'r') as pfile:
+        with open(path, 'rb') as pfile:
             matrix_list = pickle.load(pfile)
 
         for i, m in enumerate(matrix_list):
@@ -1551,7 +1556,7 @@ class RandNumberTest(unittest.TestCase):
     def test_generic_rank2(self):
         import pickle
         path = make_abspath('test_data', 'rank_test_matrices.pcl')
-        with open(path, 'r') as pfile:
+        with open(path, 'rb') as pfile:
             matrix_list = pickle.load(pfile)
 
         N = len(matrix_list)

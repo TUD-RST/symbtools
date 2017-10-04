@@ -15,7 +15,7 @@ import symbtools as st
 import symbtools.noncommutativetools as nct
 import pickle
 
-from IPython import embed as IPS
+from ipydex import IPS
 
 
 if 'all' in sys.argv:
@@ -31,6 +31,7 @@ s = nct.s
 # own decorator for skipping slow tests
 def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
+
 
 def make_abspath(*args):
     """
@@ -331,8 +332,8 @@ class NCTTest(unittest.TestCase):
 
     def test_make_all_symbols_commutative2(self):
         import pickle
-        path = make_abspath('test_data', 'Q_matrix_wagen_pendel.pcl')
-        with open(path, 'r') as pfile:
+        path = make_abspath('test_data', 'Q_matrix_cart_pendulum.pcl')
+        with open(path, 'rb') as pfile:
             Q = pickle.load(pfile)
 
         Qc, stl = nct.make_all_symbols_commutative(Q, '')
@@ -484,8 +485,8 @@ class NCTTest(unittest.TestCase):
 
     @skip_slow
     def test_unimod_inv4(self):
-        path = make_abspath('test_data', 'unimod_maxtrix_unicycle.pcl')
-        with open(path, 'r') as pfile:
+        path = make_abspath('test_data', 'unimod_matrix_unicycle.pcl')
+        with open(path, 'rb') as pfile:
             pdict = pickle.load(pfile)
 
         PQ = pdict['PQ']
@@ -557,9 +558,6 @@ class NCTTest2(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError) as cm:
             nct.commutative_simplification(f4, s)
-
-
-
 
 
 def main():

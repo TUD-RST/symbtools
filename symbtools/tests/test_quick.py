@@ -36,7 +36,7 @@ class NCTTest(unittest.TestCase):
     def test_func1(self):
         self.assertTrue(1)
         path = make_abspath('test_data', 'rank_test_matrices.pcl')
-        with open(path, 'r') as pfile:
+        with open(path, 'rb') as pfile:
             pass
         
     @skip_slow
