@@ -22,8 +22,7 @@ from functools import reduce
 
 try:
     # usefull for debugging but not mandatory
-    from IPython import embed as IPS
-    #from ipHelp import IPS
+    from ipydex import IPS
 except ImportError:
     pass
 

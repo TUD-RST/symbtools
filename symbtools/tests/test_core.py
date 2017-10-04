@@ -19,7 +19,6 @@ import scipy.integrate
 
 import symbtools as st
 from symbtools import lzip
-from IPython import embed as IPS
 
 
 if 'all' in sys.argv:

@@ -17,7 +17,7 @@ from test_modeltools import *
 from test_nctools import *
 from test_quick import *
 
-import test_core, test_modeltools, test_nctools, test_quick
+# import .test_core, test_modeltools, test_nctools, test_quick
 
     
 def main():

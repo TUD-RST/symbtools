@@ -4,10 +4,9 @@
 # In[2]:
 
 import sympy as sp
-import symb_tools as st
-from IPython import embed as IPS
+import symbtools as st
+from ipydex import IPS
 
-import ipHelp
 
 
 # Hier versuche ich den Wikipedia-Algorithmus zur Bestimmung der Smith-Normalform zu implementieren.
