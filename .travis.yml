@@ -16,7 +16,9 @@ before_install:
   - pip install scipy
   - pip install numpy
   - pip install sympy
+  - conda install --yes ipython
   #- conda update --yes conda
+  - pip install ipydex
   - python -c "import sympy; print(sympy.__version__)"
 
 install:
