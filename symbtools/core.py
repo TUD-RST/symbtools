@@ -13,6 +13,7 @@ import numpy as np
 from collections import Counter
 
 import warnings
+warnings.simplefilter('default')
 import random
 
 import itertools as it
@@ -106,7 +107,7 @@ def subz0(self, *args):
     convenience property for interactive usage:
     returns self.subs(zip0(arg[0]) + zip0(args[1]) + ...)
     '''
-    
+
     # nested list comprehension http://stackoverflow.com/a/952952/333403
     # flatten the args
     all_args = [symb for sequence in args for symb in sequence]
@@ -229,24 +230,24 @@ def pickle_full_dump(obj, path):
 
     if isinstance(obj, Container):
         pdata = obj
-        
+
         # prevent accidental name clashes
         assert not hasattr(pdata,'relevant_symbols')
         assert not hasattr(pdata,'attribute_store')
         assert not hasattr(pdata,'atoms')
         assert not hasattr(pdata,'data')
-        
+
         pdata.container_flag = True
         additional_data = pdata
-        
+
     elif isinstance(obj, sp.MatrixBase):
-        
+
         pdata = Container()
-        
+
         pdata.container_flag = False
         # safe obj so that it will be pickled
         pdata.obj = obj
-        
+
         if hasattr(obj, 'data'):
             assert isinstance(obj.data, Container)
             additional_data = obj.data
@@ -266,7 +267,7 @@ def pickle_full_dump(obj, path):
     get_symbols(obj)
 
     # no apply it to all items in additional_data
-    
+
     for new_obj in list(additional_data.__dict__.values()):
         get_symbols(new_obj)
 
@@ -293,14 +294,14 @@ def pickle_full_dump(obj, path):
         msg += str(multiple_name_count)
 
         raise ValueError(msg)
-    
+
     # now look in global_data.attribute_store (see above) if there are
     # some attributes stored concerning the relevant_symbols
     # global_data.attribute_store looks like {(xdot, 'difforder'): 1, ...}
     relevant_items = [item for item in list(global_data.attribute_store.items())
                                     if item[0][0] in pdata.relevant_symbols]
 
-    
+
     pdata.attribute_store = dict(relevant_items)
 
     with open(path, 'wb') as pfile:
@@ -327,11 +328,11 @@ def pickle_full_load(path):
         raise ValueError(msg)
 
     global_data.attribute_store.update(new_items)
-    
+
     # allow to load older containers without that flag
     if not hasattr(pdata, 'container_flag'):
         return pdata
-    
+
     if pdata.container_flag:
         # return the whole container
         return pdata
@@ -515,13 +516,13 @@ def trans_poly(var, cn, left, right):
 
     return sol_poly
 
-# 
+#
 def make_pw(var, transpoints, fncs, ignore_warning=False):
     if not ignore_warning:
         msg = "This function is deprecated. Use create_piecewise(...) "\
         "with slightly different syntax."
         raise DeprecationWarning(msg)
-    
+
     transpoints = list(transpoints)
     upper_borders = lzip(*transpoints)[0]
 
@@ -546,19 +547,19 @@ def make_pw(var, transpoints, fncs, ignore_warning=False):
 def create_piecewise(var, interface_positions, fncs):
     """
     Creates a sympy.Piecewise object, streamlined to trajectory planning.
-    
+
     :var:                       variable (e.g. time t)
     :interface_positions:       sequence of n-1 values
     :fncs:                      sequence of n expressions (in depenence of var)
-    
-    
-    example: 
-    
+
+
+    example:
+
     create_piecewise(t, (0, 2), (0, t/2, 1))
-    
+
     results in a ramp from 0 to 1 within 2 time units.
     """
-    
+
     interface_positions= list(interface_positions)
     upper_borders = list(interface_positions)
 
@@ -712,7 +713,7 @@ def lie_deriv(sf, *args, **kwargs):
         msg = "At least one of the vector fields has a different length "\
         "compared to xx."
         raise ValueError(msg)
-    
+
 
     if order == 0:
         return sf
@@ -1196,7 +1197,7 @@ def is_scalar(expr):
 def symb_vector(*args, **kwargs):
     return sp.Matrix(sp.symbols(*args, **kwargs))
 
-    
+
 # Todo Unittest (sp.Symbol vs. sp.cls)
 def symbMatrix(n, m, s='a', symmetric = 0, cls = sp.Symbol, **kwargs):
     """
@@ -1334,7 +1335,7 @@ def make_global(*args, **kwargs):
     # this is strongly inspired by sympy.var
     try:
         for v in varList:
-            
+
             if getattr(v, 'is_Function', False):
                 v = v.func
             if hasattr(v, 'name'):
@@ -1344,7 +1345,7 @@ def make_global(*args, **kwargs):
             elif is_number(v):
                 # conveniece: allow sequences like [0, x1, x2]
                 continue
-            
+
             else:
                 raise ValueError( 'Object %s has no name' % str(v) )
     finally:
@@ -2557,7 +2558,7 @@ def matrix_count_ops(M, visual=False):
 def count_ops(expr, *args, **kwargs):
     """
     Matrix aware wrapper for sp.count_ops
-    
+
     In difference to the sympy version this function only returns 0
     if the operand is equal to 0, otherwise it returns at least 1 (for atoms)
     """
@@ -2700,7 +2701,7 @@ def poly_scalar_field(xx, symbgen, order, poly=False):
     if poly:
         res = sp.Poly(res, *xx, domain='EX')
     return res, coeff_list
-    
+
 
 def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
 
@@ -2975,7 +2976,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
 
     where a1, a2, ... are the Symbols occurring in expr
     and r1, r2, ... are random numbers
-    
+
     keyword args:
     seed:
     rational:       generate sp.Ratioinal instead of sp.Float objects (default: False)
@@ -3059,9 +3060,9 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
         tuples = [(reverse_dict[s], clean_numbers( rnd()*delta + min_val )) for s in atoms_list]
     else:
         tuples = [(reverse_dict[s], rnd()*delta + min_val) for s in atoms_list]
-        
-    
-#    # make the desired symbols a multiple of pi 
+
+
+#    # make the desired symbols a multiple of pi
 #    if mul_pi_list:
 #        for i, (s, v) in enumerate(tuples):
 #            if s in mul_pi_list:
@@ -3078,16 +3079,16 @@ def rnd_trig_tuples(symbols, seed = None):
     denoms = [2, 3, 4, 5, 6, 8, 12]
     if seed:
         random.seed(seed)
-    
+
     L = len(denoms)
     tuples = []
     for s in symbols:
         i = random.randint(0, L-1)
         den = denoms[i]
         num = random.randint(0, den*2)*sp.pi
-        
+
         tuples.append((s, num/den))
-        
+
     return tuples
 
 
@@ -3215,6 +3216,8 @@ def rnd_number_rank(M, **kwargs):
 
     see also: rnd_number_subs_tuples
     """
+    msg = "`rnd_number_rank` is deprecated. Use `generic_rank` instead."
+    warnings.warn(msg, DeprecationWarning)
 
     assert isinstance(M, sp.MatrixBase)
 
@@ -3997,7 +4000,7 @@ def do_laplace_deriv(laplace_expr, s, t, tds=None):
     Example:
     laplace_expr = s*(t**3+7*t**2-2*t+4)
     returns: 3*t**2  +14*t - 2
-    
+
     optional arguments
     tds: sequence of time dependend symbols (passed to time_deriv)
     """
@@ -4012,7 +4015,7 @@ def do_laplace_deriv(laplace_expr, s, t, tds=None):
 
     P = sp.Poly(exp, s, domain = "EX")
     items = list(P.as_dict().items())
-    
+
     if not tds:
         tds = []
 
@@ -4133,20 +4136,20 @@ def is_derivative_symbol(expr, t=None):
     else:
         return False
 
-                                
+
 def perform_time_derivative(*args, **kwargs):
-    
+
     msg = "This function name is deprecated. Use time_deriv instead. "
     #raise DeprecationWarning, msg
     warnings.warn(msg)
     1/0
-    
+
     return time_deriv(*args, **kwargs)
 
 
 def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
                                                         order=1, **kwargs):
-                                
+
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
     we want : expr.diff(t) with te appropriate substitutions made
@@ -4691,40 +4694,40 @@ def gen_primes():
     """ Generate an infinite sequence of prime numbers.
     """
 # Source:
-# http://stackoverflow.com/questions/1628949/to-find-first-n-prime-numbers-in-python    
+# http://stackoverflow.com/questions/1628949/to-find-first-n-prime-numbers-in-python
 
     # Maps composites to primes witnessing their compositeness.
     # This is memory efficient, as the sieve is not "run forward"
     # indefinitely, but only as long as required by the current
     # number being tested.
     #
-    D = {}  
+    D = {}
 
     # The running integer that's checked for primeness
-    q = 2  
+    q = 2
 
     while True:
         if q not in D:
             # q is a new prime.
             # Yield it and mark its first multiple that isn't
             # already marked in previous iterations
-            # 
-            yield q        
+            #
+            yield q
             D[q * q] = [q]
         else:
             # q is composite. D[q] is the list of primes that
             # divide it. Since we've reached q, we no longer
-            # need it in the map, but we'll mark the next 
+            # need it in the map, but we'll mark the next
             # multiples of its witnesses to prepare for larger
             # numbers
-            # 
+            #
             for p in D[q]:
                 D.setdefault(p + q, []).append(p)
             del D[q]
 
         q += 1
 
-        
+
 def prime_list(n):
     a = gen_primes()
     res = [next(a) for i in range(n)]

@@ -2,11 +2,7 @@ from distutils.core import setup
 import os
 
 # This directory
-dir_setup = os.path.dirname(os.path.realpath(__file__))
-
-with open(os.path.join(dir_setup, 'symbtools', 'release.py')) as f:
-    # Defines __version__
-    exec(f.read())
+from symbtools import __version__
 
 setup(
     name='symbtools',
