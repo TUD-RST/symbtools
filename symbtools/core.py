@@ -4384,15 +4384,15 @@ def match_symbols_by_name(symbols1, symbols2, strict=True):
 
 
 def update_cse(cse_subs_tup_list, new_subs):
-    '''
+    """
 
     :param cse_subs_tup_list: list of tuples: [(x1, a+b), (x2, x1*b**2)]
     :param new_subs: list of tuples: [(a, b + 5), (b, 3)]
-    :return: list of tuplse [(x1, 11), (x2, 99)]
+    :return: list of tuples [(x1, 11), (x2, 99)]
 
-    usefull to substitute values in a collection returned by sympy.cse
+    useful to substitute values in a collection returned by sympy.cse
     (common subexpressions)
-    '''
+    """
     res = []
     for e1, e2 in cse_subs_tup_list:
         new_tup = (e1, e2.subs(res + new_subs))
@@ -4488,7 +4488,7 @@ class SimulationModel(object):
 
         :param controller_function: callable u(x, t)
         this can be a controller function,
-        a desired trajectory (x beeing ignored -> open loop)
+        a desired trajectory (x being ignored -> open loop)
         or a zero-function to simulate the autonomous system xdot = f(x).
         As default a zero-function is used
 

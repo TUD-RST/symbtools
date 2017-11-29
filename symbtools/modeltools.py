@@ -88,21 +88,22 @@ def new_model_from_equations_of_motion(eqns, theta, tau):
 
     return mod
 
+
 class SymbolicModel(object):
     """ model class """
 
     def __init__(self):
-        self.eqns = None  #eq_list
-        self.qs = None  #var_list
-        self.extforce_list = None  #extforce_list
-        self.disforce_list = None  #disforce_list
+        self.eqns = None  # eq_list
+        self.qs = None  # var_list
+        self.extforce_list = None  # extforce_list
+        self.disforce_list = None  # disforce_list
 
         # for the classical state representation
         self.f = None
         self.g = None
         self.tau = None
 
-        self.x = None # depricated
+        self.x = None  # deprecated
         
         # for the collocated partial linearization
         self.xx = None
@@ -128,7 +129,7 @@ class SymbolicModel(object):
 
     def substitute_ext_forces(self, old_F, new_F, new_F_symbols):
         """
-        Backround: sometimes modeling is easier with forces which are not
+        Background: sometimes modeling is easier with forces which are not
         the real control inputs. Then it is necessary to introduce the real
         forces later.
         """

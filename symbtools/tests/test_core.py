@@ -53,7 +53,7 @@ class InteractiveConvenienceTest(unittest.TestCase):
 
     def test_no_IPS_call(self):
         """
-        test whether there is some call to interactive IPython (leagacy from debugging)
+        test whether there is some call to interactive IPython (legacy from debugging)
         """
         srclines = inspect.getsourcelines(st)[0]
 
