@@ -178,6 +178,8 @@ class SymbolicModel(object):
 
         return res
 
+    # TODO add remark stating that this methods assumes self.eqns to be
+    # affine regarding self.tau
     def calc_state_eq(self, simplify=True):
         """
         reformulate the second order model to a first order statespace model
@@ -185,7 +187,7 @@ class SymbolicModel(object):
         """
 
         self.xx = st.row_stack(self.tt, self.ttd)
-        self.x = self.xx # xx is preferred now
+        self.x = self.xx  # xx is preferred now
 
         eq2nd_order = self.solve_for_acc(simplify=simplify)
         self.state_eq = st.row_stack(self.ttd, eq2nd_order)
@@ -414,7 +416,8 @@ def generate_model(T, U, qq, F, **kwargs):
 
     return model1
 
-
+# TODO add remark stating that due to construction, the equations stored in
+# the returned `SymbolicModel` under `eqns`
 def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
     """
     T:          kinetic energy
