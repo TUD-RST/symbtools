@@ -9,6 +9,7 @@ import unittest
 import sys
 import os
 import inspect
+import warnings
 
 import sympy as sp
 from sympy import sin, cos, exp
@@ -1387,7 +1388,6 @@ class TestNumTools(unittest.TestCase):
         self.assertTrue(np.max(np.abs(res2)) < 1e-5)
 
 
-
 class RandNumberTest(unittest.TestCase):
 
     def setUp(self):
@@ -1530,27 +1530,76 @@ class RandNumberTest(unittest.TestCase):
 
         M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
 
-        if 1:
-            res1 = st.generic_rank(M1, seed=98682)
-            self.assertEqual(res1, 2)
+        # test for a specific bug
+        xxdd = st.symb_vector('xdot1, xdot2, xddot1, xddot2, xdddot1')
+        xdot1, xdot2, xddot1, xddot2, xdddot1 = xxdd
 
-            res2 = st.generic_rank(M2)
-            self.assertEqual(res2, 1)
+        M9 = sp.Matrix([[1.00000000000000, 1.0*xdot1, 1.00000000000000, 1.0*x1, 1.00000000000000, 0,
+                         0, 0, 0, 0], [1.0*x2, 1.0*x1*x2, 1.0*x2, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 1.0*xddot1, 1.00000000000000, 2.0*xdot1, 1.00000000000000, 1.0*x1,
+                         1.00000000000000, 0, 0, 0],
+                        [1.0*xdot2, 1.0*x1*xdot2 + 1.0*x2*xdot1, 1.0*x2 + 1.0*xdot2, 1.0*x1*x2,
+                         1.0*x2, 0, 0, 0, 0, 0],
+                        [0, 1.0*xdddot1, 0, 3.0*xddot1, 1.00000000000000, 3.0*xdot1,
+                         1.00000000000000, 1.0*x1, 1.00000000000000, 0],
+                        [1.0*xddot2, 1.0*x1*xddot2 + 1.0*x2*xddot1 + 2.0*xdot1*xdot2,
+                         1.0*xddot2 + 2.0*xdot2, 2.0*x1*xdot2 + 2.0*x2*xdot1, 1.0*x2 + 2.0*xdot2,
+                         1.0*x1*x2, 1.0*x2, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0]])
 
-            res3 = st.generic_rank(M3, seed=1814)
-            self.assertEqual(res3, 2)
+        res1 = st.generic_rank(M1, seed=98682)
+        self.assertEqual(res1, 2)
 
-            self.assertEqual(st.generic_rank(M2, seed=1529), 1)
-            self.assertEqual(st.generic_rank(M4, seed=1814), 2)
+        res2 = st.generic_rank(M2)
+        self.assertEqual(res2, 1)
 
-            self.assertEqual(st.generic_rank(M5, seed=1814), 2)
-            self.assertEqual(st.generic_rank(M6, seed=1814), 2)
-            self.assertEqual(st.generic_rank(M7, seed=1814), 3)
-            self.assertEqual(st.generic_rank(M7.T, seed=1814), 3)
-            self.assertEqual(st.generic_rank(M8, seed=1814), 3)
+        res3 = st.generic_rank(M3, seed=1814)
+        self.assertEqual(res3, 2)
 
-        if 1:
-            pass
+        self.assertEqual(st.generic_rank(M2, seed=1529), 1)
+        self.assertEqual(st.generic_rank(M4, seed=1814), 2)
+
+        self.assertEqual(st.generic_rank(M5, seed=1814), 2)
+        self.assertEqual(st.generic_rank(M6, seed=1814), 2)
+        self.assertEqual(st.generic_rank(M7, seed=1814), 3)
+        self.assertEqual(st.generic_rank(M7.T, seed=1814), 3)
+        self.assertEqual(st.generic_rank(M8, seed=1814), 3)
+
+        # TODO: This should raise a warning
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            res = st.generic_rank(M9, seed=2051)
+
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, UserWarning))
+            self.assertTrue("Float" in str(w[-1].message))
+        # nevertheless result should be correct
+        self.assertEqual(res, 6)
+
+    def test_rationalize_all_numbers(self):
+
+        xxdd = st.symb_vector('x1, x2, xdot1, xdot2, xddot1, xddot2, xdddot1')
+        x1, x2, xdot1, xdot2, xddot1, xddot2, xdddot1 = xxdd
+
+        M1 = sp.Matrix([[1.00000000000000, 1.0*xdot1, 1.00000000000000, 1.0*x1, 1.00000000000000, 0,
+                         0, 0, 0, 0], [1.0*x2, 1.0*x1*x2, 1.0*x2, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 1.0*xddot1, 1.00000000000000, 2.0*xdot1, 1.00000000000000, 1.0*x1,
+                         1.00000000000000, 0, 0, 0],
+                        [1.0*xdot2, 1.0*x1*xdot2 + 1.0*x2*xdot1, 1.0*x2 + 1.0*xdot2, 1.0*x1*x2,
+                         1.0*x2, 0, 0, 0, 0, 0],
+                        [0, 1.0*xdddot1, 0, 3.0*xddot1, 1.00000000000000, 3.0*xdot1,
+                         1.00000000000000, 1.0*x1, 1.00000000000000, 0],
+                        [1.0*xddot2, 1.0*x1*xddot2 + 1.0*x2*xddot1 + 2.0*xdot1*xdot2,
+                         1.0*xddot2 + 2.0*xdot2, 2.0*x1*xdot2 + 2.0*x2*xdot1, 1.0*x2 + 2.0*xdot2,
+                         1.0*x1*x2, 1.0*x2, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        [0, 1, 0, 0, np.pi, 0, 0, 0, 0, 0]])
+        types1 = [type(a) for a in M1.atoms(sp.Number)]
+        self.assertTrue(sp.Float in types1)
+
+        M2 = st.rationalize_all_numbers(M1)
+        types2 = [type(a) for a in M2.atoms(sp.Number)]
+        self.assertFalse(sp.Float in types2)
 
     @skip_slow
     def test_generic_rank2(self):

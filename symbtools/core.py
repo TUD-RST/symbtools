@@ -2310,6 +2310,7 @@ def rat_if_close(x, tol=1e-10):
         return x
 
 
+# TODO: this function should be renamed: approx_rationalize_close_numbers
 def rationalize_expression(expr, tol=1e-10):
     """
     substitutes real numbers occuring in expr which are closer than tol to a
@@ -2322,6 +2323,17 @@ def rationalize_expression(expr, tol=1e-10):
     b = [rat_if_close(aa, tol) for aa in a]
 
     return expr.subs(lzip(a,b))
+
+
+def rationalize_all_numbers(expr):
+    """
+    converts all numbers in expr to sp.Rational-objects. This does not change Integers
+    :param expr:
+    :return:
+    """
+    numbers_atoms = list(expr.atoms(sp.Number))
+    rationalized_number_tpls = [(n, sp.Rational(n)) for n in numbers_atoms]
+    return expr.subs(rationalized_number_tpls)
 
 
 def matrix_with_rationals(A):
@@ -3110,7 +3122,8 @@ def subs_random_numbers(expr, *args, **kwargs):
 def generic_rank(M, **kwargs):
     """
     Evaluate the rank of the matrix M by substituting a random number for each symbol,
-    function, etc. and then applying the Berkowitz algorithm (see sympy docs).
+    function, etc. and then applying the Berkowitz algorithm (the Berk. alg. returns the coeffs
+    of the characteristic polynomial, see sympy docs).
 
     :param M:       Matrix of interest
     :param eps:
@@ -3126,6 +3139,15 @@ def generic_rank(M, **kwargs):
     """
 
     assert isinstance(M, sp.MatrixBase)
+
+    types1 = [type(a) for a in M.atoms(sp.Number)]
+    if sp.Float in types1:
+        msg = "There are Float-Objects contained in the matrix. They are converted to rationals." \
+              "To make sure that no harm is done, the data should be converted before passing" \
+              "to this function. you can use e.g. rationalize_all_numbers()."
+        warnings.warn(msg, UserWarning)
+
+        M = rationalize_all_numbers(M)
 
     n1, n2 = M.shape
     if n2 > n1:
@@ -3203,6 +3225,8 @@ def generic_rank(M, **kwargs):
     rank = n2 - defect
 
     return rank
+
+
 
 # TODO: due to generic_rank() this function is obsolete and thus deprecated
 def rnd_number_rank(M, **kwargs):
