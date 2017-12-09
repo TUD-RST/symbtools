@@ -13,13 +13,17 @@ import numpy as np
 from collections import Counter
 
 import warnings
-warnings.simplefilter('default')
+# goal: trigger deprecation warnings in this module, result: triggers many warnings in
+# other modules, too. -> comment out
+# warnings.simplefilter('default')
 import random
 
 import itertools as it
 import collections as col
 import pickle
 from functools import reduce
+
+from .interactive_aux import adapted_latex
 
 try:
     # usefull for debugging but not mandatory
