@@ -104,7 +104,7 @@ class SymbolicModel(object):
         self.tau = None
 
         self.x = None  # deprecated
-        
+
         # for the collocated partial linearization
         self.xx = None
         self.ff = None
@@ -201,11 +201,12 @@ class SymbolicModel(object):
 
     def calc_coll_part_lin_state_eq(self, simplify=True):
         """
-        calc vectorfields ff, and gg of collocated linearization
+        calc vector fields ff, and gg of collocated linearization.
+        self.ff and self.gg are set.
         """
         self.xx = st.row_stack(self.tt, self.ttd)
         self.x = self.xx  # xx is preferred now
-        
+
         nq = len(self.tau)
         np = len(self.tt) - nq
         B = self.eqns.jacobian(self.tau)
@@ -308,7 +309,7 @@ class SymbolicModel(object):
 
         self.fz[2*nq:2*nq+np, :] = uu_expr
         self.fz[2*nq+np:, :] = ww_dot
-        
+
         # how the new coordinates are defined:
         self.ww_def = uu + M11inv*M12*vv
 
@@ -435,7 +436,7 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
         assert isinstance(theta_i, sp.Symbol)
 
     F = sp.Matrix(F)
-    
+
     if F.shape[0] == 1:
         # convert to column vector
         F = F.T
@@ -443,7 +444,7 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
         msg = "Vector of external forces has the wrong length. Should be " + \
         str(n) + " but is %i!"  % F.shape[0]
         raise ValueError(msg)
-    
+
 
     # introducing symbols for the derivatives
     tt = sp.Matrix(tt)
