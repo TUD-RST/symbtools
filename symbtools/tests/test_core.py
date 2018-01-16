@@ -92,7 +92,7 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(st.count_ops(x2), x2.co)
         self.assertEqual(st.count_ops(M1), M1.co)
         self.assertEqual(st.count_ops(M2), M2.co)
-        
+
     def test_count_ops2(self):
         a, b, t = sp.symbols("a, b, t")
         x1 = a + b
@@ -154,9 +154,9 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(a.subs(st.zip0(XX)), a.subz0(XX))
         self.assertEqual(M1.subs(st.zip0(XX)), M1.subz0(XX))
         self.assertEqual(M2.subs(st.zip0(XX)), M2.subz0(XX))
-        
+
         konst = sp.Matrix([1,2,3])
-        zz = konst + xx + 5*yy 
+        zz = konst + xx + 5*yy
         self.assertEqual(zz.subz0(xx, yy), konst)
 
 
@@ -632,7 +632,7 @@ class SymbToolsTest(unittest.TestCase):
         aa = sp.symbols('a1:5')
         bb = sp.symbols('b1:4')
         xx = sp.symbols('x1:3')
-        
+
         s1 = sum(aa)
         self.assertEqual(s1.subs(st.zip0(aa)), 0)
         self.assertEqual(s1.subs(st.zip0(aa, arg=3.5)), 3.5*len(aa))
@@ -642,10 +642,10 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual(s1.subs(st.zip0(aa, bb, xx)), 0)
         t2 = s2.subs(st.zip0(aa, bb, xx, arg=-2.1))
         self.assertEqual( t2, -2.1*len(aa + bb + xx) )
-        
+
         ff = sp.Function('f1')(*xx), sp.Function('f2')(*xx)
         s3 = 10 + ff[0] + ff[1]
-        
+
         self.assertEqual( s3.subs(st.zip0(ff)), 10 )
 
     def test_is_number(self):
@@ -893,7 +893,7 @@ class SymbToolsTest2(unittest.TestCase):
 
         # test whether numeric results are close within given tolerance
         bin_res1 = np.isclose(res1, xt, rtol=2e-5)  # binary array
-        
+
         self.assertTrue( np.all(bin_res1) )
 
         # test handling of parameter free models:
@@ -1070,7 +1070,7 @@ class SymbToolsTest3(unittest.TestCase):
         z = sp.Symbol('z')
         zdot_false = sp.Symbol('zdot')
         st.global_data.attribute_store[(zdot_false, 'difforder')] = -7
-        
+
         with self.assertRaises(ValueError) as cm:
             st.time_deriv( z, [z])
 
@@ -1138,7 +1138,7 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(new_y1_assumptions, y1_assumptions)
 
         os.remove(pfname)
-        
+
     def test_pickle_full_dump_and_load2(self):
         """
         Test with non-sympy object
@@ -1171,7 +1171,7 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(yydd[1].difforder, 0)
         del xdot1, xdot2, xdot3, xxd, yydd, pdata
 
-        
+
         pdata = st.pickle_full_load(pfname)
         xdot1, xdot2, xdot3 = xxd = pdata.abc
         yydd_new = pdata.z3
@@ -1453,62 +1453,6 @@ class RandNumberTest(unittest.TestCase):
         self.assertEqual(len(cm2), 1)
         self.assertTrue('not commutative' in str(cm2[0].message))
 
-    def test_rnd_number_rank1(self):
-        x1, x2, x3 = xx = st.symb_vector('x1:4')
-
-        M1 = sp.Matrix([[x1, 0], [0, x2]])
-        M2 = sp.Matrix([[1, 0], [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1]])  # singular
-        M3 = sp.Matrix([[1, 0], [1, sin(x1)**50]])  # regular
-
-        M4 = sp.Matrix([[1, 0, 0], [1, sin(x1)**50, 1], [0, 0, 0]])  # rank 2
-
-        M5 = sp.Matrix([[-x2,   0, -x3],
-                        [ x1, -x3,   0],
-                        [  0,  x2,  x1]])
-
-        M6 = sp.Matrix([[1, 0, 0],
-                        [sin(x1)**2, sin(x1)**2 + cos(x1)**2 - 1, 0],
-                        [0, sp.pi, sin(-3)**50]])  # rank 2
-
-        M7 = st.row_stack(M6, [sp.sqrt(5)**-20, 2, 0])  # nonsquare, rank 3
-
-        M8 = sp.diag(1, sin(3)**2 + cos(3)**2 - 1, sin(3)**30, sin(3)**150)
-
-        if 1:
-            res1 = st.rnd_number_rank(M1)
-            self.assertEqual(res1, 2)
-
-            res2 = st.rnd_number_rank(M2)
-            self.assertEqual(res2, 1)
-
-            res3 = st.rnd_number_rank(M3, seed=1814)
-            self.assertEqual(res3, 2)
-
-            self.assertEqual(st.rnd_number_rank(M4, seed=1814), 2)
-
-            self.assertEqual(st.rnd_number_rank(M5, seed=1814), 2)
-            self.assertEqual(st.rnd_number_rank(M6, seed=1814), 2)
-            self.assertEqual(st.rnd_number_rank(M7, seed=1814), 3)
-            self.assertEqual(st.rnd_number_rank(M7.T, seed=1814), 3)
-
-            self.assertEqual(st.rnd_number_rank(M8, seed=1814), 3)
-
-        self.assertEqual(st.rnd_number_rank(M2, seed=1529), 1)
-
-    @skip_slow
-    def test_rnd_number_rank2(self):
-        import pickle
-        path = make_abspath('test_data', 'rank_test_matrices.pcl')
-        with open(path, 'rb') as pfile:
-            matrix_list = pickle.load(pfile)
-
-        for i, m in enumerate(matrix_list):
-            print(i)
-            r1 = m.srnp.rank()
-            r2 = st.rnd_number_rank(m)
-
-            self.assertEqual(r1, r2)
-
     def test_generic_rank1(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
 
@@ -1646,36 +1590,36 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEqual(expr1.subs(t, 12), x**3)
         self.assertEqual(expr1.subs(t, 12.00000001), -13)
         self.assertEqual(expr1.subs(t, 1e50), -13)
-        
+
     def test_do_laplace_deriv(self):
         t, s = sp.symbols('t, s')
         x1, x2, x3 = xx = st.symb_vector('x1:4')
-        
+
         x1dot, x2dot, x3dot = st.time_deriv(xx, xx)
         x1ddot, x2ddot, x3ddot = st.time_deriv(xx, xx, order=2)
-        
-        
+
+
         expr1 = 5
         expr2 = 5*s*t**2 - 7*t + 2
         expr3 = 1*s**2*x1 - 7*s*x2*t + 2
-        
+
         res = st.do_laplace_deriv(expr1, s, t)
         ex_res = 5
         self.assertEqual(res, ex_res)
-        
+
         res = st.do_laplace_deriv(expr2, s, t)
         ex_res = 10*t - 7*t + 2
         self.assertEqual(res, ex_res)
-        
+
         res = st.do_laplace_deriv(expr3, s, t)
         ex_res = -7 * x2 + 2
         self.assertEqual(res, ex_res)
-        
+
         res = st.do_laplace_deriv(expr3, s, t, tds=xx)
         ex_res = x1ddot - 7 * x2 + - 7*x2dot*t +  2
         self.assertEqual(res, ex_res)
-        
-        
+
+
 
 
 class TestControlMethods1(unittest.TestCase):
@@ -1731,7 +1675,7 @@ def main():
     # remove command line args which should not be passed to the testframework
     if 'all' in sys.argv:
         sys.argv.remove('all')
-    
+
     unittest.main()
 
 

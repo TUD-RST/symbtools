@@ -2,15 +2,13 @@
 
 
 """
-
 useful functions on basis of sympy
-
 """
 
 import sympy as sp
 import numpy as np
 
-from collections import Counter
+from collections import Counter, Iterable
 
 import warnings
 # goal: trigger deprecation warnings in this module, result: triggers many warnings in
@@ -520,33 +518,6 @@ def trans_poly(var, cn, left, right):
 
     return sol_poly
 
-#
-def make_pw(var, transpoints, fncs, ignore_warning=False):
-    if not ignore_warning:
-        msg = "This function is deprecated. Use create_piecewise(...) "\
-        "with slightly different syntax."
-        raise DeprecationWarning(msg)
-
-    transpoints = list(transpoints)
-    upper_borders = lzip(*transpoints)[0]
-
-    var = sp.sympify(var)
-
-    inf = sp.oo
-
-#    if len(upper_borders) == len(fncs)-1:
-#        upper_borders += [inf]
-#
-
-    assert len(upper_borders) == len(fncs) -1
-    upper_borders += [inf]
-
-    #lower_borders = [-inf] + transpoints
-    #fncs+=[fncs[-1]] # use the last fnc beyond the last transpoint
-
-    # generate a list of tuples
-    pieces = [(fnc, var < ub) for ub, fnc in lzip(upper_borders, fncs)]
-    return piece_wise(*pieces)
 
 def create_piecewise(var, interface_positions, fncs):
     """
@@ -1865,10 +1836,6 @@ def row_split(A, *indices):
     return res
 
 
-def crow_split(*args):
-    raise DeprecationWarning('use row_split(..) instead')
-
-
 # TODO: Doctest
 def concat_rows(*args):
     """
@@ -2979,11 +2946,6 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
         return abs(diff) <= tol, diff
 
 
-
-def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
-    raise DeprecationWarning("use random_equaltest instead")
-
-
 def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=None, **kwargs):
     """
 
@@ -3319,10 +3281,6 @@ def rnd_number_rank(M, **kwargs):
     return r
 
 
-def matrix_random_numbers(M):
-    raise DeprecationWarning("use subs_random_numbers")
-
-
 def zip0(*xx, **kwargs):
     """
     returns a list of tuples like: [(x1, arg), (x2, arg), ...]
@@ -3352,8 +3310,11 @@ def aux_make_tup_if_necc(arg):
     checks whether arg is iterable.
     if not return (arg,)
     """
-    if not hasattr(arg, '__len__'):
-        return (arg,)
+
+    # allow iterators and sympy-Matrices
+    # TODO: test for iterators
+    if not ( isinstance(arg, Iterable) or hasattr(arg, '__len__') ):
+        return (arg, )
 
     return arg
 
@@ -4165,16 +4126,6 @@ def is_derivative_symbol(expr, t=None):
         return False
 
 
-def perform_time_derivative(*args, **kwargs):
-
-    msg = "This function name is deprecated. Use time_deriv instead. "
-    #raise DeprecationWarning, msg
-    warnings.warn(msg)
-    1/0
-
-    return time_deriv(*args, **kwargs)
-
-
 def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
                                                         order=1, **kwargs):
 
@@ -4765,7 +4716,34 @@ def prime_list(n):
 
 
 
+# after deletion of depricated functions here we store some
+# some information about them and their successors
+# git blame might also help
 
-
-
-
+# def make_pw(var, transpoints, fncs, ignore_warning=False):
+#     if not ignore_warning:
+#         msg = "This function is deprecated. Use create_piecewise(...) "\
+#         "with slightly different syntax."
+#         raise DeprecationWarning(msg)
+# 
+# 
+# def crow_split(*args):
+#     raise DeprecationWarning('use row_split(..) instead')
+# 
+# 
+# def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
+#     raise DeprecationWarning("use random_equaltest instead")
+# 
+# 
+# def matrix_random_numbers(M):
+#     raise DeprecationWarning("use subs_random_numbers")
+# 
+# 
+# def perform_time_derivative(*args, **kwargs):
+# 
+#     msg = "This function name is deprecated. Use time_deriv instead. "
+#     #raise DeprecationWarning, msg
+#     warnings.warn(msg)
+#     1/0
+# 
+#     return time_deriv(*args, **kwargs)
