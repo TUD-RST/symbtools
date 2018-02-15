@@ -514,6 +514,27 @@ class SymbToolsTest(unittest.TestCase):
         res3 = st.time_deriv(yddot1, yy)
         self.assertEqual(res3, ydddot1)
 
+    def test_time_deriv_matrix_symbol1(self):
+        A = sp.MatrixSymbol("A", 3, 3)
+        B = sp.MatrixSymbol("B", 3, 5)
+        C = sp.MatrixSymbol("C", 5, 5)
+
+        Adot = st.time_deriv(A, [A])
+        Cdot = st.time_deriv(C, [C])
+
+        self.assertEqual(Adot.shape, A.shape)
+        self.assertEqual(Adot.name, "Adot")
+
+        res1 = st.time_deriv(3*A, [A])
+        self.assertEqual(res1, 3*Adot)
+
+        res2 = st.time_deriv(A*B*C, [A])
+        self.assertEqual(res2, Adot*B*C)
+
+        res3 = st.time_deriv(A*B*C + B*C, [A, C])
+        self.assertEqual(res3, B*Cdot + A*B*Cdot + Adot*B*C)
+
+
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
         a1, b1, c1 = abc1 = sp.symbols('a5, b, c')

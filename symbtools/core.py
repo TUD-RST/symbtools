@@ -3982,16 +3982,20 @@ def sorted_eigenvector_matrix(M, numpy=False, increase=False, eps=1e-14, **kwarg
     V = col_stack(*cols)
     return V
 
-## !! Laplace specific
 
+## !! Laplace specific
 def do_laplace_deriv(laplace_expr, s, t, tds=None):
     """
-    Example:
-    laplace_expr = s*(t**3+7*t**2-2*t+4)
-    returns: 3*t**2  +14*t - 2
+    Convenience function to aplly powers of the Laplace s operator to expressions in time domain.
 
-    optional arguments
-    tds: sequence of time dependend symbols (passed to time_deriv)
+    laplace_expr : symbolic expression containing symbols s and t
+    s : Symbol used for the Laplace operator  (usually something like sp.Symbol("s"))
+    t : Symbol used for the time variable  (usually something like sp.Symbol("t"))
+    tds: (optional) sequence of time dependend symbols (passed to time_deriv)
+
+    Examples:
+    do_laplace_deriv( s*(t**3 + 7*t**2 - 2*t + 4), s, t ) ->  3*t**2  +14*t - 2
+    do_laplace_deriv( 4*s*x1 + (-s**2 + 1)*a*x2, s, t, [x1, x2]) ->  4*xdot1 + a*x2 - a*xddot2
     """
 
     laplace_expr = sp.sympify(laplace_expr)
@@ -4125,7 +4129,6 @@ def is_derivative_symbol(expr, t=None):
     else:
         return False
 
-
 def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
                                                         order=1, **kwargs):
 
@@ -4158,6 +4161,12 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
             t = sp.Symbol("t")
     else:
         t = t_symbol
+
+    if isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul)):
+        return matrix_time_deriv(expr, func_symbols, t_symbol,
+                                 prov_deriv_symbols, order=1)
+
+
 
     func_symbols = list(func_symbols)  # convert to list
 
@@ -4297,6 +4306,54 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     expr3 = expr2.subs(subs2)
 
     return expr3
+
+def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
+                                                        order=1, **kwargs):
+    """
+    like time_deriv but for expressions containint MatrixSymbols
+    """
+
+    assert isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul))
+
+    def matdiff(A, symbol, order):
+        assert isinstance(A, sp.MatrixSymbol)
+        pseudo_symb = sp.Symbol(A.name)
+        diff_symb = time_deriv(pseudo_symb, func_symbols, t_symbol=symbol, order=order)
+        if diff_symb == 0:
+            return A*0
+        else:
+            return sp.MatrixSymbol(diff_symb.name, *A.shape)
+
+    def matmuldiff(expr, symbol, order):
+        assert order==1
+        args = expr.args
+        res = 0*expr
+
+        for i, a in enumerate(args):
+            first_factors = args[:i]
+            last_factors = args[i+1:]
+            diff_factor = time_deriv(a, func_symbols, t_symbol=symbol)
+            product_args = first_factors + (diff_factor,) + last_factors
+            res = res + sp.MatMul(*product_args)
+
+        return res
+
+    def matadddiff(expr, symbol, order):
+        assert order==1
+        res = 0*expr
+
+        for i, a in enumerate(expr.args):
+            res = res + time_deriv(a, func_symbols, t_symbol=symbol, order=order)
+        return res
+
+    if isinstance(expr, sp.MatrixSymbol):
+        return matdiff(expr, t_symbol, order)
+    elif isinstance(expr, sp.MatAdd):
+        return matadddiff(expr, t_symbol, order)
+    elif isinstance(expr, sp.MatMul):
+        return matmuldiff(expr, t_symbol, order)
+
+
 
 
 def get_symbols_by_name(expr, *names):
@@ -4725,25 +4782,25 @@ def prime_list(n):
 #         msg = "This function is deprecated. Use create_piecewise(...) "\
 #         "with slightly different syntax."
 #         raise DeprecationWarning(msg)
-# 
-# 
+#
+#
 # def crow_split(*args):
 #     raise DeprecationWarning('use row_split(..) instead')
-# 
-# 
+#
+#
 # def matrix_random_equaltest(M1, M2,  info=False, **kwargs):
 #     raise DeprecationWarning("use random_equaltest instead")
-# 
-# 
+#
+#
 # def matrix_random_numbers(M):
 #     raise DeprecationWarning("use subs_random_numbers")
-# 
-# 
+#
+#
 # def perform_time_derivative(*args, **kwargs):
-# 
+#
 #     msg = "This function name is deprecated. Use time_deriv instead. "
 #     #raise DeprecationWarning, msg
 #     warnings.warn(msg)
 #     1/0
-# 
+#
 #     return time_deriv(*args, **kwargs)
