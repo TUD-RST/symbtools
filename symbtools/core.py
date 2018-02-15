@@ -4164,7 +4164,7 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
 
     if isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul)):
         return matrix_time_deriv(expr, func_symbols, t_symbol,
-                                 prov_deriv_symbols, order=1)
+                                 prov_deriv_symbols, order=order)
 
 
 
@@ -4315,6 +4315,9 @@ def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
 
     assert isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul))
 
+    if order == 0:
+        return expr
+
     def matdiff(A, symbol, order):
         assert isinstance(A, sp.MatrixSymbol)
         pseudo_symb = sp.Symbol(A.name)
@@ -4325,7 +4328,14 @@ def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
             return sp.MatrixSymbol(diff_symb.name, *A.shape)
 
     def matmuldiff(expr, symbol, order):
-        assert order==1
+        if order > 1:
+            # recursively reduce to order 1:
+            tmp = matmuldiff(expr, symbol, order-1)
+
+            # last deriv step
+            return matrix_time_deriv(tmp, func_symbols, t_symbol,
+                                     prov_deriv_symbols, order=1)
+
         args = expr.args
         res = 0*expr
 
@@ -4339,7 +4349,6 @@ def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
         return res
 
     def matadddiff(expr, symbol, order):
-        assert order==1
         res = 0*expr
 
         for i, a in enumerate(expr.args):

@@ -534,6 +534,49 @@ class SymbToolsTest(unittest.TestCase):
         res3 = st.time_deriv(A*B*C + B*C, [A, C])
         self.assertEqual(res3, B*Cdot + A*B*Cdot + Adot*B*C)
 
+    def test_time_deriv_matrix_symbol2(self):
+        A = sp.MatrixSymbol("A", 3, 3)
+        B = sp.MatrixSymbol("B", 3, 5)
+        C = sp.MatrixSymbol("C", 5, 5)
+
+        # test higher order
+
+        Adot = st.time_deriv(A, [A])
+        Cdot = st.time_deriv(C, [C])
+
+        Addot = st.time_deriv(A, [A], order=2)
+        Cddot = st.time_deriv(C, [C], order=2)
+
+        Adddot = st.time_deriv(A, [A], order=3)
+        Cdddot = st.time_deriv(C, [C], order=3)
+
+        Addddot = st.time_deriv(A, [A], order=4)
+        Cddddot = st.time_deriv(C, [C], order=4)
+
+        self.assertEqual(Addddot.shape, A.shape)
+        self.assertEqual(Addddot.name, "Addddot")
+
+        res1 = st.time_deriv(3*A, [A], order=3)
+        self.assertEqual(res1, 3*Adddot)
+
+        res2 = st.time_deriv(A*B*C, [A], order=2)
+        self.assertEqual(res2, Addot*B*C)
+
+        res3 = st.time_deriv(A*B*C + B*C, [A, C], order=4)
+        eres3 = B*Cddddot + A*B*Cddddot + Addddot*B*C + 4*Adddot*B*Cdot + \
+                   4*Adot*B*Cdddot + 6*Addot*B*Cddot
+        self.assertEqual(res3, eres3)
+
+        res4 = st.time_deriv(Adot, [A]) - Addot
+        self.assertEqual(res4, 0*A)
+
+        res5 = st.time_deriv(Adot, [A], order=3)
+        self.assertEqual(res5, Addddot)
+
+        res6 = st.time_deriv(A*B, [A], order=0)
+        self.assertEqual(res6, A*B)
+
+
 
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
