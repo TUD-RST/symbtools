@@ -1630,6 +1630,33 @@ class TestTrajectoryPlanning(unittest.TestCase):
     def setUp(self):
         pass
 
+    def test_transpoly(self):
+
+        x, y = sp.symbols("x, y")
+        res1 = st.trans_poly(x, 0, (0, 0), (2, 1))
+        self.assertEqual(res1, x/2)
+
+        res2 = st.trans_poly(x, 1, (0, 0, 1), (2, 1, 1))
+        self.assertEqual(res2, x**3/4 - 3*x**2/4 + x)
+
+    def test_condition_poly(self):
+        x, y = sp.symbols("x, y")
+
+        res1 = st.condition_poly(x, (0, 0, 1), (2, 1, 1))
+        self.assertEqual(res1, x**3/4 - 3*x**2/4 + x)
+
+        res2 = st.condition_poly(x, (0, 0), (2, -4, 0, 3))
+
+        self.assertEqual(res2.subs(x, 0), 0)
+        self.assertEqual(res2.subs(x, 2), -4)
+        self.assertEqual(res2.diff(x).subs(x, 2), 0)
+        self.assertEqual(res2.diff(x, x).subs(x, 2), 3)
+
+        # now only with one condition
+        res3 = st.condition_poly(x, (0, 1.75))
+        self.assertEqual(res3.subs(x, 0), 1.75)
+
+
     def test_create_piecewise(self):
         t, x = sp.symbols('t, x')
         interface_points1 = [0, 4]
@@ -1654,6 +1681,26 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEqual(expr1.subs(t, 12), x**3)
         self.assertEqual(expr1.subs(t, 12.00000001), -13)
         self.assertEqual(expr1.subs(t, 1e50), -13)
+
+    def test_create_piecewise_poly(self):
+        x, t = sp.symbols("x, t")
+
+        conditions = [(0, 0, 0), # t= 0: x=0, x_dot=0
+                      (2, 1), # t= 2: x=1, x_dot=<not defined>
+
+                      (3, 1, 0, 0 ), # t= 2: x=1, x_dot=0, x_ddot=0
+                      (5, 2, 0, 0 ), # t= 2: x=1, x_dot=0, x_ddot=0
+                        # smooth curve finished
+                        ]
+
+        res1 = st.create_piecewise_poly(t, *conditions)
+
+        self.assertEqual(res1.func(0), 0)
+        self.assertEqual(res1.func(2), 1)
+        self.assertEqual(res1.func(3), 1)
+        self.assertEqual(res1.func(5), 2)
+        self.assertEqual(res1.expr.diff(t, 2).subs(t, 5), 0)
+
 
     def test_do_laplace_deriv(self):
         t, s = sp.symbols('t, s')

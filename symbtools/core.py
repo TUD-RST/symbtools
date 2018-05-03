@@ -8,7 +8,7 @@ useful functions on basis of sympy
 import sympy as sp
 import numpy as np
 
-from collections import Counter, Iterable
+from collections import Counter, Iterable, namedtuple
 
 import warnings
 # goal: trigger deprecation warnings in this module, result: triggers many warnings in
@@ -47,6 +47,9 @@ piece_wise = sp.functions.elementary.piecewise.Piecewise # avoid name clashes wi
 t = sp.var('t')
 
 zf = sp.numbers.Zero()
+
+# SymNum_Container:
+SNC = namedtuple("SNC", ("expr", "func"))
 
 
 class Container(object):
@@ -410,27 +413,14 @@ def sp_fff(x, maxden):
 
 def condition_poly(var, *conditions):
     """
-    # this function is intended to be a generalization of trans_poly
-
+    This function is intended to be a generalization of trans_poly
     returns a polynomial y(t) that fullfills given conditions
-
     every condition is a tuple of the following form:
 
     (t1, y1,  *derivs) # derivs contains cn derivatives
-
     every derivative (to the highest specified [in each condition]) must be given
     """
     assert len(conditions) > 0
-
-    #assert t1 != t2
-
-
-    # store the derivs
-#    D1 = left[2:]
-#    D2 = right[2:]
-
-
-
 
     # preparations
     cond_lengths = [len(c)-1 for c in conditions]  # -1: first entry is t
@@ -438,8 +428,6 @@ def condition_poly(var, *conditions):
     cn = max(cond_lengths)
 
     coeffs = [sp.Symbol('a%d' %i) for i in range(condNbr)]
-    #poly =  (map(lambda i, a: a*var**i, range(condNbr), coeffs))
-    #1/0
     poly =  sum(map(lambda i, a: a*var**i, list(range(condNbr)), coeffs))
 
     Dpoly_list = [poly]+[sp.diff(poly, var, i) for i in range(1,cn+1)]
@@ -447,8 +435,8 @@ def condition_poly(var, *conditions):
     new_conds = []
     for c in conditions:
         t = c[0]
-        for i,d in enumerate(c[1:]):
-            new_conds.append((t,d,i))
+        for i, d in enumerate(c[1:]):
+            new_conds.append((t, d, i))
             # d : derivative at point t (including 0th)
             # i : derivative counter
 
@@ -456,10 +444,8 @@ def condition_poly(var, *conditions):
 
     conds = []
 
-    for t,d,i in new_conds:
+    for t, d, i in new_conds:
         conds += [equation(Dpoly_list[i].subs(var, t) , d)]
-
-
 
     sol = lin_solve_eqns(conds, coeffs)
 
@@ -470,13 +456,20 @@ def condition_poly(var, *conditions):
 
 def trans_poly(var, cn, left, right):
     """
-    returns a polynomial y(var) that is cn times continously differentiable
+    Note: the usage of condition_poly is recommended over this function
+
+    Returns a polynomial y(var) that is cn times continously differentiable
 
     left and right are sequences of conditions for the boundaries, e.g.,
         left = (t1, y1,  *derivs) # derivs contains cn derivatives
+
     """
-    assert len(left) == cn+2
-    assert len(right) == cn+2
+    assert len(left) >= cn+2
+    assert len(right) >= cn+2
+
+    # allow to ignore superflous conditions
+    left = left[:cn+2]
+    right = right[:cn+2]
 
     t1, y1 = left[0:2]
     t2, y2 = right[0:2]
@@ -535,14 +528,13 @@ def create_piecewise(var, interface_positions, fncs):
     results in a ramp from 0 to 1 within 2 time units.
     """
 
-    interface_positions= list(interface_positions)
+    interface_positions = list(interface_positions)
     upper_borders = list(interface_positions)
 
     var = sp.sympify(var)
     inf = sp.oo
 
     assert len(upper_borders) == len(fncs) - 1
-    #upper_borders += [inf]
 
     pieces = [(fnc, var < ub) for ub, fnc in lzip(upper_borders[:-1], fncs[:-2])]
 
@@ -551,6 +543,43 @@ def create_piecewise(var, interface_positions, fncs):
     pieces.extend(last_two_pieces)
 
     return piece_wise(*pieces)
+
+
+def create_piecewise_poly(var, *conditions):
+    """
+    For each successive pair of conditions create a `condition_poly`.
+    Then create a piecewise function of all theses condition polys.
+    """
+
+    n_conditions = len(conditions)
+
+    if  n_conditions == 0:
+        raise ValueError("At least one condition is needed")
+    polylist = []
+    interface_points = []
+    for i in range(n_conditions):
+#        IPS()
+        polylist.append(condition_poly(var, *conditions[i:i+2]))
+        interface_points.append(conditions[i][0])
+
+    if n_conditions in (1, 2):
+        # there is no intersection -> poly is globally defined
+        return polylist[0]
+
+    # remove the last poly (which has no successor)
+    polylist.pop()
+    # ignore boundary-points (they are no interfaces)
+    interface_points = interface_points[1:-1]
+
+    # SymNum_Container
+    res = Container()
+    # symbolic expression
+    res.expr = create_piecewise(var, interface_points, polylist)
+
+    # callable function as new attribute
+    res.func = expr_to_func(var, res.expr)
+
+    return res
 
 
 def integrate_pw(fnc, var, transpoints):
