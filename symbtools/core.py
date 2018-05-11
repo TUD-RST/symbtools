@@ -4577,6 +4577,17 @@ class SimulationModel(object):
 
         f = self.f.subs(self.mod_param_dict)
         G = self.G.subs(self.mod_param_dict)
+
+        # find unexpected symbols:
+        ue_symbols_f = atoms(f, sp.Symbol).difference(set(self.xx))
+        ue_symbols_G = atoms(G, sp.Symbol).difference(set(self.xx))
+
+        errmsg = "The following unexpected symbols where found in {}: {}"
+        if ue_symbols_f:
+            raise ValueError(errmsg.format("`f`", ue_symbols_f))
+        elif ue_symbols_G:
+            raise ValueError(errmsg.format("`G`", ue_symbols_G))
+
         assert atoms(f, sp.Symbol).issubset( set(self.xx) )
         assert atoms(G, sp.Symbol).issubset( set(self.xx) )
 

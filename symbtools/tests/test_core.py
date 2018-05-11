@@ -931,6 +931,13 @@ class SymbToolsTest2(unittest.TestCase):
         # some random initial values
         x0 = st.to_np( sp.randMatrix(len(xx), 1, -10, 10, seed=706) ).squeeze()
 
+        # Test handling of unsubstituted parameters
+        mod = st.SimulationModel(f, G, xx, model_parameters=par_vals[1:])
+        with self.assertRaises(ValueError) as cm:
+            rhs0 = mod.create_simfunction()
+
+        self.assertTrue("unexpected symbols" in cm.exception.args[0])
+
         # create the model and the rhs-function
         mod = st.SimulationModel(f, G, xx, par_vals)
         rhs0 = mod.create_simfunction()
