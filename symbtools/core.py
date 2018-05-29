@@ -1416,6 +1416,32 @@ def kalman_matrix(A, B):
 # for backward compatibility:
 cont_mat = kalman_matrix
 
+def nl_cont_matrix(vf_f, vf_g, xx):
+    """
+    'Controllability' (or 'Reachability') matrix for the nonlinear system based on iterated
+     lie bracketts.
+
+    :param vf_f:    drift vector filed ((n x 1) sympy-matrix)
+    :param vf_g:    input vector field ((n x 1) sympy-matrix)
+    :param xx:      state vector ((n x 1) sympy-matrix)
+
+    :return:        (n x n) sympy-matrix
+    """
+
+    n = len(vf_f)
+    assert len(vf_g) == n
+    assert len(xx) == n
+
+    Q = sp.Matrix(vf_g)
+    ad = sp.Matrix(vf_g).applyfunc(sp.expand)
+    for i in range(1, n):
+        ad = lie_bracket(-vf_f, ad, xx)
+        ad = ad.applyfunc(sp.expand)
+        Q = Q.row_join(ad)
+
+    return Q
+
+
 
 def siso_place(A, b, ev):
     """

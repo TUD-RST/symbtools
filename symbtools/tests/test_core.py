@@ -1738,8 +1738,7 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEqual(res, ex_res)
 
 
-
-
+# noinspection PyPep8Naming
 class TestControlMethods1(unittest.TestCase):
 
     def setUp(self):
@@ -1756,6 +1755,24 @@ class TestControlMethods1(unittest.TestCase):
         Q = st.kalman_matrix(A, B)
 
         self.assertEqual(Q, Qref)
+
+    def test_nl_cont_matrix(self):
+
+        # for simplicity test with a linear example
+        k, J, R, L = sp.symbols('k, J, R, L')
+        A = sp.Matrix([[0, 1, 0], [0, 0, k/J], [0, -k/L, -R/L]])
+        B = sp.Matrix([0, 0, 1/L])
+
+        Qref = sp.Matrix([[0, 0, k/L/J], [0, k/L/J, -k*R/J/L**2 ],
+                          [1/L, -R/L**2, -k**2/J/L**2 + R**2/L**3 ]])
+
+        xx = st.symb_vector("x1:4")
+        ff = A*xx
+        gg = B
+
+        Qnl = st.nl_cont_matrix(ff, gg, xx)
+
+        self.assertEqual(Qnl, Qref)
 
     def test_siso_place(self):
 
