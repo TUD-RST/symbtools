@@ -1086,6 +1086,7 @@ class SymbToolsTest2(unittest.TestCase):
         sol2_at_0 = sol2.subs(t, 0).doit()
         self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
 
+
 class SymbToolsTest3(unittest.TestCase):
 
     def setUp(self):
@@ -1118,6 +1119,21 @@ class SymbToolsTest3(unittest.TestCase):
         res6 = st.get_symbols_by_name(expr2, *'C1 x a'.split())
         self.assertEqual(res6, [C1, x, a])
 
+    def test_general_attribute(self):
+        st.regsiter_new_attribute_for_sp_symbol("foo")
+        x1 = sp.Symbol('x1')
+
+        self.assertEqual(x1.foo, None)
+
+        x1.foo = 7
+        self.assertEqual(x1.foo, 7)
+
+        x1.foo = "some string"
+        self.assertEqual(x1.foo, "some string")
+
+        x1.foo = x1
+        self.assertEqual(x1.foo, x1)
+
     def test_difforder_attribute(self):
         x1 = sp.Symbol('x1')
 
@@ -1144,6 +1160,15 @@ class SymbToolsTest3(unittest.TestCase):
 
         with self.assertRaises(ValueError) as cm:
             st.time_deriv( z, [z])
+
+        # ensure that difforder is not changed after value_set
+        z2 = sp.Symbol('z2')
+        z2.difforder = 3
+
+        z2.difforder = 3  # same value is allowed
+
+        with self.assertRaises(ValueError) as cm:
+            z2.difforder = 4  # not allowed
 
     def test_introduce_abreviations(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')

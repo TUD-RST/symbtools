@@ -204,14 +204,39 @@ def copy_custom_attributes(old_symbs, new_symbs):
                 raise ValueError(msg)
 
 
+def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None):
+    """
+    General way to register a new (fake-)attribute for sympy-Symbols
+
+    :param attrname:
+    :param getter:      function or None
+    :param setter:      function or None
+    :return:
+    """
+
+    assert attrname not in sp.Symbol.__dict__
+    assert attrname not in sp.Expr.__dict__  # because this is manipulated above
+
+    if getter is None:
+        def getter(self):
+            return global_data.attribute_store.get((self, attrname), None)
+
+    if setter is None:
+        def setter(self, value):
+            global_data.attribute_store[(self, attrname)] = value
+    theproperty = property(getter, setter)
+
+    # theproperty.setter(setter)
+
+    setattr(sp.Symbol, attrname, theproperty)
+
+
 # All symbols should have the attribute difforder=0 by default
-@property
-def difforder(self):
+def difforder_getter(self):
     return global_data.attribute_store.get((self, 'difforder'), 0)
 
 
-@difforder.setter
-def difforder(self, value):
+def difforder_setter(self, value):
 
     assert int(value) == value
 
@@ -223,7 +248,10 @@ def difforder(self, value):
 
     global_data.attribute_store[(self, 'difforder')] = value
 
-sp.Symbol.difforder = difforder
+regsiter_new_attribute_for_sp_symbol("difforder", difforder_getter, difforder_setter)
+
+# sp.Symbol.difforder = difforder
+
 
 
 # handling of _attribute_store makes custom pickle interface necessary
