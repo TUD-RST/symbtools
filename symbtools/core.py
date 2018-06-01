@@ -885,7 +885,7 @@ def lie_bracket(f, g, *args, **kwargs):
 
 def lie_deriv_covf(w, f, args, **kwargs):
     """
-    Lie derivative of covector fields along vector fields
+    Lie derivative of covector field along vector field
 
     w, f should be 1 x n and n x 1 Matrices
 
@@ -915,16 +915,13 @@ def lie_deriv_covf(w, f, args, **kwargs):
 
     assert n > 0 #and isinstance(n, int)
 
-
     # caution: in sympy jacobians of row and col vectors are equal
     # -> transpose is needless (but makes the formula consistent with books)
     jwT = w.T.jacobian(args)
 
     jf = f.jacobian(args)
 
-
-
-    if kwargs.get("transpose_jac", True) == False:
+    if not kwargs.get("transpose_jac", True):
         # stricly this is not a lie derivative
         # but nevertheless sometimes needed
         res = w*jf + f.T * jwT
@@ -934,7 +931,7 @@ def lie_deriv_covf(w, f, args, **kwargs):
         res = w*jf + f.T * jwT.T
 
     if n > 1:
-        res = lie_deriv_covf(res, f, args, n = n-1)
+        res = lie_deriv_covf(res, f, args, n=n-1)
 
     return res
 
