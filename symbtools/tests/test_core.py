@@ -1060,6 +1060,21 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertTrue(np.array_equal(col1, sol))
         self.assertTrue(np.array_equal(col2, sol))
 
+        spmatrix = sp.Matrix([[x1, x1*x2], [0, x2**2]])
+
+        fnc1 = st.expr_to_func(xx, spmatrix, keep_shape=False)
+        fnc2 = st.expr_to_func(xx, spmatrix, keep_shape=True)
+
+        res1 = fnc1(1.0, 2.0)
+        res2 = fnc2(1.0, 2.0)
+
+        self.assertEqual(res1.shape, (4, ))
+        self.assertEqual(res2.shape, (2, 2))
+
+        # noinspection PyTypeChecker
+        self.assertTrue(np.all(res1 == [1, 2, 0, 4]))
+        # noinspection PyTypeChecker
+        self.assertTrue(np.all(res1 == res2.flatten()))
 
     def test_reformulate_Integral(self):
         t = sp.Symbol('t')

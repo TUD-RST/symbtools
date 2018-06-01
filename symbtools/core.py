@@ -586,7 +586,6 @@ def create_piecewise_poly(var, *conditions):
     polylist = []
     interface_points = []
     for i in range(n_conditions):
-#        IPS()
         polylist.append(condition_poly(var, *conditions[i:i+2]))
         interface_points.append(conditions[i][0])
 
@@ -1464,10 +1463,7 @@ def nl_cont_matrix(vf_f, vf_g, xx, n_extra_cols=0):
     Q = sp.Matrix(vf_g)
     ad = sp.Matrix(vf_g).applyfunc(sp.expand)
     for i in range(1, n + n_extra_cols):
-        if i < n:
-            sign = -1
-        else:
-            sign = 1
+        sign = -1
         ad = lie_bracket(sign*vf_f, ad, xx)
         ad = ad.applyfunc(sp.expand)
         Q = Q.row_join(ad)
@@ -3355,12 +3351,6 @@ def rnd_number_rank(M, **kwargs):
 
         eps_krit = eps_list[last_change_index]
 
-
-        # print rank_list1
-        # print eps_krit
-        #
-        # IPS()
-
         r = M2.rank(iszerofunc=iszero_fnc_factory(eps_krit))
 
     else:
@@ -3437,17 +3427,21 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
 
 
     Some special kwargs:
-    np_wrapper (default False):
-        the return-value of the resulting function is passed through
-        to_np(..) before returning
+    np_wrapper      (default False):
+                    the return-value of the resulting function is passed through
+                    to_np(..) before returning
 
     eltw_vectorize: allows to handle vectors of piecewise expression (default=True)
+
+    keep_shape:     (default False)
+                    Flag to ensure that the result has the same shape as the input
 
     """
 
     # TODO: sympy-Matrizen mit Stückweise definierten Polynomen
     # numpy fähig (d.h. vektoriell) auswerten
-    # TODO: optionally respect sympy shape
+
+    keep_shape = kwargs.get("keep_shape", False)
 
     expr = sp.sympify(expr)
     expr = ensure_mutable(expr)
@@ -3490,6 +3484,9 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
     # TODO: Test how this works with np_wrapper and vectorized arguments
     if hasattr(expr, 'shape'):
         new_expr = sp.Matrix(new_expr).reshape(*expr.shape)
+        sympy_shape = expr.shape
+    else:
+        sympy_shape = None
 
     # extract kwargs specific for lambdify
     printer = kwargs.get('printer', None)
@@ -3522,9 +3519,7 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
                 res = float(res)  # scalar results: array(5.0) -> 5.0
             return res
 
-        return func2
-
-    if kwargs.get('np_wrapper', False):
+    elif kwargs.get('np_wrapper', False):
         def func2(*allargs):
             return to_np(func1(*allargs))
     elif kwargs.get('list_wrapper', False):
@@ -3532,7 +3527,17 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
             return list(func1(*allargs))
     else:
         func2 = func1
-    return func2
+
+    if keep_shape:
+        def reshape_func(*allargs):
+            return func2(*allargs).reshape(sympy_shape)
+
+        func3 = reshape_func
+    else:
+        func3 = func2
+
+    return func3
+
 
 def ensure_mutable(arg):
     """
@@ -4613,6 +4618,26 @@ class SimulationModel(object):
         self.input_dim = G.shape[1]
         self.xx = xx
 
+    @staticmethod
+    def exceptionwrapper(fnc):
+        """
+        prevent the integration algorithm to get stuck if
+        a exception occurs in rhs
+        """
+
+        def newfnc(*args, **kwargs):
+            # print(args)
+            try:
+                res = fnc(*args, **kwargs)
+                return res
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                import sys
+                sys.exit(1)
+
+        return newfnc
+
     def create_simfunction(self, **kwargs):
         """
         Creates the rhs function of xdot = f(x) + G(x)u
@@ -4689,6 +4714,8 @@ class SimulationModel(object):
 
             return xx_dot
 
+        # handle exceptions which occure inside
+        #rhs = self.exceptionwrapper(rhs)
         return rhs
 
     def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
