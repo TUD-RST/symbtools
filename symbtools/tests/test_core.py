@@ -955,6 +955,12 @@ class SymbToolsTest2(unittest.TestCase):
         tt = np.linspace(0, 0.5, 100)  # simulation should be short due to instability
         res1 = sc.integrate.odeint(rhs0, x0, tt)
 
+        # create and try sympy_to_c bridge (currently only works on linux)
+        if os.name == "posix":
+            rhs0_c = mod.create_simfunction(use_sp2c=True)
+            res1_c = sc.integrate.odeint(rhs0_c, x0, tt)
+            self.assertTrue(np.all(np.isclose(res1_c, res1)))
+
         # proof calculation
         # x(t) = x0*exp(A*t)
         Anum = st.to_np(A.subs(par_vals))

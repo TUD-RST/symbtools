@@ -4637,7 +4637,10 @@ class SimulationModel(object):
 
     def create_simfunction(self, **kwargs):
         """
-        Creates the rhs function of xdot = f(x) + G(x)u
+        Creates the right-hand-side function of xdot = f(x) + G(x)u
+
+        signature is adapted to scipy odeint: rhs(state, time)
+
 
         :kwargs:
 
@@ -4649,6 +4652,8 @@ class SimulationModel(object):
 
         :param input_function: callable u(t)
         shortcut to pass only open-loop control
+
+        :param use_sp2c: boolean flag whether to use sympy to c bridge (default: False)
 
         Note: input_function and controller_function mutually exclude each other
         """
@@ -4674,6 +4679,7 @@ class SimulationModel(object):
 
         input_function = kwargs.get('input_function')
         controller_function = kwargs.get('controller_function')
+        use_sp2c = kwargs.get("use_sp2c", False)
 
         if input_function is None and controller_function is None:
             zero_m = np.array([0]*m)
@@ -4698,8 +4704,14 @@ class SimulationModel(object):
             msg = "Invalid result dimension of controller/input_function."
             raise TypeError(msg)
 
-        f_func = expr_to_func(self.xx, f, np_wrapper=True)
-        G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
+        if use_sp2c:
+            from sympy_to_c import sympy_to_c as sp2c
+            f_func = sp2c.convert_to_c(self.xx, f, cfilepath="vf_f.c", use_exisiting_so=False)
+            G_func = sp2c.convert_to_c(self.xx, G, cfilepath="matrix_G.c", use_exisiting_so=False)
+
+        else:
+            f_func = expr_to_func(self.xx, f, np_wrapper=True)
+            G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
 
         def rhs(xx, t):
             xx = np.ravel(xx)
