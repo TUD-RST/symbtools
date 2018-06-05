@@ -4,6 +4,10 @@ import os
 # This directory
 from symbtools import __version__
 
+with open("requirements.txt") as requirements_file:
+    requirements = requirements_file.read()
+
+
 setup(
     name='symbtools',
     version=__version__,
@@ -18,11 +22,5 @@ setup(
     associated with the investigation of nonlinear dynamical systems in
     the field of control theory (0.1.10+ has python3 support).
     """,
-    requires=[
-        "sympy (>= 0.7.6)",
-        "numpy (>= 1.10.4)",
-        "scipy (>= 0.17.0)",
-        "ipython (>= 3.1.0)",
-        "ipydex (>= 0.1.0)",
-    ],
+    requires=requirements,
 )

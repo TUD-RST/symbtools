@@ -1,0 +1,5 @@
+sympy>=0.7.6
+numpy>=1.10.4
+ipython>=3.1.0
+ipydex>=0.1.2
+
