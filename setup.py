@@ -22,5 +22,5 @@ setup(
     associated with the investigation of nonlinear dynamical systems in
     the field of control theory (0.1.10+ has python3 support).
     """,
-    requires=requirements,
+    install_requires=requirements,
 )

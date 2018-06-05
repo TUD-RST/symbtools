@@ -1,8 +1,1 @@
-setup.py
-symbtools/__init__.py
-symbtools/release.py
-symbtools/core.py
-symbtools/noncommutativetools.py
-symbtools/modeltools.py
-symbtools/interactive_aux.py
 include requirements.txt
