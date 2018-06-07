@@ -19,9 +19,8 @@ import random
 import itertools as it
 import collections as col
 import pickle
-from functools import reduce
+from functools import reduce, wraps
 
-from .interactive_aux import adapted_latex
 
 try:
     # usefull for debugging but not mandatory
@@ -50,6 +49,20 @@ zf = sp.numbers.Zero()
 
 # SymNum_Container:
 SNC = namedtuple("SNC", ("expr", "func"))
+
+
+# the following is usefull for recursive functions to aviod code-duplication
+# (repetition of function name)
+# https://stackoverflow.com/a/35951133/333403
+
+# this is the decorator
+def recursive_function(func):
+
+    @wraps(func)  # this decorator adapts name and docstring
+    def tmpffunc(*args, **kwargs):
+        return func(tmpffunc, *args, **kwargs)
+
+    return tmpffunc
 
 
 class Container(object):
@@ -248,9 +261,8 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
 
 regsiter_new_attribute_for_sp_symbol("difforder", getter_default=0)
 
-regsiter_new_attribute_for_sp_symbol("ddt_child", getter_default="__new_empty_list__")
-regsiter_new_attribute_for_sp_symbol("ddt_parent", getter_default="__new_empty_list__")
-
+regsiter_new_attribute_for_sp_symbol("ddt_child")
+regsiter_new_attribute_for_sp_symbol("ddt_parent")
 
 
 # handling of _attribute_store makes custom pickle interface necessary
@@ -1587,6 +1599,7 @@ def lin_solve_eqns(eqns, vars):
     sol = sp.solve_linear_system(sysmatrix, *vars)
 
     return sol
+
 
 def lin_solve_eqns_jac(eqns, vars):
     """
@@ -4218,16 +4231,18 @@ def is_derivative_symbol(expr, t=None):
     else:
         return False
 
-def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
-                                                        order=1, **kwargs):
 
+def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
+               order=1, **kwargs):
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
     we want : expr.diff(t) with te appropriate substitutions made
-    :param expr: the expression to be differentiated
-    :param func_symbols: the symbols which are functions (e.g. of the time)
-    :param prov_deriv_symbols: a sequence of symbols which will be used for the
-                          derivatives of the symbols
+    :param expr:                the expression to be differentiated
+    :param func_symbols:        the symbols which are functions (e.g. of the time)
+    :param prov_deriv_symbols:  a sequence of symbols which will be used for the
+                                derivatives of the symbols
+    :param t_symbol:            symbol for time (optional)
+    :param order:               derivative order
 
     :return: derived expression
 
@@ -4254,8 +4269,6 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     if isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul)):
         return matrix_time_deriv(expr, func_symbols, t_symbol,
                                  prov_deriv_symbols, order=order)
-
-
 
     func_symbols = list(func_symbols)  # convert to list
 
@@ -4284,7 +4297,7 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     def extended_name_symb(base, ord, assumptions={}, base_difforder=None):
         """
         construct a derivative symbol with an appropriate name and other properties
-        like assumptions, and difforder attribute
+        like assumptions and the attributes ddt_parent
 
         Because this function might be called recursively, the optional argument
         base_difforder is used to carry the difforder value of the original symbol
@@ -4390,11 +4403,43 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     # important: begin substitution with highest order
     subs2 = lzip(derivs + funcs, deriv_symbols + func_symbols)
 
+    _set_ddt_attributes(subs2)
+
     expr1 = expr.subs(subs1)
     expr2 = expr1.diff(t, order)
     expr3 = expr2.subs(subs2)
 
     return expr3
+
+
+def _set_ddt_attributes(rplmts_funcder_to_symb):
+    """
+    set the .ddt_parent attribute of symb and .ddt_child attribute of matching parent
+    (assuming that all needed symbols are provided and in descending order )
+
+    :param rplmts_funcder_to_symb:
+            sequence of tuples (deriv, symb)
+
+    :return: None
+    """
+
+    # "funcder" means func or derivative
+    funcder_symb_map = dict(rplmts_funcder_to_symb)
+
+    # now use ascending order
+    # use descending order
+    for funcder, symbol in rplmts_funcder_to_symb:
+        if funcder.is_Derivative:
+            # funcder.args looks like (x1(t), t, t, t)
+            order = len(funcder.args) - 1
+            if order == 1:
+                parent_func_der = funcder.args[0]
+            else:
+                parent_func_der = sp.Derivative(*funcder.args[:-1])
+            parent_symbol = funcder_symb_map[parent_func_der]
+            parent_symbol.ddt_child = symbol
+            symbol.ddt_parent = parent_symbol
+
 
 def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
                                                         order=1, **kwargs):
@@ -4452,6 +4497,66 @@ def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
         return matmuldiff(expr, t_symbol, order)
 
 
+# noinspection PyPep8Naming
+@recursive_function
+def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
+    """
+    Calculate the time derivative along the solutions of the ode
+     xdot = F(x, u). This adds input-derivatives as needed
+
+    :param thisfunc:    implicit argument, automatically passed by decorator `recursive_function`
+    :param expr:        expression
+    :param vf_Fxu:      input dependent vector field
+    :param xx:          state vector
+    :param uu:          input symbol or vector
+    :param order:       derivative order (default: 1)
+    :return:
+    """
+
+    if isinstance(expr, sp.MatrixBase):
+        def tmpfunc(entry):
+            return thisfunc(entry, vf_Fxu, xx, uu, order=order)
+        return expr.applyfunc(tmpfunc)
+
+    if order == 0:
+        return expr
+
+    if order > 1:
+        expr = thisfunc(expr, vf_Fxu, xx, uu, order=order-1)
+
+    if isinstance(uu, sp.Symbol):
+        uu = sp.Matrix([uu])
+    # be sure that we have a matrix
+    uu = sp.Matrix(uu)
+
+    # find out order of highest input derivative in expr
+    input_derivatives = row_stack(uu, get_all_deriv_childs(uu))
+    next_input_derivatives = time_deriv(input_derivatives, uu)
+
+    result = gradient(expr, xx) * vf_Fxu
+    assert result.shape == (1, 1)
+    result = result[0, 0]
+
+    for u, udot in zip(input_derivatives, next_input_derivatives):
+        result += expr.diff(u)*udot
+    return result
+
+
+def get_all_deriv_childs(expr):
+    """
+    for each symbol s in expr go down the s.ddt_child-tree and add them to the result
+    :param xx:
+    :return:
+    """
+    symbols = expr.atoms(sp.Symbol)
+
+    res = []
+    for s in symbols:
+        if isinstance(s.ddt_child, sp.Symbol):
+            res.append(s)
+        else:
+            assert s.ddt_child is None
+    return sp.Matrix(res)
 
 
 def get_symbols_by_name(expr, *names):
