@@ -261,9 +261,8 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
 
 regsiter_new_attribute_for_sp_symbol("difforder", getter_default=0)
 
-regsiter_new_attribute_for_sp_symbol("ddt_child", getter_default="__new_empty_list__")
-regsiter_new_attribute_for_sp_symbol("ddt_parent", getter_default="__new_empty_list__")
-
+regsiter_new_attribute_for_sp_symbol("ddt_child")
+regsiter_new_attribute_for_sp_symbol("ddt_parent")
 
 
 # handling of _attribute_store makes custom pickle interface necessary
@@ -4269,8 +4268,6 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
         return matrix_time_deriv(expr, func_symbols, t_symbol,
                                  prov_deriv_symbols, order=order)
 
-
-
     func_symbols = list(func_symbols)  # convert to list
 
     # expr might contain derivative symbols -> add them to func_symbols
@@ -4298,7 +4295,7 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     def extended_name_symb(base, ord, assumptions={}, base_difforder=None):
         """
         construct a derivative symbol with an appropriate name and other properties
-        like assumptions, and difforder attribute
+        like assumptions and the attributes ddt_parent
 
         Because this function might be called recursively, the optional argument
         base_difforder is used to carry the difforder value of the original symbol
@@ -4404,11 +4401,43 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
     # important: begin substitution with highest order
     subs2 = lzip(derivs + funcs, deriv_symbols + func_symbols)
 
+    _set_ddt_attributes(subs2)
+
     expr1 = expr.subs(subs1)
     expr2 = expr1.diff(t, order)
     expr3 = expr2.subs(subs2)
 
     return expr3
+
+
+def _set_ddt_attributes(rplmts_funcder_to_symb):
+    """
+    set the .ddt_parent attribute of symb and .ddt_child attribute of matching parent
+    (assuming that all needed symbols are provided and in descending order )
+
+    :param rplmts_funcder_to_symb:
+            sequence of tuples (deriv, symb)
+
+    :return: None
+    """
+
+    # "funcder" means func or derivative
+    funcder_symb_map = dict(rplmts_funcder_to_symb)
+
+    # now use ascending order
+    # use descending order
+    for funcder, symbol in rplmts_funcder_to_symb:
+        if funcder.is_Derivative:
+            # funcder.args looks like (x1(t), t, t, t)
+            order = len(funcder.args) - 1
+            if order == 1:
+                parent_func_der = funcder.args[0]
+            else:
+                parent_func_der = sp.Derivative(*funcder.args[:-1])
+            parent_symbol = funcder_symb_map[parent_func_der]
+            parent_symbol.ddt_child = symbol
+            symbol.ddt_parent = parent_symbol
+
 
 def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
                                                         order=1, **kwargs):

@@ -400,6 +400,9 @@ class SymbToolsTest(unittest.TestCase):
 
         adot, bdot = st.time_deriv( sp.Matrix([a, b]), (a, b) )
 
+        self.assertEqual(a.ddt_child, adot)
+        self.assertEqual(bdot.ddt_parent, b)
+
         A = sp.Matrix([sin(a), exp(a*b), -t**2*7*0, x + y]).reshape(2, 2)
         A_dot = st.time_deriv(A, (a, b))
 
@@ -470,6 +473,19 @@ class SymbToolsTest(unittest.TestCase):
         res_a5 = st.time_deriv(x1, xx, order=5)
         #self.assertEqual(str(res_a5), 'x1_d5')
 
+        # test attributes ddt_child and ddt_parent
+        tmp = x1
+        for i in range(res_a5.difforder):
+            tmp = tmp.ddt_child
+        self.assertEqual(tmp, res_a5)
+
+        tmp = res_a5
+        for i in range(res_a5.difforder):
+            tmp = tmp.ddt_parent
+        self.assertEqual(tmp, x1)
+
+        self.assertEqual(st.time_deriv(x1.ddt_child, xx, order=2),
+                         x1.ddt_child.ddt_child.ddt_child)
 
         res_b1 = st.time_deriv(x2, xx)
         self.assertEqual(str(res_b1), 'x_dot2')
