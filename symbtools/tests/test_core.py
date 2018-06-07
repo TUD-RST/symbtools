@@ -262,7 +262,6 @@ class LieToolsTest(unittest.TestCase):
         self.assertEqual(res2a, eres2)
         self.assertEqual(res2b, eres2)
 
-
         res2c = st.lie_deriv(h1, f, f, xx).expand()
         res2d = st.lie_deriv(h1, f, f, xx=xx).expand()
         self.assertEqual(res2c, eres2)
@@ -272,6 +271,30 @@ class LieToolsTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             # different lengths of vectorfields:
             res1 = st.lie_deriv(h1, F, f, xx)
+
+
+class TestSupportFunctions(unittest.TestCase):
+    """
+    Test functionality which is used indirectly by other functions
+    """
+
+    def setUp(self):
+        pass
+
+    def test_recursive_function_decorator(self):
+
+        @st.recursive_function
+        def myfactorial(thisfunc, x):
+            if x == 0:
+                return 1
+            else:
+                return x*thisfunc(x-1)
+
+        nn = [0, 1, 3, 5, 10]
+        res1 = [sp.factorial(x) for x in nn]
+        res2 = [myfactorial(x) for x in nn]
+
+        self.assertEqual(res1, res2)
 
 
 class SymbToolsTest(unittest.TestCase):

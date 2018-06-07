@@ -19,9 +19,8 @@ import random
 import itertools as it
 import collections as col
 import pickle
-from functools import reduce
+from functools import reduce, wraps
 
-from .interactive_aux import adapted_latex
 
 try:
     # usefull for debugging but not mandatory
@@ -50,6 +49,20 @@ zf = sp.numbers.Zero()
 
 # SymNum_Container:
 SNC = namedtuple("SNC", ("expr", "func"))
+
+
+# the following is usefull for recursive functions to aviod code-duplication
+# (repetition of function name)
+# https://stackoverflow.com/a/35951133/333403
+
+# this is the decorator
+def recursive_function(func):
+
+    @wraps(func)  # this decorator adapts name and docstring
+    def tmpffunc(*args, **kwargs):
+        return func(tmpffunc, *args, **kwargs)
+
+    return tmpffunc
 
 
 class Container(object):
