@@ -204,14 +204,20 @@ def copy_custom_attributes(old_symbs, new_symbs):
                 raise ValueError(msg)
 
 
-def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None):
+def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
+                                         getter_default=None, save_setter=True):
     """
     General way to register a new (fake-)attribute for sympy-Symbols
 
     :param attrname:
-    :param getter:      function or None
-    :param setter:      function or None
-    :return:
+    :param getter:          function or None
+    :param setter:          function or None
+    :param getter_default:  default value for getter (avoid defining a function just to specify
+                            the default value)
+    :param save_setter:   forbid to change the value after it was set explicitly (default: True)
+
+
+    :return:                None
     """
 
     assert attrname not in sp.Symbol.__dict__
@@ -219,10 +225,20 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None):
 
     if getter is None:
         def getter(self):
-            return global_data.attribute_store.get((self, attrname), None)
+            if getter_default == "__new_empty_list__":
+                _getter_default = list()
+            else:
+                _getter_default = getter_default
+            return global_data.attribute_store.get((self, attrname), _getter_default)
 
     if setter is None:
         def setter(self, value):
+            old_value = global_data.attribute_store.get((self, attrname))
+
+            if save_setter and old_value is not None and not value == old_value:
+                msg = "{} was already set to {} for symbol {}".format(attrname, old_value, self)
+                raise ValueError(msg)
+
             global_data.attribute_store[(self, attrname)] = value
     theproperty = property(getter, setter)
 
@@ -230,27 +246,10 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None):
 
     setattr(sp.Symbol, attrname, theproperty)
 
+regsiter_new_attribute_for_sp_symbol("difforder", getter_default=0)
 
-# All symbols should have the attribute difforder=0 by default
-def difforder_getter(self):
-    return global_data.attribute_store.get((self, 'difforder'), 0)
-
-
-def difforder_setter(self, value):
-
-    assert int(value) == value
-
-    old_value = global_data.attribute_store.get((self, 'difforder'))
-
-    if old_value is not None and not value == old_value:
-        msg = "difforder was already set to %s for symbol %s" %(old_value, self)
-        raise ValueError(msg)
-
-    global_data.attribute_store[(self, 'difforder')] = value
-
-regsiter_new_attribute_for_sp_symbol("difforder", difforder_getter, difforder_setter)
-
-# sp.Symbol.difforder = difforder
+regsiter_new_attribute_for_sp_symbol("ddt_child", getter_default="__new_empty_list__")
+regsiter_new_attribute_for_sp_symbol("ddt_parent", getter_default="__new_empty_list__")
 
 
 

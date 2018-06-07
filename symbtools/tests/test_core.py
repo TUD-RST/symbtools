@@ -1141,7 +1141,7 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(res6, [C1, x, a])
 
     def test_general_attribute(self):
-        st.regsiter_new_attribute_for_sp_symbol("foo")
+        st.regsiter_new_attribute_for_sp_symbol("foo", save_setter=False)
         x1 = sp.Symbol('x1')
 
         self.assertEqual(x1.foo, None)
