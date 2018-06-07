@@ -4231,16 +4231,18 @@ def is_derivative_symbol(expr, t=None):
     else:
         return False
 
-def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
-                                                        order=1, **kwargs):
 
+def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
+               order=1, **kwargs):
     """
     Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
     we want : expr.diff(t) with te appropriate substitutions made
-    :param expr: the expression to be differentiated
-    :param func_symbols: the symbols which are functions (e.g. of the time)
-    :param prov_deriv_symbols: a sequence of symbols which will be used for the
-                          derivatives of the symbols
+    :param expr:                the expression to be differentiated
+    :param func_symbols:        the symbols which are functions (e.g. of the time)
+    :param prov_deriv_symbols:  a sequence of symbols which will be used for the
+                                derivatives of the symbols
+    :param t_symbol:            symbol for time (optional)
+    :param order:               derivative order
 
     :return: derived expression
 
@@ -4506,18 +4508,55 @@ def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
     :param expr:        expression
     :param vf_Fxu:      input dependent vector field
     :param xx:          state vector
-    :param uu:          input (symbol) or vector
+    :param uu:          input symbol or vector
+    :param order:       derivative order (default: 1)
     :return:
     """
 
     if isinstance(expr, sp.MatrixBase):
         def tmpfunc(entry):
-            thisfunc(entry, vf_Fxu, xx, uu, order=1)
+            return thisfunc(entry, vf_Fxu, xx, uu, order=order)
         return expr.applyfunc(tmpfunc)
 
-    # find out order of highest input derivative in expr
-    result = gradient(expr, xx) * vf_Fxu +  0
+    if order == 0:
+        return expr
 
+    if order > 1:
+        expr = thisfunc(expr, vf_Fxu, xx, uu, order=order-1)
+
+    if isinstance(uu, sp.Symbol):
+        uu = sp.Matrix([uu])
+    # be sure that we have a matrix
+    uu = sp.Matrix(uu)
+
+    # find out order of highest input derivative in expr
+    input_derivatives = row_stack(uu, get_all_deriv_childs(uu))
+    next_input_derivatives = time_deriv(input_derivatives, uu)
+
+    result = gradient(expr, xx) * vf_Fxu
+    assert result.shape == (1, 1)
+    result = result[0, 0]
+
+    for u, udot in zip(input_derivatives, next_input_derivatives):
+        result += expr.diff(u)*udot
+    return result
+
+
+def get_all_deriv_childs(expr):
+    """
+    for each symbol s in expr go down the s.ddt_child-tree and add them to the result
+    :param xx:
+    :return:
+    """
+    symbols = expr.atoms(sp.Symbol)
+
+    res = []
+    for s in symbols:
+        if isinstance(s.ddt_child, sp.Symbol):
+            res.append(s)
+        else:
+            assert s.ddt_child is None
+    return sp.Matrix(res)
 
 
 def get_symbols_by_name(expr, *names):

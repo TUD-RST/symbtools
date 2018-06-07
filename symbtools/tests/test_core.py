@@ -20,6 +20,7 @@ import scipy.integrate
 
 import symbtools as st
 from symbtools import lzip
+from ipydex import IPS
 
 
 if 'all' in sys.argv:
@@ -297,6 +298,7 @@ class TestSupportFunctions(unittest.TestCase):
         self.assertEqual(res1, res2)
 
 
+# noinspection PyPep8Naming,PyShadowingNames
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
@@ -370,7 +372,7 @@ class SymbToolsTest(unittest.TestCase):
         yydot = st.time_deriv(yy, yy, order=1, commutative=False)
         self.assertTrue(st.depends_on_t(yydot, t))
 
-    def test_symbs_to_func(self):
+    def test_symbs_to_func1(self):
         a, b, t = sp.symbols("a, b, t")
         x = a + b
         #M = sp.Matrix([x, t, a**2])
@@ -615,8 +617,59 @@ class SymbToolsTest(unittest.TestCase):
         res6 = st.time_deriv(A*B, [A], order=0)
         self.assertEqual(res6, A*B)
 
+    def test_dynamic_time_deriv1(self):
+
+        x1, x2 = xx = st.symb_vector("x1, x2")
+        u1, u2 = uu = st.symb_vector("u1, u2")
+
+        uu_dot = st.time_deriv(uu, uu)
+        uu_ddot = st.time_deriv(uu, uu, order=2)
+
+        ff = sp.Matrix([x2 + sp.exp(3*x1), x1**2])
+        GG = sp.Matrix([[x1 - x1**2*x2, sin(x1/x2)], [1 , x1**2 + x2]])
+        FF = ff + GG*uu
+
+        h = x1*cos(x2)
+
+        h_dot_v1 = st.dynamic_time_deriv(h, FF, xx, uu)
+        h_dot_v2 = st.lie_deriv(h, FF, xx)
+        self.assertEqual(h_dot_v1, h_dot_v2)
+
+        h_dddot_v1 = st.dynamic_time_deriv(h, FF, xx, uu, order=3)
+        h_ddot_v2 = st.dynamic_time_deriv(h_dot_v1, FF, xx, uu)
+        h_dddot_v2 = st.dynamic_time_deriv(h_ddot_v2, FF, xx, uu)
+
+        self.assertEqual(h_dddot_v1, h_dddot_v2)
+
+        self.assertTrue(uu[0] in h_dot_v1.atoms())
+        self.assertTrue(uu_dot[0] in h_ddot_v2.atoms())
+        self.assertTrue(uu_dot[0] in h_dddot_v1.atoms())
+
+    def test_dynamic_time_deriv2(self):
+
+        x1, x2 = xx = st.symb_vector("x1, x2")
+        u1, u2 = uu = st.symb_vector("u1, u2")
+        uu_dot = st.time_deriv(uu, uu)
+
+        ff = sp.Matrix([x2 + sp.exp(3*x1), x1**2])
+        GG = sp.Matrix([[x1 - x1**2*x2, sin(x1/x2)], [1, x1**2 + x2]])
+        FF = ff + GG*uu
+
+        H = sp.Matrix([[x1, cos(x2)], [sp.exp(x1*x2), 4]])
+
+        H_ddot = st.dynamic_time_deriv(H, FF, xx, uu, order=2)
+
+        self.assertEqual(H.shape, H_ddot.shape)
+
+        h11 = H[1, 1]
+
+        h11_dot = st.lie_deriv(h11, FF, xx)
+        h11_ddot = st.lie_deriv(h11_dot, FF, xx)
+        h11_ddot += h11_dot.diff(u1)*uu_dot[0] + h11_dot.diff(u2)*uu_dot[1]
+        self.assertEqual(H_ddot[1, 1], h11_ddot)
 
 
+    # TODO: move to TestSupportFunctions
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
         a1, b1, c1 = abc1 = sp.symbols('a5, b, c')
@@ -652,7 +705,7 @@ class SymbToolsTest(unittest.TestCase):
         r3 = st.match_symbols_by_name(expr, ['c', 'a5'])
         self.assertEqual(r3, [c, a])
 
-    def test_symbs_to_func(self):
+    def test_symbs_to_func2(self):
         a, b, t = sp.symbols("a, b, t")
         x, y = sp.symbols("x, y")
 
@@ -747,8 +800,9 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual( t2, -2.1*len(aa + bb + xx) )
 
         ff = sp.Function('f1')(*xx), sp.Function('f2')(*xx)
-        s3 = 10 + ff[0] + ff[1]
+        s3 = ff[0] + ff[1] + 10
 
+        # noinspection PyUnresolvedReferences
         self.assertEqual( s3.subs(st.zip0(ff)), 10 )
 
     def test_is_number(self):
