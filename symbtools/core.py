@@ -1601,6 +1601,7 @@ def lin_solve_eqns(eqns, vars):
 
     return sol
 
+
 def lin_solve_eqns_jac(eqns, vars):
     """
     takes a list of equation objects
@@ -4464,6 +4465,29 @@ def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
     elif isinstance(expr, sp.MatMul):
         return matmuldiff(expr, t_symbol, order)
 
+
+# noinspection PyPep8Naming
+@recursive_function
+def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
+    """
+    Calculate the time derivative along the solutions of the ode
+     xdot = F(x, u). This adds input-derivatives as needed
+
+    :param thisfunc:    implicit argument, automatically passed by decorator `recursive_function`
+    :param expr:        expression
+    :param vf_Fxu:      input dependent vector field
+    :param xx:          state vector
+    :param uu:          input (symbol) or vector
+    :return:
+    """
+
+    if isinstance(expr, sp.MatrixBase):
+        def tmpfunc(entry):
+            thisfunc(entry, vf_Fxu, xx, uu, order=1)
+        return expr.applyfunc(tmpfunc)
+
+    # find out order of highest input derivative in expr
+    result = gradient(expr, xx) * vf_Fxu +  0
 
 
 
