@@ -4530,7 +4530,8 @@ def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
     uu = sp.Matrix(uu)
 
     # find out order of highest input derivative in expr
-    input_derivatives = row_stack(uu, get_all_deriv_childs(uu))
+    uu_diffs = get_all_deriv_childs(uu)
+    input_derivatives = row_stack(uu, uu_diffs)
     next_input_derivatives = time_deriv(input_derivatives, uu)
 
     result = gradient(expr, xx) * vf_Fxu
@@ -4541,11 +4542,13 @@ def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
         result += expr.diff(u)*udot
     return result
 
-
-def get_all_deriv_childs(expr):
+@recursive_function
+def get_all_deriv_childs(thisfunc, expr):
     """
     for each symbol s in expr go down the s.ddt_child-tree and add them to the result
-    :param xx:
+
+    :param thisfunc:
+    :param expr:
     :return:
     """
     symbols = expr.atoms(sp.Symbol)
@@ -4553,9 +4556,11 @@ def get_all_deriv_childs(expr):
     res = []
     for s in symbols:
         if isinstance(s.ddt_child, sp.Symbol):
-            res.append(s)
+            res.append(s.ddt_child)
+            res.extend(thisfunc(s.ddt_child))
         else:
             assert s.ddt_child is None
+
     return sp.Matrix(res)
 
 

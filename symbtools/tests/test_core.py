@@ -669,6 +669,26 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual(H_ddot[1, 1], h11_ddot)
 
 
+    def test_get_all_deriv_childs(self):
+
+        x1, x2 = xx = st.symb_vector("x1, x2")
+
+        expr = x1*x2
+
+        E2 = st.time_deriv(expr, xx, order=2)
+
+        dc = st.get_all_deriv_childs(xx)
+
+        self.assertEqual(len(dc), 4)
+
+        xdot1, xdot2 = st.time_deriv(xx, xx)
+        xddot1, xddot2 = st.time_deriv(xx, xx, order=2)
+
+        self.assertTrue( xdot1 in dc)
+        self.assertTrue( xddot1 in dc)
+        self.assertTrue( xdot2 in dc)
+        self.assertTrue( xddot2 in dc)
+
     # TODO: move to TestSupportFunctions
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
