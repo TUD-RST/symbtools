@@ -1346,6 +1346,7 @@ class SymbToolsTest3(unittest.TestCase):
         yyd = st.time_deriv(yy, yy)
         yydd = st.time_deriv(yy, yy, order=2)
 
+        # add custom information to data container
         xxd.data = st.Container()
 
         xxd.data.z1 = yy

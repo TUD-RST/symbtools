@@ -296,7 +296,7 @@ def pickle_full_dump(obj, path):
             assert isinstance(obj.data, Container)
             additional_data = obj.data
         else:
-            additional_data = Container()
+            additional_data = None
     else:
         raise TypeError('Unexpected data type: %s' % type(obj))
 
@@ -310,10 +310,11 @@ def pickle_full_dump(obj, path):
     # apply that function to obj itself
     get_symbols(obj)
 
-    # no apply it to all items in additional_data
+    # now apply it to all items in additional_data
 
-    for new_obj in list(additional_data.__dict__.values()):
-        get_symbols(new_obj)
+    if additional_data:
+        for new_obj in list(additional_data.__dict__.values()):
+            get_symbols(new_obj)
 
     # make each symbol occur only once
     pdata.relevant_symbols = set(pdata.relevant_symbols)
@@ -348,6 +349,10 @@ def pickle_full_dump(obj, path):
 
     pdata.attribute_store = dict(relevant_items)
 
+    # explicitly save addional data (because the custom attribute seems not to be preserved by
+    # pickling)
+    pdata.additional_data = additional_data
+
     with open(path, 'wb') as pfile:
         pickle.dump(pdata, pfile)
 
@@ -377,13 +382,20 @@ def pickle_full_load(path):
     if not hasattr(pdata, 'container_flag'):
         return pdata
 
+    # manually set the (optional data-attribute for Matrices)
+    obj = getattr(pdata, "obj", None)
+    if isinstance(obj, sp.MatrixBase) and getattr(pdata, "additional_data", None) is not None:
+        obj.data = getattr(pdata, "additional_data")
+
     if pdata.container_flag:
         # return the whole container
         return pdata
     else:
-        # return just that attribute (legacy code)
+        # return just that attribute
         return pdata.obj
 
+
+# noinspection PyPep8Naming
 class equation(object):
 
     def __init__(self, lhs, rhs = 0):
