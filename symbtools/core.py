@@ -3058,10 +3058,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
 
     derivs = list(expr.atoms(sp.Derivative))
 
-    def deriv_order(d):
-        return len(d.args[1:])
-
-    derivs.sort(key=deriv_order, reverse=True)  # highest derivatives come first
+    derivs.sort(key=get_sp_deriv_order, reverse=True)  # highest derivatives come first
 
     # now functions
     # we only look for undefined functions, but not for cos(..) etc
@@ -4431,14 +4428,44 @@ def _set_ddt_attributes(rplmts_funcder_to_symb):
     for funcder, symbol in rplmts_funcder_to_symb:
         if funcder.is_Derivative:
             # funcder.args looks like (x1(t), t, t, t)
-            order = len(funcder.args) - 1
+            order = get_sp_deriv_order(funcder)
             if order == 1:
                 parent_func_der = funcder.args[0]
             else:
-                parent_func_der = sp.Derivative(*funcder.args[:-1])
+                func = funcder.args[0]
+                var = func.args[0]
+                parent_func_der = sp.Derivative(func, var, order-1)
             parent_symbol = funcder_symb_map[parent_func_der]
-            parent_symbol.ddt_child = symbol
+            try:
+                parent_symbol.ddt_child = symbol
+            except ValueError:
+                pass
+                # IPS()
             symbol.ddt_parent = parent_symbol
+
+
+def get_sp_deriv_order(deriv_object):
+    assert isinstance(deriv_object, sp.Derivative)
+
+    arg1 = deriv_object.args[1]
+
+    if isinstance(arg1, (tuple, sp.Tuple)):
+        # new interface is like Derivative(u1(t), (t, 2))
+        if len(deriv_object.args) > 2:
+            msg = "only multivariate derivatives are supported yet"
+            raise NotImplementedError(msg)
+        order = int(arg1[1])
+    elif isinstance(arg1, sp.Symbol):
+        # old interface was like Derivative(u1(t), t, t)
+
+        order = len(deriv_object.args) - 1
+    else:
+        msg = "Unexpexted type for arg1 of Derivative: {}".format(type(arg1))
+        raise ValueError(msg)
+
+    assert isinstance(order, int)
+    return order
+
 
 
 def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],

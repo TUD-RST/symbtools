@@ -630,7 +630,6 @@ class SymbToolsTest(unittest.TestCase):
         FF = ff + GG*uu
 
         h = x1*cos(x2)
-
         h_dot_v1 = st.dynamic_time_deriv(h, FF, xx, uu)
         h_dot_v2 = st.lie_deriv(h, FF, xx)
         self.assertEqual(h_dot_v1, h_dot_v2)
@@ -1655,15 +1654,17 @@ class RandNumberTest(unittest.TestCase):
 
         ff = sp.Matrix([f, fdot, fddot, x1*x2])
 
-        res_b1 = st.rnd_number_subs_tuples(ff)
+        for i in range(100):
+            res_b1 = st.rnd_number_subs_tuples(ff, seed=i)
 
-        expct_b1_set = set([f, fdot, fddot, t, x1, x2])
-        res_b1_atom_set = set( lzip(*res_b1)[0] )
+            expct_b1_set = set([f, fdot, fddot, t, x1, x2])
+            res_b1_atom_set = set( lzip(*res_b1)[0] )
 
-        self.assertEqual(expct_b1_set, res_b1_atom_set)
-        self.assertEqual(res_b1[0][0], fddot)
-        self.assertEqual(res_b1[1][0], fdot)
-        self.assertTrue( all( [st.is_number(e[1]) for e in res_b1] ) )
+            self.assertEqual(expct_b1_set, res_b1_atom_set)
+            # highest order has to be returned first
+            self.assertEqual(res_b1[0][0], fddot)
+            self.assertEqual(res_b1[1][0], fdot)
+            self.assertTrue( all( [st.is_number(e[1]) for e in res_b1] ) )
 
     def test_rnd_number_tuples2(self):
         x1, x2, x3 = xx = sp.symbols('x1:4')

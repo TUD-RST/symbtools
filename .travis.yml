@@ -3,6 +3,7 @@ language: python
 python:
   - "3.4"
   - "3.5"
+  - "3.6"
 
 before_install:
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -15,7 +16,8 @@ before_install:
   - pip install ruamel.yaml
   - pip install scipy
   - pip install numpy
-  - pip install sympy
+#   - pip install sympy
+  - pip install https://github.com/sympy/sympy/archive/master.zip
   - conda install --yes ipython
   #- conda update --yes conda
   - pip install ipydex
