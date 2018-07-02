@@ -1068,8 +1068,19 @@ class SymbToolsTest2(unittest.TestCase):
         tt = np.linspace(0, 0.5, 100)  # simulation should be short due to instability
         res1 = sc.integrate.odeint(rhs0, x0, tt)
 
-        # create and try sympy_to_c bridge (currently only works on linux)
-        if os.name == "posix":
+        # create and try sympy_to_c bridge (currently only works on linux
+        # and if sympy_to_c is installed (e.g. with `pip install sympy_to_c`))
+        # until it is not available for windows we do not want it as a requirement
+        # see also https://stackoverflow.com/a/10572833/333403
+
+        try:
+            import sympy_to_c
+        except ImportError:
+            sp2c_available = False
+        else:
+            sp2c_available = True
+
+        if sp2c_available:
             rhs0_c = mod.create_simfunction(use_sp2c=True)
             res1_c = sc.integrate.odeint(rhs0_c, x0, tt)
             self.assertTrue(np.all(np.isclose(res1_c, res1)))
