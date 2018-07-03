@@ -1170,8 +1170,9 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertTrue(res2b.all())
 
         f3 = st.expr_to_func(xx, sp.Matrix([x1*2, x2+5, 4]))
-        res3 = f3(-3.1, 4) == r_[-6.2, 9, 4]
-        self.assertTrue(res3.all())
+        res3 = np.allclose(f3(-3.1, 4), r_[-6.2, 9, 4])
+
+        self.assertTrue(res3)
 
         # test compatibility with Piecewise Expressions
         des_input = st.piece_wise((0, t <= 1 ), (t, t < 2), (0.5, t < 3), (1, True))
