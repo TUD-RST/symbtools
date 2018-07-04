@@ -862,16 +862,15 @@ def lie_deriv_cartan(sf, vf, x, u=None, order=1, **kwargs):
 def lie_bracket(f, g, *args, **kwargs):
     """
     f, g should be vectors (or lists)
+    args ... sequence of independent variables
+    optional keyword arg n ... order of iterated lie-bracket (default: n=1)
 
     call possibillities:
 
     lie_bracket(f, g, x1, x2, x3)
     lie_bracket(f, g, [x1, x2, x3])
     lie_bracket(f, g, sp.Matrix([x1, x2, x3]) )
-
-
-
-    optional keyword arg n ... order
+    lie_bracket(f, g, [x1, x2, x3], n=3)   $[f, [f, [f, g]]]$
     """
 
     assert len(args) > 0
@@ -1977,7 +1976,7 @@ def col_minor(A, *cols, **kwargs):
 
     method = kwargs.get('method', "berkowitz")
 
-    assert m >= n
+    assert m >= n  # -> fat matrix (more total cols)
     assert len(cols) == n
 
     M = sp.zeros(n, n)
