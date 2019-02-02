@@ -2843,6 +2843,16 @@ def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
 
 
 def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
+    """
+    Calculate the flow along a vectorfield by solving ordinary differential equations.
+    Note that it is not alway possible to solve odes symbolicaly.
+    :param vf:              vectorfiled
+    :param func_symbs:      state_vector (functions of time)
+    :param flow_parameter:  variable for the time in the solution (optional; default: t)
+
+    :param kwargs:
+    :return:
+    """
     if flow_parameter is None:
         flow_parameter = sp.Symbol('t')
 
@@ -2853,7 +2863,7 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
 
     func_symbs = sp.Matrix(func_symbs)
 
-    ### build dependency graph
+    # ## build dependency graph
     J = vf.jacobian(func_symbs)
 
     # find autonomous odes -> jacobian has no entry apart from diagonal
@@ -2866,7 +2876,6 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
         if not any(line):
             aut_indices.append(i)
 
-
     sol_subs = kwargs.get('sol_subs', [])
     iv_list = kwargs.get('iv_list', [])
     sol_subs_len = len(sol_subs)
@@ -2876,7 +2885,7 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
         fs = func_symbs[i]
         if sol_subs and fs in lzip(*sol_subs)[0]:
             continue
-        sol, iv = solve_scalar_ode_1sto(rhs, fs, flow_parameter, return_iv = True)
+        sol, iv = solve_scalar_ode_1sto(rhs, fs, flow_parameter, return_iv=True)
         sol_subs.append((fs, sol))
         iv_list.append((fs, iv))
 
@@ -4852,7 +4861,7 @@ class SimulationModel(object):
             raise TypeError(msg)
 
         if use_sp2c:
-            from sympy_to_c import sympy_to_c as sp2c
+            import sympy_to_c as sp2c
             f_func = sp2c.convert_to_c(self.xx, f, cfilepath="vf_f.c", use_exisiting_so=False)
             G_func = sp2c.convert_to_c(self.xx, G, cfilepath="matrix_G.c", use_exisiting_so=False)
 

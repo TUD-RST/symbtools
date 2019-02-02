@@ -344,6 +344,7 @@ class SymbToolsTest(unittest.TestCase):
 
     def test_depends_on_t1(self):
         a, b, t = sp.symbols("a, b, t")
+        A = sp.Function("A")
 
         res1 = st.depends_on_t(a+b, t, [])
         self.assertEqual(res1, False)
@@ -351,10 +352,10 @@ class SymbToolsTest(unittest.TestCase):
         res2 = st.depends_on_t(a + b, t, [a,])
         self.assertEqual(res2, True)
 
-        res3 = st.depends_on_t(a(t) + b, t, [])
+        res3 = st.depends_on_t(A(t) + b, t, [])
         self.assertEqual(res3, True)
 
-        res4 = st.depends_on_t(a(t) + b, t, [b])
+        res4 = st.depends_on_t(A(t) + b, t, [b])
         self.assertEqual(res4, True)
 
         res5 = st.depends_on_t(t, t, [])
