@@ -1489,6 +1489,45 @@ def nl_cont_matrix(vf_f, vf_g, xx, n_extra_cols=0):
 
     return Q
 
+# ---- some functions which are targeted to LTI systems ---
+
+
+def sympy_to_tf(expr, laplace_var=None):
+    """
+    Convert a sympy expression to transferfunction object of control package.
+
+    Note that to make this work obviously the package `control` (which ist not a hard dependency of symbtools)
+    has to be installed .
+
+    :param expr:
+    :param laplace_var:
+    :return:    tf object
+    """
+    expr = sp.sympify(expr)
+
+    symbols = list(expr.atoms(sp.Symbol))
+    assert len(symbols) in (0, 1)
+    if laplace_var is None:
+        # handle also the case when a mere number was passed
+        symbols.append(sp.Symbol("s"))
+        laplace_var = symbols[-1]
+
+        # if no var was passed, we want prevent misunderstandings where some parameter k is malinterpreted
+        assert laplace_var.name == "s"
+    num, denom = expr.as_numer_denom()
+
+    cn = to_np(coeffs(num, laplace_var))
+    cd = to_np(coeffs(denom, laplace_var))
+
+    try:
+        import control
+    except ImportError:
+        msg = "The package control seems not to be installed but is needed for this function."
+        raise ImportError(msg)
+
+    res = control.tf(cn, cd)
+
+    return res
 
 
 def siso_place(A, b, ev):
