@@ -11,7 +11,6 @@ import unittest
 import inspect, os, sys
 
 
-
 if 'all' in sys.argv:
     FLAG_all = True
 else:
@@ -28,7 +27,8 @@ def make_abspath(*args):
     current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     return os.path.join(current_dir, *args)
 
-class NCTTest(unittest.TestCase):
+
+class NCTTestQuick(unittest.TestCase):
 
     def setUp(self):
         pass
