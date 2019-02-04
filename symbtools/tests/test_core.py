@@ -5,7 +5,7 @@ Created on Wed Oct 22 11:35:00 2014
 @author: Carsten Knoll
 """
 
-import unittest
+
 import sys
 import os
 import inspect
@@ -20,18 +20,15 @@ import scipy.integrate
 
 import symbtools as st
 from symbtools import lzip
-from ipydex import IPS
+
+try:
+    import control
+except ImportError:
+    control = None
 
 
-if 'all' in sys.argv:
-    FLAG_all = True
-else:
-    FLAG_all = False
-
-
-# own decorator for skipping slow tests
-def skip_slow(func):
-    return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
+import unittesthelper as uth
+import unittest
 
 
 def make_abspath(*args):
@@ -40,6 +37,7 @@ def make_abspath(*args):
     """
     current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     return os.path.join(current_dir, *args)
+
 
 # Avoid warnings of undefined symbols from the IDE,
 # but still make use of st.make_global
@@ -981,7 +979,7 @@ class SymbToolsTest2(unittest.TestCase):
         res6 = st.solve_scalar_ode_1sto(rhs6, x1, t)
         self.assertEqual(res6.diff(t), rhs6.subs(x1, res6).expand())
 
-    @skip_slow
+    @uth.skip_slow
     def test_solve_scalar_ode_1sto_2(self):
         a, b = sp.symbols("a, b", nonzero=True)
         t, x1, x2 = sp.symbols("t, x1, x2")
@@ -1790,7 +1788,7 @@ class RandNumberTest(unittest.TestCase):
         types2 = [type(a) for a in M2.atoms(sp.Number)]
         self.assertFalse(sp.Float in types2)
 
-    @skip_slow
+    @uth.skip_slow
     def test_generic_rank2(self):
         import pickle
         path = make_abspath('test_data', 'rank_test_matrices.pcl')
@@ -1979,13 +1977,24 @@ class TestControlMethods1(unittest.TestCase):
 
         self.assertTrue(diff < 1e-6)
 
+    @uth.optional_dependency
+    def test_sympy_to_tf(self):
+        s = sp.Symbol("s")
+        P1 = 1
+        P2 = 1/(3*s + 1.5)
+        P3 = s
+        P4 = s*(0.8*s**5- 7)/(13*s**7 + s**2 + 21*s - sp.pi)
+
+        G1 = st.sympy_to_tf(P1)
+        G2 = st.sympy_to_tf(P2)
+        G3 = st.sympy_to_tf(P3)
+        G4 = st.sympy_to_tf(P4)
+
+        self.assertEqual(G1, control.tf([1], [3, 1.5]))
+
 
 def main():
-    # remove command line args which should not be passed to the testframework
-    if 'all' in sys.argv:
-        sys.argv.remove('all')
-
-    unittest.main()
+    uth.smart_run_tests_in_ns(globals())
 
 
 if __name__ == '__main__':
