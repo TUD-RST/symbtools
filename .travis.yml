@@ -5,33 +5,13 @@ python:
   - "3.5"
   - "3.6"
 
-before_install:
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-  - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - export PATH=/home/travis/miniconda2/bin:$PATH
-#  - export DEPS="sympy numpy scipy matplotlib ipython pytest"
-  - conda update --yes --no-deps conda
-  - pip install enum34
-  - pip install ruamel.yaml
-  - pip install scipy
-  - pip install numpy
-  - pip install sympy
-#  - pip install https://github.com/sympy/sympy/archive/master.zip
-  - conda install --yes ipython
-  #- conda update --yes conda
-  - pip install ipydex
-  - python -c "import sympy; print(sympy.__version__)"
-
 install:
- #- conda install --yes -c conda conda-env
- #- python -c "import sympy; print(sympy.__version__)"
- #- conda create -n testenv --yes $DEPS pip python=$TRAVIS_PYTHON_VERSION
- #- python -c "import sympy; print(sympy.__version__)"
- #- source activate testenv
- #- python -c "import sympy; print(sympy.__version__)"
- - python setup.py install
+ - pip install -r requirements.txt
+ - pip install -e .
 
 # command to run tests
 script:
  - python symbtools/tests/test_all.py all
+#  install optional dependency
+ - pip install control
+ - python symbtools/tests/test_all.py optdep
