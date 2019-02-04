@@ -5,8 +5,6 @@ Created on Wed Oct 22 11:35:00 2014
 @author: Carsten Knoll
 """
 
-
-import sys
 import os
 import inspect
 import warnings
@@ -1983,14 +1981,19 @@ class TestControlMethods1(unittest.TestCase):
         P1 = 1
         P2 = 1/(3*s + 1.5)
         P3 = s
-        P4 = s*(0.8*s**5- 7)/(13*s**7 + s**2 + 21*s - sp.pi)
+        P4 = s*(0.8*s**5 - 7)/(13*s**7 + s**2 + 21*s - sp.pi)
 
         G1 = st.sympy_to_tf(P1)
         G2 = st.sympy_to_tf(P2)
         G3 = st.sympy_to_tf(P3)
         G4 = st.sympy_to_tf(P4)
 
-        self.assertEqual(G1, control.tf([1], [3, 1.5]))
+        def tf_eq(tf1, tf2, atol=0):
+            num = (tf1 - tf2).num[0][0]
+            return np.allclose(num, 0, atol=atol)
+
+        G2_ref = control.tf([1], [3, 1.5])
+        self.assertTrue(tf_eq(G2, G2_ref))
 
 
 def main():
