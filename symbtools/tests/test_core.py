@@ -244,7 +244,8 @@ class LieToolsTest(unittest.TestCase):
         self.assertEqual(sp.expand(res_c2 - res_c3), 0)
 
     def test_lie_deriv(self):
-        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        xx = st.symb_vector('x1:4')
+        st.make_global(xx)
 
         f = sp.Matrix([x1 + x3*x2, 7*exp(x1), cos(x2)])
         h1 = x1**2 + sin(x3)*x2
@@ -268,6 +269,22 @@ class LieToolsTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             # different lengths of vectorfields:
             res1 = st.lie_deriv(h1, F, f, xx)
+
+    # noinspection PyTypeChecker
+    def test_lie_bracket(self):
+        xx = st.symb_vector('x1:4')
+        st.make_global(xx)
+        fx = sp.Matrix([[(x2 - 1)**2 + 1/x3], [x1 + 7], [-x3**2*(x2 - 1)]])
+        v = sp.Matrix([[0], [0], [-x3**2]])
+
+        dist = st.col_stack(v, st.lie_bracket(-fx, v, xx), st.lie_bracket(-fx, v, xx, order=2))
+
+        v0, v1, v2 = st.col_split(dist)
+
+        self.assertEqual(v1, sp.Matrix([1, 0, 0]))
+        self.assertEqual(v2, sp.Matrix([0, 1, 0]))
+
+        self.assertEqual(st.lie_bracket(fx, fx, xx), sp.Matrix([0, 0, 0]))
 
 
 class TestSupportFunctions(unittest.TestCase):

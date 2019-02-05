@@ -863,7 +863,7 @@ def lie_bracket(f, g, *args, **kwargs):
     """
     f, g should be vectors (or lists)
     args ... sequence of independent variables
-    optional keyword arg n ... order of iterated lie-bracket (default: n=1)
+    optional keyword arg `order` (of iterated lie-bracket (default: 1))
 
     call possibillities:
 
@@ -881,13 +881,20 @@ def lie_bracket(f, g, *args, **kwargs):
 
     if hasattr(args[0], '__len__'):
         args = args[0]
-    n = kwargs.get('n', 1)
 
-    if n == 0:
+    if "n" in kwargs:
+        raise DeprecationWarning("Parameter `n` is deprecated. Use `order`.")
+
+    # remain compatible with the use of n but also handle cases where order is given
+    n = kwargs.get("n", 1)
+
+    order = kwargs.get("order", n)
+
+    if order == 0:
         return g
 
-    assert n > 0
-    assert int(n) == n
+    assert order > 0
+    assert int(order) == order
     assert len(args) == len(list(f))
 
     # casting
@@ -899,8 +906,8 @@ def lie_bracket(f, g, *args, **kwargs):
 
     res = jg * f - jf * g
 
-    if n > 1:
-        res = lie_bracket(f, res, *args, n=n-1)
+    if order > 1:
+        res = lie_bracket(f, res, *args, order=order-1)
 
     return res
 
@@ -916,10 +923,10 @@ def lie_deriv_covf(w, f, args, **kwargs):
     -> transpose_jac = False)
     """
 
-    k,l = w.shape
+    k, l = w.shape
     m, n = f.shape
-    assert  k==1 and n==1
-    assert l==m
+    assert k == 1 and n == 1
+    assert l == m
 
     if isinstance(args[0], sp.Matrix):
         assert args[0].shape[1] == 1
@@ -930,12 +937,19 @@ def lie_deriv_covf(w, f, args, **kwargs):
 
     assert len(args) == len(list(f))
 
-    n = kwargs.get('n', 1) # wenn n nicht gegeben, dann n=1
+    if "n" in kwargs:
+        raise DeprecationWarning("Parameter `n` is deprecated. Use `order`.")
 
-    if n == 0:
+    # remain compatible with the use of n but also handle cases where order is given
+    n = kwargs.get("n", 1)
+
+    order = kwargs.get("order", n)
+
+    if order == 0:
         return w
 
-    assert n > 0 #and isinstance(n, int)
+    # noinspection PyChainedComparisons
+    assert order > 0 and int(order) == order
 
     # caution: in sympy jacobians of row and col vectors are equal
     # -> transpose is needless (but makes the formula consistent with books)
@@ -944,7 +958,7 @@ def lie_deriv_covf(w, f, args, **kwargs):
     jf = f.jacobian(args)
 
     if not kwargs.get("transpose_jac", True):
-        # stricly this is not a lie derivative
+        # strictly this is not a lie derivative
         # but nevertheless sometimes needed
         res = w*jf + f.T * jwT
     else:
@@ -952,8 +966,8 @@ def lie_deriv_covf(w, f, args, **kwargs):
         # This is the default case :
         res = w*jf + f.T * jwT.T
 
-    if n > 1:
-        res = lie_deriv_covf(res, f, args, n=n-1)
+    if order > 1:
+        res = lie_deriv_covf(res, f, args, order=order-1)
 
     return res
 
