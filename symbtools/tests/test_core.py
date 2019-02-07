@@ -286,6 +286,34 @@ class LieToolsTest(unittest.TestCase):
 
         self.assertEqual(st.lie_bracket(fx, fx, xx), sp.Matrix([0, 0, 0]))
 
+    def test_lie_deriv_covf(self):
+        xx = st.symb_vector('x1:4')
+        st.make_global(xx)
+
+        # we test this by building the observability matrix with two different but equivalent approaches
+        f = sp.Matrix([x1 + x3*x2, 7*exp(x1), cos(x2)])
+        y = x1**2 + sin(x3)*x2
+        ydot = st.lie_deriv(y, f, xx)
+        yddot = st.lie_deriv(ydot, f, xx)
+
+        cvf1 = st.gradient(y, xx)
+        cvf2 = st.gradient(ydot, xx)
+        cvf3 = st.gradient(yddot, xx)
+
+        # these are the rows of the observability matrix
+
+        # second approach
+        dh0 = cvf1
+        dh1 = st.lie_deriv_covf(dh0, f, xx)
+        dh2a = st.lie_deriv_covf(dh1, f, xx)
+        dh2b = st.lie_deriv_covf(dh0, f, xx, order=2)
+
+        zero = dh0*0
+
+        self.assertEqual((dh1 - cvf2).expand(), zero)
+        self.assertEqual((dh2a - cvf3).expand(), zero)
+        self.assertEqual((dh2b - cvf3).expand(), zero)
+
 
 class TestSupportFunctions(unittest.TestCase):
     """
