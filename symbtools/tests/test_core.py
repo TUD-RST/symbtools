@@ -339,6 +339,7 @@ class TestSupportFunctions(unittest.TestCase):
         self.assertEqual(res1, res2)
 
 
+
 # noinspection PyPep8Naming,PyShadowingNames
 class SymbToolsTest(unittest.TestCase):
 
@@ -883,6 +884,7 @@ class SymbToolsTest(unittest.TestCase):
         self.assertFalse(st.is_number(float('inf')))
         self.assertFalse(st.is_number(-float('inf')))
 
+        self.assertTrue(st.is_number(7.5 - 23j, allow_complex=True))
         self.assertTrue(st.is_number(np.pi*1j + np.exp(1), allow_complex=True) )
         self.assertFalse(st.is_number(np.pi*1j + np.exp(1)))
 
@@ -892,7 +894,6 @@ class SymbToolsTest(unittest.TestCase):
         f1 = a**3 + a*b**2 + 7*a*b
         f2 = -2*a**2 + b*a*b**2/(2+a**2 * b**2) + 12*a*b
         f3 = -3*a**2 + b*a*b**2 + 7*a*b/(2+a**2 * b**2)
-
 
         f = f1
         aa = sp.cos(3*x)
@@ -1056,6 +1057,14 @@ class SymbToolsTest2(unittest.TestCase):
         vf2_sol = vf2.subs(lzip(xx[:-1], res2))
         self.assertEqual(fp, t)
         self.assertEqual(res2.diff(t), vf2_sol)
+
+        res3, fp, iv3 = st.calc_flow_from_vectorfield(sp.Matrix([x1, 1, x1]), xx[:-1])
+
+        t = fp
+        x1_0, x2_0, x3_0 = iv3
+        ref3 = sp.Matrix([[x1_0*sp.exp(t)], [t + x2_0], [x1_0*sp.exp(t) - x1_0 + x3_0]])
+
+        self.assertEqual(res3, ref3)
 
     def test_create_simfunction(self):
         x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))
@@ -1594,6 +1603,27 @@ class SymbToolsTest4(unittest.TestCase):
         self.assertFalse(st.is_scalar( sp.eye(3)*x2 ))
         self.assertFalse(st.is_scalar( sp.zeros(2, 4)*x2 ))
         self.assertFalse(st.is_scalar( sp.eye(0)*x2 ))
+
+    def test_is_scalar2(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        a1, a2, a3 = aa = st.symb_vector('a1:4')
+
+        M1 = sp.Matrix([[0, 0], [a1, a2], [0, a3]])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        iss = st.is_scalar
+
+        self.assertTrue(iss(x1))
+        self.assertTrue(iss(x1 ** 2 + sp.sin(x2)))
+        self.assertTrue(iss(0))
+        self.assertTrue(iss(0.1))
+        self.assertTrue(iss(7.5 - 23j))
+        self.assertTrue(iss(np.float64(0.1)))
+
+        self.assertFalse(iss(M1))
+        self.assertFalse(iss(M2))
+        self.assertFalse(iss(M1[:1, :1]))
+        self.assertFalse(iss(np.arange(5)))
 
     def test_sca_integrate(self):
         """
