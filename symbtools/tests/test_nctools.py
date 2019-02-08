@@ -314,6 +314,12 @@ class NCTTest(unittest.TestCase):
         res3 = nct.nc_mul(Mb, Mab)
         self.assertEqual(res3, b*a*b*E)
 
+        # this was a bug 2019-02-08 10:18:36
+        Mb2 = sp.ImmutableDenseMatrix(Mb)
+        self.assertEqual(nct.nc_mul(a, Mb2), Mb*a)
+        self.assertEqual(nct.nc_mul(Mb2, a), a*Mb)
+        self.assertFalse(Mb*a == a*Mb)
+
     def test_make_all_symbols_commutative(self):
 
         a, b, c = sp.symbols("a, b, c", commutative=False)
@@ -355,7 +361,7 @@ class NCTTest(unittest.TestCase):
         adddot = st.time_deriv(a, abc, order=3)
 
         exp1 = a*b*x + b*c*y
-        
+
         exp1_nc, subs_tuples = nct.make_all_symbols_noncommutative(exp1)
 
         self.assertTrue( all([ not r.is_commutative for r in exp1_nc.atoms()]) )
@@ -563,7 +569,7 @@ def main():
     # remove command line args which should not be passed to the testframework
     if 'all' in sys.argv:
         sys.argv.remove('all')
-    
+
     unittest.main()
 
 

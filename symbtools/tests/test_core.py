@@ -340,6 +340,36 @@ class TestSupportFunctions(unittest.TestCase):
 
 
 # noinspection PyPep8Naming,PyShadowingNames
+class BasicTests(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_is_scalar(self):
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        a1, a2, a3 = aa = st.symb_vector('a1:4')
+
+        M1 = sp.Matrix([[0, 0], [a1, a2], [0, a3]])
+        M2 = sp.ImmutableDenseMatrix(M1)
+
+        iss = st.is_scalar
+
+        self.assertTrue(iss(x1))
+        self.assertTrue(iss(x1**2 + sp.sin(x2)))
+        self.assertTrue(iss(0))
+        self.assertTrue(iss(0.1))
+        # self.assertTrue(iss(7.5 - 23j))
+        self.assertTrue(iss(np.float64(0.1)))
+
+        self.assertFalse(iss(M1))
+        self.assertFalse(iss(M2))
+        self.assertFalse(iss(M1[:1, :1]))
+        self.assertFalse(iss(np.arange(5)))
+
+        # IPS()
+
+
+# noinspection PyPep8Naming,PyShadowingNames
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
