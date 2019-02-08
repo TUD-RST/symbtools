@@ -877,7 +877,8 @@ class SymbToolsTest(unittest.TestCase):
 
         z = sp.Rational('0.019914856674816989123456787654321').evalf(40)
         self.assertTrue(st.is_number(z))
-
+        self.assertTrue(st.is_number(7.5 - 23j))
+        
         self.assertFalse(st.is_number(x1))
         self.assertFalse(st.is_number(x1/x2))
         self.assertFalse(st.is_number(float('nan')))
