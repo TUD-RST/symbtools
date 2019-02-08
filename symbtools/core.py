@@ -1251,12 +1251,10 @@ def is_number(expr, eps=1e-25, allow_complex=False):
 
 
 def is_scalar(expr):
-    # 2019-02-07 19:12:24 this is currently broken
-    # (false result for ImmutableDenseMatrix)
-    if isinstance(expr, sp.Basic):
-        return True
     if isinstance(expr, (sp.MatrixBase, np.ndarray)):
         return False
+    if isinstance(expr, sp.Basic):
+        return True
 
     return is_number(expr)
 
