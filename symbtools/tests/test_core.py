@@ -877,14 +877,14 @@ class SymbToolsTest(unittest.TestCase):
 
         z = sp.Rational('0.019914856674816989123456787654321').evalf(40)
         self.assertTrue(st.is_number(z))
-        self.assertTrue(st.is_number(7.5 - 23j))
-        
+
         self.assertFalse(st.is_number(x1))
         self.assertFalse(st.is_number(x1/x2))
         self.assertFalse(st.is_number(float('nan')))
         self.assertFalse(st.is_number(float('inf')))
         self.assertFalse(st.is_number(-float('inf')))
 
+        self.assertTrue(st.is_number(7.5 - 23j, allow_complex=True))
         self.assertTrue(st.is_number(np.pi*1j + np.exp(1), allow_complex=True) )
         self.assertFalse(st.is_number(np.pi*1j + np.exp(1)))
 
@@ -894,7 +894,6 @@ class SymbToolsTest(unittest.TestCase):
         f1 = a**3 + a*b**2 + 7*a*b
         f2 = -2*a**2 + b*a*b**2/(2+a**2 * b**2) + 12*a*b
         f3 = -3*a**2 + b*a*b**2 + 7*a*b/(2+a**2 * b**2)
-
 
         f = f1
         aa = sp.cos(3*x)
@@ -1058,6 +1057,14 @@ class SymbToolsTest2(unittest.TestCase):
         vf2_sol = vf2.subs(lzip(xx[:-1], res2))
         self.assertEqual(fp, t)
         self.assertEqual(res2.diff(t), vf2_sol)
+
+        res3, fp, iv3 = st.calc_flow_from_vectorfield(sp.Matrix([x1, 1, x1]), xx[:-1])
+
+        t = fp
+        x1_0, x2_0, x3_0 = iv3
+        ref3 = sp.Matrix([[x1_0*sp.exp(t)], [t + x2_0], [x1_0*sp.exp(t) - x1_0 + x3_0]])
+
+        self.assertEqual(res3, ref3)
 
     def test_create_simfunction(self):
         x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))

@@ -1193,7 +1193,7 @@ def is_symbol(expr):
 
 def is_number(expr, eps=1e-25, allow_complex=False):
     """
-    Test whether or not expr is a real (or complex) number.
+    Test whether or not expr is a real (or complex, if explictly stated) number.
 
     :param expr:                any object
     :param allow_complex:       False (default) or True
@@ -1256,7 +1256,7 @@ def is_scalar(expr):
     if isinstance(expr, sp.Basic):
         return True
 
-    return is_number(expr)
+    return is_number(expr, allow_complex=True)
 
 def symb_vector(*args, **kwargs):
     return sp.Matrix(sp.symbols(*args, **kwargs))
@@ -2903,7 +2903,10 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
     :param func_symbs:      state_vector (functions of time)
     :param flow_parameter:  variable for the time in the solution (optional; default: t)
 
-    :param kwargs:
+    :param kwargs:          optional:
+                                sol_subs = [(x1, x1_extern_solution), ...]
+                                iv_list = [<list of initial values>]
+
     :return:
     """
     if flow_parameter is None:
@@ -2927,12 +2930,14 @@ def calc_flow_from_vectorfield(vf, func_symbs, flow_parameter=None, **kwargs):
     for i, line in enumerate(lines):
         line.pop(i)
         if not any(line):
+            # indices of autonomous odes
             aut_indices.append(i)
 
     sol_subs = kwargs.get('sol_subs', [])
     iv_list = kwargs.get('iv_list', [])
     sol_subs_len = len(sol_subs)
 
+    # just solve the autonomous odes
     for i in aut_indices:
         rhs = vf[i]
         fs = func_symbs[i]
