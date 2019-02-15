@@ -135,12 +135,13 @@ class SymbolicModel(object):
         """
 
         # nothing fancy has be done yet with the model
-        assert self.eqns != None
+        assert self.eqns is not None
         assert (self.f, self.solved_eq, self.state_eq) == (None,) * 3
 
         subslist = lzip(old_F, new_F)
         self.eqns = self.eqns.subs(subslist)
-        self.extforce_list = new_F_symbols
+        self.extforce_list = sp.Matrix(new_F_symbols)
+        self.tau = sp.Matrix(new_F_symbols)
 
     def calc_mass_matrix(self):
         """
@@ -321,6 +322,10 @@ class SymbolicModel(object):
     @property  # legacy (compatibility with older convention)
     def eq_list(self):
         return self.eqns
+
+    @property  # convenience
+    def uu(self):
+        return self.tau
 
 """
 Hinweis: 2014-10-15: Verhalten wurde geändert.

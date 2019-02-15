@@ -110,6 +110,43 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(mod.ff, ff_ref)
         self.assertEqual(mod.gg, gg_ref)
 
+    def test_cart_pole_with_dissi(self):
+        p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
+        F1, tau_dissi = ttau = sp.Matrix(sp.symbols('F1, tau_dissi'))
+
+        params = sp.symbols('m0, m1, l1, g, d1')
+        m0, m1, l1, g, d1 = params
+
+        pdot1 = st.time_deriv(p1, ttheta)
+        # q1dd = st.time_deriv(q1, ttheta, order=2)
+
+        ex = Matrix([1, 0])
+        ey = Matrix([0, 1])
+
+        S0 = ex*q1  # joint of the pendulum
+        S1 = S0 - mt.Rz(p1)*ey*l1  # center of mass
+
+        # velocity
+        S0d = st.time_deriv(S0, ttheta)
+        S1d = st.time_deriv(S1, ttheta)
+
+        T_rot = 0  # no moment of inertia (mathematical pendulum)
+        T_trans = (m0*S0d.T*S0d + m1*S1d.T*S1d)/2
+        T = T_rot + T_trans[0]
+
+        V = m1*g*S1[1]
+
+        QQ = sp.Matrix([tau_dissi, F1])
+        mod = mt.generate_symbolic_model(T, V, ttheta, QQ)
+
+        mod.substitute_ext_forces(QQ, [d1*pdot1, F1], [F1])
+        self.assertEqual(len(mod.tau), 1)
+        self.assertEqual(len(mod.extforce_list), 1)
+        self.assertEqual(mod.tau[0], F1)
+
+        mod.calc_coll_part_lin_state_eq()
+
+
     def test_simple_pendulum_with_actuated_mountpoint(self):
 
         np = 1
