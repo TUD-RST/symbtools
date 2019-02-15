@@ -2810,17 +2810,23 @@ def linear_input_trafo(B, row_idcs):
     return to_np(P.subs(res))
 
 
-def poly_scalar_field(xx, symbgen, order, poly=False):
+def poly_scalar_field(xx, symbgen, orders, poly=False):
     """
     returns a multivariate poly with specified oders
     and symbolic coeffs
-    returns also a list of the coefficients
+
+    :param xx:          independent variables
+    :param symbgen:     generator for coeffs
+    :param orders:      int or list of occurring orders
+    :param poly:        flag whether or not to return a sp.Poly object (instead of sp.Expr)
+
+    :return:            poly, <column vector of the coefficients>
     """
 
-    if isinstance(order, int):
-        orders = [order]
-    elif isinstance(order, (list, tuple, sp.Matrix)):
-        orders = list(order)
+    if isinstance(orders, int):
+        orders = [orders]
+    elif isinstance(orders, (list, tuple, sp.Matrix)):
+        orders = list(orders)
 
     res = 0
     coeff_list = []
@@ -2840,7 +2846,7 @@ def poly_scalar_field(xx, symbgen, order, poly=False):
 
     if poly:
         res = sp.Poly(res, *xx, domain='EX')
-    return res, coeff_list
+    return res, sp.Matrix(coeff_list)
 
 
 def solve_scalar_ode_1sto(sf, func_symb, flow_parameter, **kwargs):
