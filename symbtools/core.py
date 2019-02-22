@@ -2648,6 +2648,7 @@ def introduce_abreviations(M, prefix='A', time_dep_symbs=[]):
 
     return M_new, subs_tuples, sp.Matrix(diff_symbols)
 
+
 # TODO: rename to rev_tuple_list
 def rev_tuple(tuples):
     """
@@ -3185,6 +3186,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
     minmax:         2-tuple: (min_value, max_value)
     prime:          (default: False)
     prec:           evalf-precision (default 100)
+    exclude:        symbols to exclude (iterable or single sp.Symbol)
     """
 
     derivs = list(expr.atoms(sp.Derivative))
@@ -3230,14 +3232,6 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
     if not seed is None:
         random.seed(seed)
 
-    if prime:
-        assert minmax is None
-        N = len(atoms_list)
-        list_of_primes = prime_list(2*N) # more numbers than needed
-        random.shuffle(list_of_primes)
-        tuples = [(reverse_dict[s], list_of_primes.pop()) for s in atoms_list]
-        return tuples
-
     if minmax is None:
         min_val, max_val = 0, 1
     else:
@@ -3255,19 +3249,33 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
         val = random.random()
         return sp.Float(val, prec)
 
-    if rational == True:
+    if prime:
+        assert minmax is None
+        N = len(atoms_list)
+        list_of_primes = prime_list(2*N)  # more numbers than needed
+        random.shuffle(list_of_primes)
+        tuples = [(reverse_dict[s], list_of_primes.pop()) for s in atoms_list]
+
+    elif rational:
         tuples = [(reverse_dict[s], clean_numbers( rnd()*delta + min_val )) for s in atoms_list]
     else:
         tuples = [(reverse_dict[s], rnd()*delta + min_val) for s in atoms_list]
 
+    exclude = kwargs.get("exclude", [])
+    if isinstance(exclude, (sp.Symbol, sp.Function, sp.Derivative)):
+        exclude = [exclude]
 
-#    # make the desired symbols a multiple of pi
-#    if mul_pi_list:
-#        for i, (s, v) in enumerate(tuples):
-#            if s in mul_pi_list:
-#                tuples[i] = (s, v*sp.pi)
+    remove_idcs = []
+    for idx, tup in enumerate(tuples):
+        if tup[0] in exclude:
+            remove_idcs.append(idx)
+
+    remove_idcs.reverse()
+    for idx in remove_idcs:
+        tuples.pop(idx)
 
     return tuples
+
 
 # TODO: unit test
 def rnd_trig_tuples(symbols, seed = None):

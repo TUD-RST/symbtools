@@ -1771,7 +1771,8 @@ class RandNumberTest(unittest.TestCase):
             self.assertTrue( all( [st.is_number(e[1]) for e in res_b1] ) )
 
     def test_rnd_number_tuples2(self):
-        x1, x2, x3 = xx = sp.symbols('x1:4')
+        x1, x2, x3 = xx = st.symb_vector('x1:4')
+        yy = st.symb_vector('y1:4')
 
         s = sum(xx)
         res_a1 = st.rnd_number_subs_tuples(s, seed=1)
@@ -1780,6 +1781,26 @@ class RandNumberTest(unittest.TestCase):
 
         res_b1 = st.rnd_number_subs_tuples(s, seed=2)
         self.assertEqual(res_b1, res_a2)
+
+        xxyy = xx + yy
+        rnst1 = st.rnd_number_subs_tuples(xxyy)
+        rnst2 = st.rnd_number_subs_tuples(xxyy, exclude=x1)
+        rnst3 = st.rnd_number_subs_tuples(xxyy, exclude=[x1, x2])
+        rnst4 = st.rnd_number_subs_tuples(xxyy, exclude=xx)
+        symbols1 = xxyy.subs(rnst1).atoms(sp.Symbol)
+        symbols2 = xxyy.subs(rnst2).atoms(sp.Symbol)
+        symbols3 = xxyy.subs(rnst3).atoms(sp.Symbol)
+        symbols4 = xxyy.subs(rnst4).atoms(sp.Symbol)
+
+        self.assertEqual(symbols1, set())
+        self.assertEqual(symbols2, set([x1]))
+        self.assertEqual(symbols3, set([x1, x2]))
+        self.assertEqual(symbols4, set([x1, x2, x3]))
+
+        # this was a bug:
+        rnst = st.rnd_number_subs_tuples(xxyy, prime=True, exclude=[x1, x2])
+        self.assertEqual(xxyy.subs(rnst).atoms(sp.Symbol), set([x1, x2]))
+
 
     def test_rnd_number_tuples3(self):
         a, b = sp.symbols('a, b', commutative=False)
