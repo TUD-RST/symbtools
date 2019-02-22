@@ -105,14 +105,38 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(st.count_ops(M1), sp.Matrix([4, 1, 2, 0, 1]))
         self.assertEqual(st.count_ops(M2), sp.Matrix([4, 1, 2, 0, 1]))
 
-
     def test_srn(self):
-        x, y, z = st.symb_vector('x, y, z')
+        x, y, z = xyz = st.symb_vector('x, y, z')
         st.random.seed(3319)
         self.assertAlmostEqual(x.srn01, 0.843044195656457)
 
         st.random.seed(3319)
-        self.assertAlmostEqual(x.srn, 8.58739776090811)
+        x_srn = x.srn
+        self.assertNotAlmostEqual(x_srn, 8.59)
+        self.assertAlmostEqual(x_srn, 8.58739776090811)
+
+        # now apply round
+        st.random.seed(3319)
+        self.assertAlmostEqual(x.srnr, 8.59)
+
+        # test compatibility with sp.Matrix
+        # the order might depend on the platform (due to dict ordering)
+        expected_res = [5.667115517927374668261109036393463611602783203125,
+                        7.76957198624519962404377793063758872449398040771484375,
+                        8.58739776090810946751474830307415686547756195068359375]
+
+        st.random.seed(3319)
+        xyz_srn = list(xyz.srn)
+        xyz_srn.sort()
+        for a, b in zip(xyz_srn, expected_res):
+            self.assertAlmostEqual(a, b)
+
+        # should live in a separate test !!
+        st.random.seed(3319)
+
+        # ensure that application to matrix does not fail
+        _ = xyz.srnr
+
 
     def test_subz(self):
         x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))

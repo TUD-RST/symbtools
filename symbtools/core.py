@@ -167,6 +167,16 @@ new_methods.append(('srn', srn))
 
 
 @property
+def srnr(self):
+    """
+    Convenience property for interactive usage:
+    returns subs_random_numbers(self, round_res_digits=2)
+    """
+    return subs_random_numbers(self, round_res_digits=2, minmax=(1, 10))
+new_methods.append(('srnr', srnr))
+
+
+@property
 def srnp(self):
     """
     Convenience property for interactive usage:
@@ -3025,6 +3035,33 @@ def trunc_small_values(expr, lim = 1e-10, n=1):
         return trunc_small_values(res, lim, n-1)
 
 
+def apply_round(expr, digits=3):
+    """
+    Apply `round` from python std lib to all Float and Complex instances
+    :param expr:
+    :param digits:
+    :return:
+    """
+
+    # taken from here: https://stackoverflow.com/questions/43804701/round-floats-within-an-expression
+    if isinstance(expr, sp.MatrixBase):
+        def fnc(arg):
+            return apply_round(arg, digits=digits)
+
+        return expr.applyfunc(fnc)
+
+    assert is_scalar(expr)
+
+    res = expr
+
+    for a in sp.preorder_traversal(expr):
+        # note that complex numbers are Float + Mul(Float, ImaginaryUnit), so they are handled here
+
+        if isinstance(a, sp.Float):
+            res = res.subs(a, round(a, digits))
+
+    return res
+
 
 def clean_numbers(expr, eps=1e-10):
     """
@@ -3251,12 +3288,26 @@ def subs_random_numbers(expr, *args, **kwargs):
 
     usefull for e.g. for checking the rank at a "generic" point
 
-    :kwargs: seed: set the seed for the random module
+    :param expr:  sympy expression or matrix
+
+    :param \**kwargs:
+
+    :Keyword Arguments:
+        * *seed* (``float``) --
+          seed for random number generator
+        * *round_res_digits* (``int``) --
+          number of digitis to round (None -> do not round)
     """
 
+    round_res_digits = kwargs.pop("round_res_digits", None)
     tuples = rnd_number_subs_tuples(expr, *args, **kwargs)
+    res = expr.subs(tuples)
 
-    return expr.subs(tuples)
+    if round_res_digits is not None:
+        assert int(round_res_digits) == round_res_digits
+        res = apply_round(res, digits=int(round_res_digits))
+
+    return res
 
 
 def generic_rank(M, **kwargs):
