@@ -177,6 +177,16 @@ new_methods.append(('srnr', srnr))
 
 
 @property
+def ar(self):
+    """
+    Convenience property for interactive usage:
+    returns apply_round(self)
+    """
+    return apply_round(self)
+new_methods.append(('ar', ar))
+
+
+@property
 def srnp(self):
     """
     Convenience property for interactive usage:

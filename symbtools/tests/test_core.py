@@ -134,9 +134,15 @@ class InteractiveConvenienceTest(unittest.TestCase):
         # should live in a separate test !!
         st.random.seed(3319)
 
-        # ensure that application to matrix does not fail
+        # ensure that application to matrix does raise exception
         _ = xyz.srnr
 
+        test_matrix = sp.Matrix(expected_res)
+
+        rounded_res = sp.Matrix([[5.667], [ 7.77], [8.587]])
+
+        self.assertNotEqual(test_matrix, rounded_res)
+        self.assertEqual(test_matrix.ar, rounded_res)
 
     def test_subz(self):
         x1, x2, x3 = xx = sp.Matrix(sp.symbols("x1, x2, x3"))
