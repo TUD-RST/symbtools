@@ -5,21 +5,21 @@
 useful functions on basis of sympy
 """
 
-import sympy as sp
-import numpy as np
-
+import inspect
 from collections import Counter, Iterable, namedtuple
+import random
+import itertools as it
+import collections as col
+import pickle
+from functools import reduce, wraps
 
 import warnings
 # goal: trigger deprecation warnings in this module, result: triggers many warnings in
 # other modules, too. -> comment out
 # warnings.simplefilter('default')
-import random
 
-import itertools as it
-import collections as col
-import pickle
-from functools import reduce, wraps
+import numpy as np
+import sympy as sp
 
 
 try:
