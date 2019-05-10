@@ -4873,6 +4873,7 @@ def symbolify_matrix(M):
     return replacements, res
 
 
+# noinspection PyPep8Naming
 class SimulationModel(object):
     """
     This class encapsulates all data pertaining a nonlinear state-space model
@@ -4904,6 +4905,13 @@ class SimulationModel(object):
         self.input_dim = G.shape[1]
         self.xx = xx
 
+        # instance_variables for rhs_funcs
+        self.f_func = None
+        self.G_func = None
+        self.u_func = None
+        self.use_sp2c = None
+        self.compiler_called = None
+
     @staticmethod
     def exceptionwrapper(fnc):
         """
@@ -4923,6 +4931,35 @@ class SimulationModel(object):
                 sys.exit(1)
 
         return newfnc
+
+    def _get_input_func(self, kwargs):
+        input_function = kwargs.get('input_function')
+        controller_function = kwargs.get('controller_function')
+
+        if input_function is None and controller_function is None:
+            zero_m = np.array([0]*self.input_dim)
+
+            def u_func(xx, t):
+                return zero_m
+        elif not input_function is None:
+            assert hasattr(input_function, '__call__')
+            assert controller_function is None
+
+            def u_func(xx, t):
+                return input_function(t)
+        else:
+            assert hasattr(controller_function, '__call__')
+            assert input_function is None
+
+            u_func = controller_function
+
+        tmp = u_func([0]*self.state_dim, 0)
+        tmp = np.atleast_1d(tmp)
+        if not len(tmp) == self.input_dim:
+            msg = "Invalid result dimension of controller/input_function."
+            raise TypeError(msg)
+
+        return u_func
 
     def create_simfunction(self, **kwargs):
         """
@@ -4947,8 +4984,15 @@ class SimulationModel(object):
         Note: input_function and controller_function mutually exclude each other
         """
 
+        self.u_func = self._get_input_func(kwargs)
+        use_sp2c = bool(kwargs.get("use_sp2c", False))
+
+        if callable(self.f_func) and callable(self.G_func) and use_sp2c == self.use_sp2c:
+            # this is just an update (of input function)
+            return self._produce_sim_function()
+
+        self.use_sp2c = use_sp2c
         n = self.state_dim
-        m = self.input_dim
 
         f = self.f.subs(self.mod_param_dict)
         G = self.G.subs(self.mod_param_dict)
@@ -4966,55 +5010,42 @@ class SimulationModel(object):
         assert atoms(f, sp.Symbol).issubset( set(self.xx) )
         assert atoms(G, sp.Symbol).issubset( set(self.xx) )
 
-        input_function = kwargs.get('input_function')
-        controller_function = kwargs.get('controller_function')
-        use_sp2c = kwargs.get("use_sp2c", False)
-
-        if input_function is None and controller_function is None:
-            zero_m = np.array([0]*m)
-
-            def u_func(xx, t):
-                return zero_m
-        elif not input_function is None:
-            assert hasattr(input_function, '__call__')
-            assert controller_function is None
-
-            def u_func(xx, t):
-                return input_function(t)
-        else:
-            assert hasattr(controller_function, '__call__')
-            assert input_function is None
-
-            u_func = controller_function
-
-        tmp = u_func([0]*n, 0)
-        tmp = np.atleast_1d(tmp)
-        if not len(tmp) == m:
-            msg = "Invalid result dimension of controller/input_function."
-            raise TypeError(msg)
-
         if use_sp2c:
             import sympy_to_c as sp2c
-            f_func = sp2c.convert_to_c(self.xx, f, cfilepath="vf_f.c", use_exisiting_so=False)
-            G_func = sp2c.convert_to_c(self.xx, G, cfilepath="matrix_G.c", use_exisiting_so=False)
+            self.f_func = sp2c.convert_to_c(self.xx, f, cfilepath="vf_f.c", use_exisiting_so=False)
+            self.G_func = sp2c.convert_to_c(self.xx, G, cfilepath="matrix_G.c", use_exisiting_so=False)
+            self.compiler_called = True
 
         else:
-            f_func = expr_to_func(self.xx, f, np_wrapper=True)
-            G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
+            self.f_func = expr_to_func(self.xx, f, np_wrapper=True)
+            self.G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
+            self.compiler_called = False
 
-        def rhs(xx, t):
+        rhs = self._produce_sim_function()
+
+        # handle exceptions which occur inside
+        # rhs = self.exceptionwrapper(rhs)
+        return rhs
+
+    def _produce_sim_function(self):
+        # load the (possibly compiled) functions
+        # this is faster than resolve `self.` in every step
+        f_func = self.f_func
+        G_func = self.G_func
+        u_func = self.u_func
+
+        # do not use self.f_func here because resolution of self. is slow
+        def rhs(xx, time):
             xx = np.ravel(xx)
-            uu = np.ravel(u_func(xx, t))
+            uu = np.ravel(u_func(xx, time))
             ff = np.ravel(f_func(*xx))
             GG = G_func(*xx)
 
             xx_dot = ff + np.dot(GG, uu)
 
             return xx_dot
-
-        # handle exceptions which occure inside
-        #rhs = self.exceptionwrapper(rhs)
         return rhs
+
 
     def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
         """ This functions accepts 3 arrays (time, state, input) and tests, whether they are

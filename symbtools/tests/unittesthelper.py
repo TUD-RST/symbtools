@@ -38,7 +38,13 @@ def optional_dependency(func):
     msg = 'skipping optional dependency test: {}'.format(func.__name__)
     wrapped_func = unittest.skipUnless(FLAG_optdep, msg)(func)
 
-    tests_with_optional_deps.append(func.__qualname__)
+    if sys.version_info[0] >= 3:
+        name = func.__qualname__
+    else:
+        name = func.__name__
+
+
+    tests_with_optional_deps.append(name)
     return wrapped_func
 
 

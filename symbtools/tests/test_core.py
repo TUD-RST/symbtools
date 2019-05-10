@@ -1134,6 +1134,8 @@ class SymbToolsTest2(unittest.TestCase):
         # create the model and the rhs-function
         mod = st.SimulationModel(f, G, xx, par_vals)
         rhs0 = mod.create_simfunction()
+        self.assertFalse(mod.compiler_called)
+        self.assertFalse(mod.use_sp2c)
 
         res0_1 = rhs0(x0, 0)
         dres0_1 = st.to_np(fxu.subs(lzip(xx, x0) + st.zip0(uu))).squeeze()
@@ -1161,9 +1163,15 @@ class SymbToolsTest2(unittest.TestCase):
             sp2c_available = True
 
         if sp2c_available:
+
             rhs0_c = mod.create_simfunction(use_sp2c=True)
+            self.assertTrue(mod.compiler_called)
             res1_c = sc.integrate.odeint(rhs0_c, x0, tt)
             self.assertTrue(np.all(np.isclose(res1_c, res1)))
+
+            mod.compiler_called = None
+            rhs0_c = mod.create_simfunction(use_sp2c=True)
+            self.assertTrue(mod.compiler_called is None)
 
         # proof calculation
         # x(t) = x0*exp(A*t)
