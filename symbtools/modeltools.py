@@ -12,17 +12,22 @@ from symbtools import lzip
 from IPython import embed as IPS
 
 
-def Rz(phi):
+def Rz(phi, to_numpy=False):
     """
     Rotation Matrix in the xy plane
     """
     c = sp.cos(phi)
     s = sp.sin(phi)
-    return sp.Matrix([[c, -s], [s, c]])
+    M = sp.Matrix([[c, -s], [s, c]])
+    if to_numpy:
+        return st.to_np(M)
+    else:
+        return M
+
 
 # 2d coordinate unitvectors
-ex = sp.Matrix([1,0])
-ey = sp.Matrix([0,1])
+ex = sp.Matrix([1, 0])
+ey = sp.Matrix([0, 1])
 
 
 # helper function for velocity generation

@@ -9,6 +9,7 @@ import unittest
 import sympy as sp
 from sympy import sin, cos, Matrix
 import symbtools as st
+import numpy as np
 import symbtools.modeltools as mt
 import sys
 
@@ -355,6 +356,12 @@ class ModelToolsTest2(unittest.TestCase):
 
     def setUp(self):
         pass
+
+    def testRz(self):
+        Rz1 = mt.Rz(sp.pi*0.4)
+        Rz2 = mt.Rz(np.pi*0.4, to_numpy=True)
+
+        self.assertTrue(np.allclose(st.to_np(Rz1), Rz2))
 
     def test_transform_2nd_to_1st(self):
 
