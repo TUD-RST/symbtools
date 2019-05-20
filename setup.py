@@ -7,6 +7,14 @@ from symbtools import __version__
 with open("requirements.txt") as requirements_file:
     requirements = requirements_file.read()
 
+with open("extra_requirements_mpc.txt") as requirements_file:
+    mpc_requirements = requirements_file.read()
+
+
+# hack to ensure that IDE pycharm recognizes the additional requirements
+# but also consistently specify them in extra file
+mpc_requirements2 = "casadi"
+assert mpc_requirements.strip() == mpc_requirements2
 
 setup(
     name='symbtools',
@@ -23,4 +31,6 @@ setup(
     the field of control theory (0.1.10+ has python3 support).
     """,
     install_requires=requirements,
+    extras_require={
+        'mpc':  mpc_requirements2}
 )
