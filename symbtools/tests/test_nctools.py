@@ -201,7 +201,7 @@ class NCTTest(unittest.TestCase):
 
         ff = (f1 + f2)**-1
         res3 = nct.right_shift(s*ff, s, t) - (ff.diff(t) + ff*s)
-        res3 = res3.simplify()
+        res3 = res3.expand()
         self.assertEqual(res3, 0)
 
     def test_right_shift_all(self):

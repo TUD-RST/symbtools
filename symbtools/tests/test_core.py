@@ -374,7 +374,7 @@ class TestSupportFunctions(unittest.TestCase):
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
-        pass
+        st.init_attribute_store(reinit=True)
 
     def test_system_prolongation1(self):
         x1, x2, x3 = xx = st.symb_vector('x1:4')
@@ -503,7 +503,7 @@ class SymbToolsTest(unittest.TestCase):
 
         f1d_2_altntv = st.time_deriv(f1d, (a, b, adot, bdot),
                                                  (adot, bdot)+ (addot, bddot) )
-        self.assertEqual(f1d_2, f1d_2_altntv)
+        self.assertEqual(sp.expand(f1d_2 - f1d_2_altntv), 0)
 
     def test_perform_time_deriv4(self):
         # test higher order derivatives
