@@ -1,6 +1,8 @@
+
+
 [![PyPI Package Link](https://badge.fury.io/py/symbtools.svg "PyPI Package Link")](https://badge.fury.io/py/symbtools) [![Travis CI Unit Test Result badge](https://travis-ci.org/TUD-RST/symbtools.svg?branch=master "Travis CI Unit Test Result badge")](https://travis-ci.org/TUD-RST/symbtools) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.275073.svg)](https://doi.org/10.5281/zenodo.275073)
 
-    
+
 (English version below)
 
 Allgemeines

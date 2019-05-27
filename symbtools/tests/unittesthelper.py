@@ -5,30 +5,46 @@ It should be loaded before the `untitest` module as it alters sys.argv which see
 """
 
 import sys
+import os
+import ipydex
 
-if 'all' in sys.argv:
-    FLAG_all = True
-else:
-    FLAG_all = False
 
-if 'optdep' in sys.argv:
-    FLAG_optdep = True
-else:
-    FLAG_optdep = False
+def set_flags():
+    """
+    set some flags based on command line args or environment variables
 
-# remove command line args which should not be passed to the test framework
-# the flags have already been set
-custom_args = ["all", "optdep"]
-for carg in custom_args:
-    if carg in sys.argv:
-        sys.argv.remove(carg)
+    :param FLAGS:   Container where to store the flags
+    :return:
+    """
+
+    flags = ipydex.Container()
+
+    flags.all = bool(os.getenv('test_all', False))
+    flags.optdep = bool(os.getenv('test_optdep', False))
+
+    # allow command line args to override envvars
+    if 'all' in sys.argv:
+        flags.all = True
+
+    if 'optdep' in sys.argv:
+        flags.optdep = True
+
+    # now remove command line args which should not be passed to the test framework
+    custom_args = ["all", "optdep"]
+    for carg in custom_args:
+        if carg in sys.argv:
+            sys.argv.remove(carg)
+
+    return flags
+
+FLAGS = set_flags()
 
 import unittest
 
 
 # own decorator for skipping slow tests
 def skip_slow(func):
-    return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
+    return unittest.skipUnless(FLAGS.all, 'skipping slow test')(func)
 
 
 tests_with_optional_deps = []
@@ -36,13 +52,12 @@ tests_with_optional_deps = []
 
 def optional_dependency(func):
     msg = 'skipping optional dependency test: {}'.format(func.__name__)
-    wrapped_func = unittest.skipUnless(FLAG_optdep, msg)(func)
+    wrapped_func = unittest.skipUnless(FLAGS.optdep, msg)(func)
 
     if sys.version_info[0] >= 3:
         name = func.__qualname__
     else:
         name = func.__name__
-
 
     tests_with_optional_deps.append(name)
     return wrapped_func
@@ -104,7 +119,8 @@ def smart_run_tests_in_ns(ns):
     :return:
     """
 
-    if FLAG_optdep:
+    if FLAGS.optdep:
+        # run only those test with optional dependencies
         runner = unittest.TextTestRunner()
         runner.run(gen_suite_from_ns_and_list(ns, tests_with_optional_deps))
     else:
