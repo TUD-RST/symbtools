@@ -6,7 +6,10 @@ It should be loaded before the `untitest` module as it alters sys.argv which see
 
 import sys
 import os
-import ipydex
+
+
+class Container(object):
+    pass
 
 
 def set_flags():
@@ -17,7 +20,7 @@ def set_flags():
     :return:
     """
 
-    flags = ipydex.Container()
+    flags = Container()
 
     flags.all = bool(os.getenv('test_all', False))
     flags.optdep = bool(os.getenv('test_optdep', False))
