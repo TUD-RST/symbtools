@@ -11,11 +11,15 @@ import test_core
 import test_modeltools
 import test_nctools
 import test_quick
-import test_mpctools
 
 
 def main():
-    modules = [test_core, test_modeltools, test_nctools, test_quick, test_mpctools]
+    modules = [test_core, test_modeltools, test_nctools, test_quick]
+
+    if uth.FLAGS.optdep:
+        import test_mpctools
+        modules.append(test_mpctools)
+
     uth.inject_tests_into_namespace(globals(), modules)
     uth.smart_run_tests_in_ns(globals())
 
