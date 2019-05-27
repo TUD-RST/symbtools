@@ -10,7 +10,7 @@ import unittest
 import sys
 import sympy as sp
 import symbtools as st
-import symbtools.mpc_tools as mpc
+import symbtools.mpctools as mpc
 import numpy as np
 
 
