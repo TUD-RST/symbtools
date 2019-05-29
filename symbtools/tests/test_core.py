@@ -44,6 +44,7 @@ y1 = y2 = y3 = None
 a1 = z4 = z7 = z10 = None
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class InteractiveConvenienceTest(unittest.TestCase):
 
     def setUp(self):
@@ -187,6 +188,7 @@ class InteractiveConvenienceTest(unittest.TestCase):
         self.assertEqual(zz.subz0(xx, yy), konst)
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class LieToolsTest(unittest.TestCase):
 
     def setUp(self):
@@ -345,6 +347,7 @@ class LieToolsTest(unittest.TestCase):
         self.assertEqual((dh2b - cvf3).expand(), zero)
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class TestSupportFunctions(unittest.TestCase):
     """
     Test functionality which is used indirectly by other functions
@@ -369,8 +372,7 @@ class TestSupportFunctions(unittest.TestCase):
         self.assertEqual(res1, res2)
 
 
-
-# noinspection PyPep8Naming,PyShadowingNames
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class SymbToolsTest(unittest.TestCase):
 
     def setUp(self):
@@ -1020,6 +1022,7 @@ class SymbToolsTest(unittest.TestCase):
         self.assertEqual(res, res*0)
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class SymbToolsTest2(unittest.TestCase):
 
     def setUp(self):
@@ -1158,6 +1161,8 @@ class SymbToolsTest2(unittest.TestCase):
         try:
             import sympy_to_c
         except ImportError:
+            # noinspection PyUnusedLocal
+            sympy_to_c = None
             sp2c_available = False
         else:
             sp2c_available = True
@@ -1177,6 +1182,7 @@ class SymbToolsTest2(unittest.TestCase):
         # x(t) = x0*exp(A*t)
         Anum = st.to_np(A.subs(par_vals))
         Bnum = st.to_np(G.subs(par_vals))
+        # noinspection PyUnresolvedReferences
         xt = [ np.dot( sc.linalg.expm(Anum*T), x0 ) for T in tt ]
         xt = np.array(xt)
 
@@ -1197,10 +1203,12 @@ class SymbToolsTest2(unittest.TestCase):
         des_input_func_scalar = st.expr_to_func(t, des_input)
         des_input_func_vec = st.expr_to_func(t, sp.Matrix([des_input, des_input]) )
 
+        # noinspection PyUnusedLocal
         with self.assertRaises(TypeError) as cm:
             mod2.create_simfunction(input_function=des_input_func_scalar)
 
         rhs3 = mod2.create_simfunction(input_function=des_input_func_vec)
+        # noinspection PyUnusedLocal
         res3_0 = rhs3(x0, 0)
 
     def test_num_trajectory_compatibility_test(self):
@@ -1321,6 +1329,7 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertTrue( len(sol2_at_0.atoms(sp.Integral)) == 0)
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class SymbToolsTest3(unittest.TestCase):
 
     def setUp(self):
@@ -1587,6 +1596,8 @@ class SymbToolsTest3(unittest.TestCase):
 
         self.assertEqual(res, res2)
 
+
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class SymbToolsTest4(unittest.TestCase):
 
     def setUp(self):
@@ -1685,6 +1696,8 @@ class SymbToolsTest4(unittest.TestCase):
             F = st.sca_integrate(df, x1)
             self.assertEqual(F, f)
 
+
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class TestNumTools(unittest.TestCase):
 
     def setUp(self):
@@ -1740,6 +1753,7 @@ class TestNumTools(unittest.TestCase):
         self.assertTrue(np.max(np.abs(res2)) < 1e-5)
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class RandNumberTest(unittest.TestCase):
 
     def setUp(self):
@@ -1809,7 +1823,6 @@ class RandNumberTest(unittest.TestCase):
         rnst = st.rnd_number_subs_tuples(xxyy, prime=True, exclude=[x1, x2])
         self.assertEqual(xxyy.subs(rnst).atoms(sp.Symbol), set([x1, x2]))
 
-
     def test_rnd_number_tuples3(self):
         a, b = sp.symbols('a, b', commutative=False)
 
@@ -1820,7 +1833,6 @@ class RandNumberTest(unittest.TestCase):
 
         self.assertEqual(len(cm), 1)
         self.assertTrue('not commutative' in str(cm[0].message))
-
 
         with st.warnings.catch_warnings(record=True) as cm2:
             st.subs_random_numbers(term1)
@@ -1936,6 +1948,7 @@ class RandNumberTest(unittest.TestCase):
             self.assertEqual(r1, r2)
 
 
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class TestTrajectoryPlanning(unittest.TestCase):
 
     def setUp(self):
@@ -1966,7 +1979,6 @@ class TestTrajectoryPlanning(unittest.TestCase):
         # now only with one condition
         res3 = st.condition_poly(x, (0, 1.75))
         self.assertEqual(res3.subs(x, 0), 1.75)
-
 
     def test_create_piecewise(self):
         t, x = sp.symbols('t, x')
@@ -2012,14 +2024,12 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEqual(res1.func(5), 2)
         self.assertEqual(res1.expr.diff(t, 2).subs(t, 5), 0)
 
-
     def test_do_laplace_deriv(self):
         t, s = sp.symbols('t, s')
         x1, x2, x3 = xx = st.symb_vector('x1:4')
 
         x1dot, x2dot, x3dot = st.time_deriv(xx, xx)
         x1ddot, x2ddot, x3ddot = st.time_deriv(xx, xx, order=2)
-
 
         expr1 = 5
         expr2 = 5*s*t**2 - 7*t + 2
@@ -2042,7 +2052,7 @@ class TestTrajectoryPlanning(unittest.TestCase):
         self.assertEqual(res, ex_res)
 
 
-# noinspection PyPep8Naming
+# noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class TestControlMethods1(unittest.TestCase):
 
     def setUp(self):
