@@ -667,3 +667,14 @@ class SymbToolsTest(unittest.TestCase):
         res.simplify()
 
         self.assertEqual(res, res*0)
+
+    def test_integrate_with_time_derivs(self):
+        t = sp.Symbol("t")
+        x1, x2 = xx = st.symb_vector("x1, x2")
+        xdot1, xdot2 = xxd = st.time_deriv(xx, xx)
+
+        z = xdot1 - 4*xdot2
+
+        res = sp.integrate(z, t)
+
+        self.assertEqual(res, x1 - 4 * xdot2)
