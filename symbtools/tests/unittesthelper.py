@@ -6,6 +6,7 @@ It should be loaded before the `untitest` module as it alters sys.argv which see
 
 import sys
 import os
+import types
 
 
 class Container(object):
@@ -91,10 +92,18 @@ def gen_suite_from_ns_and_list(ns, list_of_testnames):
 
 def inject_tests_into_namespace(target_ns, list_of_modules):
     """
-    :param target_ns:
-    :param list_of_modules:
-    :return:
+    Iterate trough modules and insert all subclasses of TestCase into target namespace.
+
+    :param target_ns:           dict (usually `globals()`)
+    :param list_of_modules:     sequence of modules
+    :return:                    None
     """
+
+    if isinstance(list_of_modules, types.ModuleType):
+        list_of_modules = [list_of_modules]
+
+    for m in list_of_modules:
+        assert isinstance(m, types.ModuleType)
 
     name_mod_dict = {}
 
