@@ -237,7 +237,7 @@ def copy_custom_attributes(old_symbs, new_symbs):
                 raise ValueError(msg)
 
 
-def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
+def register_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
                                          getter_default=None, save_setter=True):
     """
     General way to register a new (fake-)attribute for sympy-Symbols
@@ -247,7 +247,7 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
     :param setter:          function or None
     :param getter_default:  default value for getter (avoid defining a function just to specify
                             the default value)
-    :param save_setter:   forbid to change the value after it was set explicitly (default: True)
+    :param save_setter:     forbid to change the value after it was set explicitly (default: True)
 
 
     :return:                None
@@ -260,6 +260,8 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
         def getter(self):
             if getter_default == "__new_empty_list__":
                 _getter_default = list()
+            elif getter_default == "__self__":
+                _getter_default = self
             else:
                 _getter_default = getter_default
             return global_data.attribute_store.get((self, attrname), _getter_default)
@@ -279,11 +281,20 @@ def regsiter_new_attribute_for_sp_symbol(attrname, getter=None, setter=None,
 
     setattr(sp.Symbol, attrname, theproperty)
 
-regsiter_new_attribute_for_sp_symbol("difforder", getter_default=0)
+register_new_attribute_for_sp_symbol("difforder", getter_default=0)
 
-regsiter_new_attribute_for_sp_symbol("ddt_child")
-regsiter_new_attribute_for_sp_symbol("ddt_parent")
+register_new_attribute_for_sp_symbol("ddt_child")
+register_new_attribute_for_sp_symbol("ddt_parent")
+register_new_attribute_for_sp_symbol("ddt_func", getter_default="__self__")
 
+
+def get_custom_attr_map(attr_name):
+    res = []
+    for key, value in global_data.attribute_store.items():
+        if key[1] == attr_name:
+            res.append((key[0], value))
+
+    return res
 
 # handling of _attribute_store makes custom pickle interface necessary
 def pickle_full_dump(obj, path):
@@ -4295,19 +4306,76 @@ def sca_integrate(f, x):
 
     # first special case
     f = sp.trigsimp(f)
-    thematch = f.match(w1*sp.tan(w2*x + w3) + w4) # -> dict or None
+    thematch = f.match(w1*sp.tan(w2*x + w3) + w4)  # -> dict or None
     if thematch and not thematch.get(w1) == 0 and not thematch.get(w2, 0).has(x):
 
         w4_int = sca_integrate(w4.subs(thematch), x)
         result = (-w1/(w2)*sp.log(sp.cos(w2*x + w3))).subs(thematch) + w4_int
 
-        # elimante the remaining Wildcard Symbols
+        # eliminate the remaining Wildcard Symbols
         result = result.subs(zip0(ww))
         return result
 
     # no special case matches
     else:
         return sp.integrate(f, x)
+
+
+def smart_integrate(expr, var, **kwargs):
+    """
+    Integrate expressions with the awareness of derivative symbols
+    """
+
+    expr2 = replace_deriv_symbols_with_funcs(expr)
+
+    res1 = 0
+    if isinstance(expr2, sp.Add):
+        # handle each summand separately
+        for arg in expr2.args:
+            res1 += sp.integrate(arg, var, **kwargs)
+
+    else:
+        res1 = sp.integrate(expr2, var, **kwargs)
+
+    # keep integrals which have not beed simplified
+    # (dont apply backsubstitution)
+
+    int_expressions = list(res1.atoms(sp.Integral))
+    INT_symbs = sp.numbered_symbols("INT", cls=sp.Dummy)
+
+    int_subs = lzip(int_expressions, INT_symbs)
+    int_back_subs = rev_tuple(int_subs)
+
+    res1b = res1.subs(int_subs)
+
+    rplmts = get_custom_attr_map("ddt_func")
+    rplmts2 = rev_tuple(rplmts)
+    res2 = res1b.subs(rplmts2)
+
+    res3 = res2.subs(int_back_subs)
+
+
+    return res3
+
+
+def replace_deriv_symbols_with_funcs(expr, return_rplmts=False):
+    """
+    Iterate through all symbols of expression and substitute them with their respective func
+    :param expr:            expression
+    :param return_rplmts:   flag whether to return the replacements
+    :return:        replaced expressions
+    """
+
+    symbs = list(expr.atoms(sp.Symbol))
+    symbs.sort(key=lambda x: x.difforder, reverse=True)
+    items = [(s, s.ddt_func) for s in symbs]
+    res = expr.subs(items)
+
+    if return_rplmts:
+        return res, items
+    else:
+        return res
+
 
 
 def simplify_derivs(expr):
@@ -4564,7 +4632,11 @@ def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
 
 def _set_ddt_attributes(rplmts_funcder_to_symb):
     """
-    set the .ddt_parent attribute of symb and .ddt_child attribute of matching parent
+    set the following attribute of symbs:
+         .ddt_parent
+         .ddt_func
+         .ddt_child (of matching parent)
+
     (assuming that all needed symbols are provided and in descending order )
 
     :param rplmts_funcder_to_symb:
@@ -4579,6 +4651,9 @@ def _set_ddt_attributes(rplmts_funcder_to_symb):
     # now use ascending order
     # use descending order
     for funcder, symbol in rplmts_funcder_to_symb:
+
+        symbol.ddt_func = funcder
+
         if funcder.is_Derivative:
             # funcder.args looks like (x1(t), t, t, t)
             order = get_sp_deriv_order(funcder)
@@ -4589,11 +4664,12 @@ def _set_ddt_attributes(rplmts_funcder_to_symb):
                 var = func.args[0]
                 parent_func_der = sp.Derivative(func, var, order-1)
             parent_symbol = funcder_symb_map[parent_func_der]
+            parent_symbol.ddt_func = parent_func_der
             try:
                 parent_symbol.ddt_child = symbol
-            except ValueError:
-                pass
+            except ValueError as err:
                 # IPS()
+                raise err
             symbol.ddt_parent = parent_symbol
 
 
@@ -4618,7 +4694,6 @@ def get_sp_deriv_order(deriv_object):
 
     assert isinstance(order, int)
     return order
-
 
 
 def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],

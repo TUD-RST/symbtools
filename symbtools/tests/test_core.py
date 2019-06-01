@@ -374,6 +374,30 @@ class TestSupportFunctions(unittest.TestCase):
 
         self.assertEqual(res1, res2)
 
+    def test_get_custom_attr_map(self):
+
+        t = st.t
+        x1, x2 = xx = st.symb_vector("x1, x2")
+        xdot1, xdot2 = xxd = st.time_deriv(xx, xx)
+        xddot1, xddot2 = xxdd = st.time_deriv(xx, xx, order=2)
+
+        m1 = st.get_custom_attr_map("ddt_child")
+        em1 = [(x1, xdot1), (x2, xdot2), (xdot1, xddot1), (xdot2, xddot2)]
+        self.assertEqual(m1, em1)
+
+        m2 = st.get_custom_attr_map("ddt_parent")
+        em2 = [(xdot1, x1), (xdot2, x2), (xddot1, xdot1), (xddot2, xdot2)]
+        self.assertEqual(m2, em2)
+
+        m3 = st.get_custom_attr_map("ddt_func")
+        m3.sort(key=lambda x: x[0].difforder)
+        self.assertEqual(len(m3), 6)
+
+        x2_func = sp.Function(x2.name)(t)
+
+        self.assertEqual(type(type(m3[0][1])), sp.function.UndefinedFunction)
+        self.assertEqual(m3[-1][1], x2_func.diff(t, t))
+
 
 # noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class SymbToolsTest2(unittest.TestCase):
@@ -716,10 +740,12 @@ class SymbToolsTest3(unittest.TestCase):
         self.assertEqual(res6, [C1, x, a])
 
     def test_general_attribute(self):
-        st.regsiter_new_attribute_for_sp_symbol("foo", save_setter=False)
+        st.register_new_attribute_for_sp_symbol("foo", save_setter=False)
+        st.register_new_attribute_for_sp_symbol("bar", getter_default="__self__")
         x1 = sp.Symbol('x1')
 
         self.assertEqual(x1.foo, None)
+        self.assertEqual(x1.bar, x1)
 
         x1.foo = 7
         self.assertEqual(x1.foo, 7)
@@ -729,6 +755,12 @@ class SymbToolsTest3(unittest.TestCase):
 
         x1.foo = x1
         self.assertEqual(x1.foo, x1)
+
+        x1.bar = 12
+
+        # noinspection PyUnusedLocal
+        with self.assertRaises(ValueError) as cm:
+            x1.bar = 13
 
     def test_difforder_attribute(self):
         x1 = sp.Symbol('x1')

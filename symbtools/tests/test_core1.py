@@ -116,15 +116,25 @@ class SymbToolsTest(unittest.TestCase):
         f2_ddot = st.time_deriv(f2_dot, [a, sp.Symbol('adot')])
         self.assertEqual(f2_ddot, f2_dot2)
 
-    def test_perform_time_deriv2(self):
+    def test_time_deriv2(self):
         """
         test matrix compatibility
         """
 
         a, b, t = sp.symbols("a, b, t")
+
+        # not time dependent
         x, y = sp.symbols("x, y")
 
         adot, bdot = st.time_deriv( sp.Matrix([a, b]), (a, b) )
+
+        # has no associated function -> return the symbol itself
+        self.assertEqual(x.ddt_func, x)
+
+        # due to time_deriv now the .ddt_func attribute is set for a, b, adot, bdot
+        self.assertTrue(isinstance(adot.ddt_func, sp.Derivative))
+        self.assertEqual(type(type(a.ddt_func)), sp.function.UndefinedFunction)
+        self.assertEqual(type(a.ddt_func).__name__, a.name)
 
         self.assertEqual(a.ddt_child, adot)
         self.assertEqual(bdot.ddt_parent, b)
@@ -410,6 +420,19 @@ class SymbToolsTest(unittest.TestCase):
         self.assertTrue( xdot2 in dc)
         self.assertTrue( xddot2 in dc)
 
+    def test_replace_deriv_symbols_with_funcs(self):
+
+        x1, x2 = xx = st.symb_vector("x1, x2")
+        xdot1, xdot2 = st.time_deriv(xx, xx)
+
+        z1 = x1 + xdot1 + xdot2
+
+        res = st.replace_deriv_symbols_with_funcs(z1)
+        # no Symbol-atoms
+        self.assertTrue(res.atoms(sp.Symbol) == {st.t})
+        self.assertTrue(len(res.atoms(sp.Function)) == 2)
+        self.assertTrue(len(res.atoms(sp.Derivative)) == 2)
+
     # TODO: move to TestSupportFunctions
     def test_match_symbols_by_name(self):
         a, b, c = abc0 = sp.symbols('a5, b, c', real=True)
@@ -672,9 +695,13 @@ class SymbToolsTest(unittest.TestCase):
         t = sp.Symbol("t")
         x1, x2 = xx = st.symb_vector("x1, x2")
         xdot1, xdot2 = xxd = st.time_deriv(xx, xx)
+        xddot1, xddot2 = xxdd = st.time_deriv(xx, xx, order=2)
 
         z = xdot1 - 4*xdot2
+        res = st.smart_integrate(z, t)
+        self.assertEqual(res, x1 - 4 * x2)
 
-        res = sp.integrate(z, t)
-
-        self.assertEqual(res, x1 - 4 * xdot2)
+        z = xdot1 - 4*xdot2 + 5*xddot2 + t + 3*x1
+        res = st.smart_integrate(z, t)
+        eres = x1 - 4*x2 + t**2/2 + 5*xdot2 + 3*sp.integrate(x1.ddt_func, t)
+        self.assertEqual(res, eres)
