@@ -16,15 +16,18 @@ class Tests1(unittest.TestCase):
     def setUp(self):
         st.init_attribute_store(reinit=True)
 
-    def test_pickle_full_dump_and_load_functions(self):
+    def test_pickle_full_dump_and_load_functions1(self):
 
         x1, x2, x3 = xx = st.symb_vector("x1, x2, x3")
         f1 = sp.Function("f1")(x1)
-        M = sp.Matrix([f1+x2])
+        M1 = sp.Matrix([f1+x2])
 
         pfname = "tmp_dump_test.pcl"
-        st.pickle_full_dump(M, pfname)
-        self.assertEqual(1, 2)
+        st.pickle_full_dump(M1, pfname)
+
+        M2 = st.pickle_full_load(pfname)
+
+        self.assertEqual(M1, M2)
 
     def test_convert_functions_to_symbols(self):
         x1, x2, x3 = xx = st.symb_vector("x1, x2, x3")

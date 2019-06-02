@@ -106,6 +106,12 @@ def pickle_full_dump(obj, path):
 
 class PseudoAppliedFunc(object):
     def __init__(self, appl_func):
+        """
+        store the relevant Information of an instance of AppliedUndef (which cannot be pickled):
+        name, args, assumptions
+
+        :param appl_func:
+        """
 
         assert isinstance(appl_func, sp.function.AppliedUndef)
         self.name = appl_func.name
@@ -116,6 +122,10 @@ class PseudoAppliedFunc(object):
         if not appl_func.atoms(sp.function.AppliedUndef) == {appl_func}:
             msg = "nested calls of applied Functions are not yet supported."
             raise NotImplementedError(msg)
+
+    def make_func(self):
+
+        return sp.Function(self.name, **self.assumptions)(*self.args)
 
 
 def convert_functions_to_symbols(appl_func_list):
@@ -211,6 +221,21 @@ def replace_functions(expr, attributes, function_keys):
     return substiuted_expr, substiuted_attributes, function_data
 
 
+def get_rplmts_from_function_data(function_data):
+    """
+
+    :param function_data:   dict like {_FUNC0: <PseudoAppliedFunc instandce0>, ...}
+
+    :return:    list of 2-tuples like [(_FUNC0, x1(t)), ...] (where x1(t) comes from PseudoAppliedFunc.make_func())
+    """
+
+    rplmts = []
+    for symbol, pseudo_func in function_data.items():
+        rplmts.append((symbol, pseudo_func.make_func()))
+
+    return rplmts
+
+
 def pickle_full_load(path):
     """load sympy object (expr, matrix, ...) or Container object from file
     via pickle serialization and additionally also load the corresponding
@@ -222,7 +247,21 @@ def pickle_full_load(path):
 
     new_items = list(pdata.attribute_store.items())
 
+    # handle functions (which have been converted to symbols to allow pickling)
+    if not hasattr(pdata, 'function_data'):
+        pdata.function_data = {}
+
+    rplmts = get_rplmts_from_function_data(pdata.function_data)
+    new_attributes = {}
+
     for key, value in new_items:
+
+        # apply replacements
+        if hasattr(value, "subs"):
+            value = value.subs(rplmts)
+        new_attributes[key] = value
+
+        # prevent silent overwriting of attributes
         old_value = global_data.attribute_store.get(key)
         if old_value is None or value == old_value:
             continue
@@ -230,16 +269,25 @@ def pickle_full_load(path):
         msg += "Attribute %s: \n old value: %s \n new value: %s" % (key, old_value, value)
         raise ValueError(msg)
 
-    global_data.attribute_store.update(new_items)
+    global_data.attribute_store.update(new_attributes)
 
     # allow to load older containers without that flag
     if not hasattr(pdata, 'container_flag'):
         return pdata
 
+    try:
+        pdata.obj = pdata.obj.subs(rplmts)
+    except AttributeError:
+        pass
+
+    try:
+        obj = pdata.obj
+    except AttributeError:
+        obj = None
+
     # manually set the (optional data-attribute for Matrices)
-    obj = getattr(pdata, "obj", None)
     if isinstance(obj, sp.MatrixBase) and getattr(pdata, "additional_data", None) is not None:
-        obj.data = getattr(pdata, "additional_data")
+        obj.data = pdata.additional_data
 
     if pdata.container_flag:
         # return the whole container
