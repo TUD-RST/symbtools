@@ -394,7 +394,8 @@ class TestSupportFunctions(unittest.TestCase):
         self.assertEqual(set(m2), set(em2))
 
         m3 = st.get_custom_attr_map("ddt_func")
-        m3.sort(key=lambda x: x[0].difforder)
+        # ensure unique sorting
+        m3.sort(key=lambda x: "{}_{}".format(x[0].difforder, str(x[0])))
         self.assertEqual(len(m3), 6)
 
         x2_func = sp.Function(x2.name)(t)
