@@ -10,8 +10,12 @@ from collections import Counter, Iterable, namedtuple
 import random
 import itertools as it
 import collections as col
-import pickle
-from functools import reduce, wraps
+from functools import reduce
+from .aux import lzip, atoms, matrix_atoms, recursive_function, Container, global_data, t
+from .time_deriv import time_deriv, is_derivative_symbol, matrix_time_deriv, get_sp_deriv_order, symb_to_time_func,\
+    match_symbols_by_name, get_all_deriv_childs, get_all_deriv_parents
+
+from .pickle_tools import pickle_full_dump, pickle_full_load
 
 import warnings
 # goal: trigger deprecation warnings in this module, result: triggers many warnings in
@@ -28,13 +32,6 @@ try:
 except ImportError:
     pass
 
-
-def lzip(*args):
-    """
-    this function emulates the python2 behavior of zip (saving parentheses in py3)
-    """
-    return list(zip(*args))
-
 # placeholder to inject a custom simplify function for the enullspace function
 nullspace_simplify_func = None
 
@@ -43,44 +40,10 @@ np.set_printoptions(8, linewidth=300)
 
 piece_wise = sp.functions.elementary.piecewise.Piecewise # avoid name clashes with sage
 
-t = sp.var('t')
-
 zf = sp.numbers.Zero()
 
 # SymNum_Container:
 SNC = namedtuple("SNC", ("expr", "func"))
-
-
-# the following is usefull for recursive functions to aviod code-duplication
-# (repetition of function name)
-# https://stackoverflow.com/a/35951133/333403
-
-# this is the decorator
-def recursive_function(func):
-
-    @wraps(func)  # this decorator adapts name and docstring
-    def tmpffunc(*args, **kwargs):
-        return func(tmpffunc, *args, **kwargs)
-
-    return tmpffunc
-
-
-class Container(object):
-    """General purpose container class to conveniently store data attributes
-    """
-
-    def __init__(self, **kwargs):
-        assert len( set(dir(self)).intersection(list(kwargs.keys())) ) == 0
-        self.__dict__.update(kwargs)
-
-# data structure to store some data on module level without using `global` keyword
-if not hasattr(sp, 'global_data'):
-    # host this object in sp module to prevent dataloss when reloading the module
-    # not very clean but facilitates interactive development
-    sp.global_data = Container()
-
-global_data = sp.global_data
-
 
 # The following definitions allow useful shorthands in interactive mode:
 # (IPython, or IPython-Notebook):
@@ -207,6 +170,7 @@ def init_attribute_store(reinit=False):
     if not hasattr(global_data, 'attribute_store') or reinit:
         global_data.attribute_store = {}
 
+
 init_attribute_store()
 
 
@@ -296,134 +260,6 @@ def get_custom_attr_map(attr_name):
 
     return res
 
-# handling of _attribute_store makes custom pickle interface necessary
-def pickle_full_dump(obj, path):
-    """write sympy object (expr, matrix, ...) or Container object to file
-    via pickle serialization and additionally also dump the corresponding
-    entries of _attribute_store (such as difforder).
-    """
-
-    if isinstance(obj, Container):
-        pdata = obj
-
-        # prevent accidental name clashes
-        assert not hasattr(pdata,'relevant_symbols')
-        assert not hasattr(pdata,'attribute_store')
-        assert not hasattr(pdata,'atoms')
-        assert not hasattr(pdata,'data')
-
-        pdata.container_flag = True
-        additional_data = pdata
-
-    elif isinstance(obj, sp.MatrixBase):
-
-        pdata = Container()
-
-        pdata.container_flag = False
-        # safe obj so that it will be pickled
-        pdata.obj = obj
-
-        if hasattr(obj, 'data'):
-            assert isinstance(obj.data, Container)
-            additional_data = obj.data
-        else:
-            additional_data = None
-    else:
-        raise TypeError('Unexpected data type: %s' % type(obj))
-
-    pdata.relevant_symbols = list()
-
-    # helper function:
-    def get_symbols(my_obj):
-        if hasattr(my_obj, 'atoms'):
-            pdata.relevant_symbols += list(my_obj.atoms(sp.Symbol))
-
-    # apply that function to obj itself
-    get_symbols(obj)
-
-    # now apply it to all items in additional_data
-
-    if additional_data:
-        for new_obj in list(additional_data.__dict__.values()):
-            get_symbols(new_obj)
-
-    # make each symbol occur only once
-    pdata.relevant_symbols = set(pdata.relevant_symbols)
-
-    # find out which symbol names occur more than once in the set
-    # this indicates that there are symbols with the same name but different
-    # assumptions (like commutativity)
-    # due to strange interaction of sympy and pickle this leads to unexpected results
-    # after unpickling
-    symbol_names = [s.name for s in pdata.relevant_symbols]
-    unique_names = set(symbol_names)
-
-    multiple_name_count = []
-    for u in unique_names:
-        count = symbol_names.count(u)
-        if count > 1:
-            multiple_name_count.append((u, count))
-
-    if len(multiple_name_count) > 0:
-        msg = "The following symbol names occur more than once but have different assumptions "\
-              "(such as `commutative=False`): "
-        msg += str(multiple_name_count)
-
-        raise ValueError(msg)
-
-    # now look in global_data.attribute_store (see above) if there are
-    # some attributes stored concerning the relevant_symbols
-    # global_data.attribute_store looks like {(xdot, 'difforder'): 1, ...}
-    relevant_items = [item for item in list(global_data.attribute_store.items())
-                                    if item[0][0] in pdata.relevant_symbols]
-
-
-    pdata.attribute_store = dict(relevant_items)
-
-    # explicitly save addional data (because the custom attribute seems not to be preserved by
-    # pickling)
-    pdata.additional_data = additional_data
-
-    with open(path, 'wb') as pfile:
-        pickle.dump(pdata, pfile)
-
-
-def pickle_full_load(path):
-    """load sympy object (expr, matrix, ...) or Container object from file
-    via pickle serialization and additionally also load the corresponding
-    entries of _attribute_store (such as difforder).
-    """
-
-    with open(path, 'rb') as pfile:
-        pdata = pickle.load(pfile)
-
-    new_items = list(pdata.attribute_store.items())
-
-    for key, value in new_items:
-        old_value = global_data.attribute_store.get(key)
-        if old_value is None or value == old_value:
-            continue
-        msg = "Name conflict while loading attributes from serialization.\n"
-        msg += "Attribute %s: \n old value: %s \n new value: %s" % (key, old_value, value)
-        raise ValueError(msg)
-
-    global_data.attribute_store.update(new_items)
-
-    # allow to load older containers without that flag
-    if not hasattr(pdata, 'container_flag'):
-        return pdata
-
-    # manually set the (optional data-attribute for Matrices)
-    obj = getattr(pdata, "obj", None)
-    if isinstance(obj, sp.MatrixBase) and getattr(pdata, "additional_data", None) is not None:
-        obj.data = getattr(pdata, "additional_data")
-
-    if pdata.container_flag:
-        # return the whole container
-        return pdata
-    else:
-        # return just that attribute
-        return pdata.obj
 
 
 # noinspection PyPep8Naming
@@ -1289,6 +1125,7 @@ def is_scalar(expr):
 
     return is_number(expr, allow_complex=True)
 
+
 def symb_vector(*args, **kwargs):
     return sp.Matrix(sp.symbols(*args, **kwargs))
 
@@ -1317,7 +1154,7 @@ def symbs_to_func(expr, symbs=None, arg=None):
     arg=None is not allowed
     """
 
-    if symbs==None:
+    if symbs == None:
         if  hasattr(expr, 'is_Symbol') and expr.is_Symbol:
             symbs = [expr] # a list with a single Symbol-object
         else:
@@ -2707,18 +2544,6 @@ def im(M):
         return sp.im(M)
 
 
-def matrix_atoms(M, *args, **kwargs):
-    sets = [m.atoms(*args, **kwargs) for m in list(M)]
-    S = set().union(*sets)
-
-    return S
-
-
-def atoms(expr, *args, **kwargs):
-    if isinstance(expr, (sp.Matrix, list)):
-        return matrix_atoms(expr, *args, **kwargs)
-    else:
-        return expr.atoms(*args, **kwargs)
 
 
 def matrix_count_ops(M, visual=False):
@@ -4431,327 +4256,6 @@ def depends_on_t(expr, t, dependent_symbols=[]):
     return False
 
 
-def is_derivative_symbol(expr, t=None):
-    """
-    Returns whether expr is a derivative symbol (w.r.t. t)
-
-    :param expr:
-    :param t:
-    :return: True or False
-    """
-
-    if t is not None:
-        # we currently do not distinguish between different independent variables
-        raise NotImplementedError
-
-    if hasattr(expr, 'difforder') and expr.difforder > 0:
-        return True
-    else:
-        return False
-
-
-def time_deriv(expr, func_symbols, prov_deriv_symbols=[], t_symbol=None,
-               order=1, **kwargs):
-    """
-    Example: expr = f(a, b). We know that a, b are time-functions: a(t), b(t)
-    we want : expr.diff(t) with te appropriate substitutions made
-    :param expr:                the expression to be differentiated
-    :param func_symbols:        the symbols which are functions (e.g. of the time)
-    :param prov_deriv_symbols:  a sequence of symbols which will be used for the
-                                derivatives of the symbols
-    :param t_symbol:            symbol for time (optional)
-    :param order:               derivative order
-
-    :return: derived expression
-
-
-    Note: this process might be tricky because symbols with the same name
-    but different sets of assumptions (real=True etc.) are handled as
-    different symbols by sympy. Here we dont want this. If the name of
-    func_symbols occurs in expr this is sufficient for being regarded as equal.
-
-    for new created symbols the assumptions are copied from the parent symbol
-    """
-
-    if not t_symbol:
-        # try to extract t_symbol from expression
-        tmp = match_symbols_by_name(expr.atoms(sp.Symbol), 't', strict=False)
-        if len(tmp) > 0:
-            assert len(tmp) == 1
-            t = tmp[0]
-        else:
-            t = sp.Symbol("t")
-    else:
-        t = t_symbol
-
-    if isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul)):
-        return matrix_time_deriv(expr, func_symbols, t_symbol,
-                                 prov_deriv_symbols, order=order)
-
-    func_symbols = list(func_symbols)  # convert to list
-
-    # expr might contain derivative symbols -> add them to func_symbols
-    deriv_symbols0 = [symb for symb in expr.atoms() if is_derivative_symbol(symb)]
-
-    for ds in deriv_symbols0:
-        if not ds in prov_deriv_symbols and not ds in func_symbols:
-            func_symbols.append(ds)
-
-    # replace the func_symbols by the symbols from expr to make sure the the
-    # correct symbols (with correct assumptions) are used.
-    expr_symbols = atoms(expr, sp.Symbol)
-    func_symbols = match_symbols_by_name(expr_symbols, func_symbols, strict=False)
-
-    # convert symbols to functions
-    funcs = [ symbs_to_func(s, [s], t) for s in func_symbols ]
-
-    derivs1 = [[f.diff(t, ord) for f in funcs] for ord in range(order, 0, -1)]
-
-    # TODO: current behavior is inconsistent:
-    # time_deriv(x1, [x1], order=5) -> x_1_d5
-    # time_deriv(x_2, [x_2], order=5) -> x__2_d5
-    # (respective first underscore is obsolete)
-
-    def extended_name_symb(base, ord, assumptions={}, base_difforder=None):
-        """
-        construct a derivative symbol with an appropriate name and other properties
-        like assumptions and the attributes ddt_parent
-
-        Because this function might be called recursively, the optional argument
-        base_difforder is used to carry the difforder value of the original symbol
-
-        """
-
-        if isinstance(base, sp.Symbol):
-            assert base_difforder is None  # avoid conflicting information
-            if hasattr(base, 'difforder'):
-                base_difforder = base.difforder
-            else:
-                base_difforder = 0
-            base = base.name
-
-        assert isinstance(base, str)
-        if base_difforder is None:
-            base_difforder = 0
-
-        # remove trailing number
-        base_order = base.rstrip('1234567890')
-
-        # store trailing number
-        trailing_number = str(base[len(base_order):len(base)])
-
-        new_name = []
-
-        # check for 4th derivative
-        if base_order[-6:len(base_order)]=='ddddot' and not new_name:
-            variable_name = base_order[0:-6]
-            underscore = r'' if trailing_number == r'' else r'_'
-            new_name = variable_name + underscore + trailing_number + r'_d5'
-
-        # check for 3rd derivative
-        elif base_order[-5:len(base_order)]=='dddot':
-            variable_name = base_order[0:-5]
-            new_name = variable_name + r'ddddot' + trailing_number
-
-        # check for 2nd derivative
-        elif base_order[-4:len(base_order)]=='ddot' and not new_name:
-            variable_name = base_order[0:-4]
-            new_name = variable_name + r'dddot' + trailing_number
-
-        # check for 1st derivative
-        elif base_order[-3:len(base_order)]=='dot' and not new_name:
-            variable_name = base_order[0:-3]
-            new_name = variable_name + r'ddot' + trailing_number
-
-        # check for higher order derivative:
-        # x_d5 -> x_d6, etc.
-        # x_3_d5 -> x_3_d6 etc.
-        elif base_order[-2:len(base_order)]=='_d' and not new_name:
-            new_order = int(trailing_number) + 1
-            new_name = base_order + str(new_order)
-
-        elif not new_name:
-            new_name = base_order + r'dot' + trailing_number
-
-        if ord == 1:
-            new_symbol = sp.Symbol(new_name, **assumptions)
-            new_symbol.difforder = base_difforder + ord
-
-            return new_symbol
-        else:
-            return extended_name_symb(new_name, ord - 1, assumptions, base_difforder=base_difforder+1)
-
-    # the user may want to provide their own symbols for the derivatives
-    if not prov_deriv_symbols:
-        deriv_symbols1 = []
-        for ord in range(order, 0, -1):
-            tmp_symbol_list = []
-
-            for s in func_symbols:
-                ens = extended_name_symb(s, ord, s.assumptions0)
-                tmp_symbol_list.append(ens)
-
-            deriv_symbols1.append(tmp_symbol_list)
-
-    else:
-        L = len(func_symbols)
-        assert len(prov_deriv_symbols) == order*L
-
-        # assume a structure like [xd, yd,  xdd, ydd] (for order = 2)
-        # convert in a structure like in the case above
-        deriv_symbols1 = []
-        for ord in range(order, 0, -1):
-            k = ord - 1
-            part = prov_deriv_symbols[k*L:ord*L]
-            assert len(part) == L
-
-            deriv_symbols1.append(part)
-
-    # flatten the lists:
-    derivs = []
-    for d_list in derivs1:
-        derivs.extend(d_list)
-
-    deriv_symbols = []
-    for ds_list in deriv_symbols1:
-        deriv_symbols.extend(ds_list)
-
-    subs1 = lzip(func_symbols, funcs)
-
-    # important: begin substitution with highest order
-    subs2 = lzip(derivs + funcs, deriv_symbols + func_symbols)
-
-    _set_ddt_attributes(subs2)
-
-    expr1 = expr.subs(subs1)
-    expr2 = expr1.diff(t, order)
-    expr3 = expr2.subs(subs2)
-
-    return expr3
-
-
-def _set_ddt_attributes(rplmts_funcder_to_symb):
-    """
-    set the following attribute of symbs:
-         .ddt_parent
-         .ddt_func
-         .ddt_child (of matching parent)
-
-    (assuming that all needed symbols are provided and in descending order )
-
-    :param rplmts_funcder_to_symb:
-            sequence of tuples (deriv, symb)
-
-    :return: None
-    """
-
-    # "funcder" means func or derivative
-    funcder_symb_map = dict(rplmts_funcder_to_symb)
-
-    # now use ascending order
-    # use descending order
-    for funcder, symbol in rplmts_funcder_to_symb:
-
-        symbol.ddt_func = funcder
-
-        if funcder.is_Derivative:
-            # funcder.args looks like (x1(t), t, t, t)
-            order = get_sp_deriv_order(funcder)
-            if order == 1:
-                parent_func_der = funcder.args[0]
-            else:
-                func = funcder.args[0]
-                var = func.args[0]
-                parent_func_der = sp.Derivative(func, var, order-1)
-            parent_symbol = funcder_symb_map[parent_func_der]
-            parent_symbol.ddt_func = parent_func_der
-            try:
-                parent_symbol.ddt_child = symbol
-            except ValueError as err:
-                # IPS()
-                raise err
-            symbol.ddt_parent = parent_symbol
-
-
-def get_sp_deriv_order(deriv_object):
-    assert isinstance(deriv_object, sp.Derivative)
-
-    arg1 = deriv_object.args[1]
-
-    if isinstance(arg1, (tuple, sp.Tuple)):
-        # new interface is like Derivative(u1(t), (t, 2))
-        if len(deriv_object.args) > 2:
-            msg = "only multivariate derivatives are supported yet"
-            raise NotImplementedError(msg)
-        order = int(arg1[1])
-    elif isinstance(arg1, sp.Symbol):
-        # old interface was like Derivative(u1(t), t, t)
-
-        order = len(deriv_object.args) - 1
-    else:
-        msg = "Unexpexted type for arg1 of Derivative: {}".format(type(arg1))
-        raise ValueError(msg)
-
-    assert isinstance(order, int)
-    return order
-
-
-def matrix_time_deriv(expr, func_symbols, t_symbol, prov_deriv_symbols=[],
-                                                        order=1, **kwargs):
-    """
-    like time_deriv but for expressions containint MatrixSymbols
-    """
-
-    assert isinstance(expr, (sp.MatrixSymbol, sp.MatAdd, sp.MatMul))
-
-    if order == 0:
-        return expr
-
-    def matdiff(A, symbol, order):
-        assert isinstance(A, sp.MatrixSymbol)
-        pseudo_symb = sp.Symbol(A.name)
-        diff_symb = time_deriv(pseudo_symb, func_symbols, t_symbol=symbol, order=order)
-        if diff_symb == 0:
-            return A*0
-        else:
-            return sp.MatrixSymbol(diff_symb.name, *A.shape)
-
-    def matmuldiff(expr, symbol, order):
-        if order > 1:
-            # recursively reduce to order 1:
-            tmp = matmuldiff(expr, symbol, order-1)
-
-            # last deriv step
-            return matrix_time_deriv(tmp, func_symbols, t_symbol,
-                                     prov_deriv_symbols, order=1)
-
-        args = expr.args
-        res = 0*expr
-
-        for i, a in enumerate(args):
-            first_factors = args[:i]
-            last_factors = args[i+1:]
-            diff_factor = time_deriv(a, func_symbols, t_symbol=symbol)
-            product_args = first_factors + (diff_factor,) + last_factors
-            res = res + sp.MatMul(*product_args)
-
-        return res
-
-    def matadddiff(expr, symbol, order):
-        res = 0*expr
-
-        for i, a in enumerate(expr.args):
-            res = res + time_deriv(a, func_symbols, t_symbol=symbol, order=order)
-        return res
-
-    if isinstance(expr, sp.MatrixSymbol):
-        return matdiff(expr, t_symbol, order)
-    elif isinstance(expr, sp.MatAdd):
-        return matadddiff(expr, t_symbol, order)
-    elif isinstance(expr, sp.MatMul):
-        return matmuldiff(expr, t_symbol, order)
-
-
 # noinspection PyPep8Naming
 @recursive_function
 def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
@@ -4797,28 +4301,6 @@ def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
         result += expr.diff(u)*udot
     return result
 
-@recursive_function
-def get_all_deriv_childs(thisfunc, expr):
-    """
-    for each symbol s in expr go down the s.ddt_child-tree and add them to the result
-
-    :param thisfunc:
-    :param expr:
-    :return:
-    """
-    symbols = expr.atoms(sp.Symbol)
-
-    res = []
-    for s in symbols:
-        if isinstance(s.ddt_child, sp.Symbol):
-            res.append(s.ddt_child)
-            res.extend(thisfunc(s.ddt_child))
-        else:
-            assert s.ddt_child is None
-
-    return sp.Matrix(res)
-
-
 def get_symbols_by_name(expr, *names):
     '''
     convenience function to extract symbols from expressions by their name
@@ -4842,44 +4324,6 @@ def get_symbols_by_name(expr, *names):
     if len(res_list) == 1:
         return res_list[0]
     return res_list
-
-
-def match_symbols_by_name(symbols1, symbols2, strict=True):
-    """
-    :param symbols1:
-    :param symbols2: (might also be a string or a sequence of strings)
-    :param strict: determines whether an error is caused if a symbol is not found
-                   default: True
-    :return: a list of symbols which are those objects from ´symbols1´ where
-     the name occurs in ´symbols2´
-
-     ordering is determined by ´symbols2´
-    """
-
-    if isinstance(symbols2, str):
-        assert " " not in symbols2
-        symbols2 = [symbols2]
-
-    if isinstance(symbols1, (sp.Expr, sp.MatrixBase)):
-        symbols1 = atoms(symbols1, sp.Symbol)
-
-    str_list1 = [str(s.name) for s in symbols1]
-    sdict1 = dict( lzip(str_list1, symbols1) )
-
-    str_list2 = [str(s) for s in symbols2]
-    # sympy expects str here (unicode not allowed)
-
-    res = []
-
-    for string2 in str_list2:
-        res_symb = sdict1.get(string2)
-        if res_symb:
-            res.append(res_symb)
-        elif strict:
-            msg = "Could not find the symbol " + string2
-            raise ValueError(msg)
-
-    return res
 
 
 def update_cse(cse_subs_tup_list, new_subs):
@@ -5121,7 +4565,6 @@ class SimulationModel(object):
             return xx_dot
         return rhs
 
-
     def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
         """ This functions accepts 3 arrays (time, state, input) and tests, whether they are
         compatible with the systems dynamics of self
@@ -5307,9 +4750,6 @@ def prime_list(n):
     a = gen_primes()
     res = [next(a) for i in range(n)]
     return res
-
-
-
 
 
 # after deletion of depricated functions here we store some
