@@ -105,7 +105,9 @@ def inject_tests_into_namespace(target_ns, list_of_modules):
     for m in list_of_modules:
         assert isinstance(m, types.ModuleType)
 
-    name_mod_dict = {}
+    # book-keeping where which test comes from
+    # (maybe injected by an earlier call)
+    name_mod_dict = target_ns.get("__name_mod_dict", {})
 
     for mod in list_of_modules:
         for k, v in vars(mod).items():
@@ -115,13 +117,15 @@ def inject_tests_into_namespace(target_ns, list_of_modules):
                     name = v.__name__
                     # keep track of in which module a name was defined first
                     if name in target_ns:
-                        first_mod_name = name_mod_dict[name]
+                        first_mod_name = name_mod_dict.get(name, "<target_ns>")
                         msg = "Name-Conflict: '{}' is defined in both {} and {} ".format(name, mod.__name__,
                                                                                          first_mod_name)
                         raise NameError(msg)
                     assert name not in target_ns
                     name_mod_dict[name] = mod.__name__
                     target_ns[name] = v
+
+    target_ns["__name_mod_dict"] = name_mod_dict
 
 
 def smart_run_tests_in_ns(ns):
