@@ -4174,11 +4174,11 @@ def smart_integrate(expr, var, **kwargs):
     res1b = res1.subs(int_subs)
 
     rplmts = get_custom_attr_map("ddt_func")
+    rplmts.sort(key=lambda x: get_sp_deriv_order(x[1]), reverse=True)
     rplmts2 = rev_tuple(rplmts)
     res2 = res1b.subs(rplmts2)
 
     res3 = res2.subs(int_back_subs)
-
 
     return res3
 

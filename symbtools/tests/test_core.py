@@ -386,11 +386,12 @@ class TestSupportFunctions(unittest.TestCase):
 
         m1 = st.get_custom_attr_map("ddt_child")
         em1 = [(x1, xdot1), (x2, xdot2), (xdot1, xddot1), (xdot2, xddot2)]
-        self.assertEqual(m1, em1)
+        # convert to set because sorting might depend on plattform
+        self.assertEqual(set(m1), set(em1))
 
         m2 = st.get_custom_attr_map("ddt_parent")
         em2 = [(xdot1, x1), (xdot2, x2), (xddot1, xdot1), (xddot2, xdot2)]
-        self.assertEqual(m2, em2)
+        self.assertEqual(set(m2), set(em2))
 
         m3 = st.get_custom_attr_map("ddt_func")
         m3.sort(key=lambda x: x[0].difforder)
