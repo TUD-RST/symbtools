@@ -19,7 +19,7 @@ def pickle_full_dump(obj, path):
         assert not hasattr(pdata, 'relevant_symbols')
         assert not hasattr(pdata, 'attribute_store')
         assert not hasattr(pdata, 'atoms')
-        assert not hasattr(pdata,' data')
+        assert not hasattr(pdata, 'data')
 
         pdata.container_flag = True
         additional_data = pdata
@@ -83,18 +83,14 @@ def pickle_full_dump(obj, path):
     # now look in global_data.attribute_store (see above) if there are
     # some attributes stored concerning the relevant_symbols
     # global_data.attribute_store looks like {(xdot, 'difforder'): 1, ...}
-
     relevant_attributes, function_keys = find_relevant_attributes(pdata.relevant_symbols)
-    if not pdata.container_flag:
-        substituted_expr, substituted_attributes, function_data \
-                            = replace_functions(pdata.obj, relevant_attributes, function_keys)
 
-        pdata.obj = substituted_expr
-        pdata.attribute_store = substituted_attributes
-        pdata.function_data = function_data
-    else:
-        # TODO correctly handle the case of container_flag=True with function
-        pdata.attribute_store = relevant_attributes
+    # to this end collect every attribute of pdata which is as (generalized) sympy expression
+
+    substituted_attributes, function_data = replace_functions_in_pdata(pdata, relevant_attributes, function_keys)
+
+    pdata.attribute_store = substituted_attributes
+    pdata.function_data = function_data
 
     # explicitly save additional data (because the custom attribute seems not to be preserved by
     # pickling)
@@ -190,23 +186,32 @@ def find_relevant_attributes(symbol_list):
     return relevant_attributes, function_keys
 
 
-def replace_functions(expr, attributes, function_keys):
+def replace_functions_in_pdata(pdata, attributes, function_keys):
     """
 
-    :param expr:            sympy expression
+    :param pdata:           container of which some attributes are sympy expressions (will be altered)
     :param attributes:      relevant attribute-dict, in which the functions have to be replaced
     :param function_keys:   dict like {x1(t): {key1, key2}} (where key1 etc refer to the attributes-dict)
 
     :return:    replaced_expr, replaced_attributes, function_data
     """
-    expr_funcs = expr.atoms(sp.function.AppliedUndef)
-    attr_funcs = set(function_keys.keys())
+
+    sp_obj_keys = []
+    expr_funcs = set()  # all functions which occur in expr-attributes of pdata
+    for key, value in pdata.__dict__.items():
+        if isinstance(value, (sp.Expr, sp.MatrixBase)):
+            sp_obj_keys.append(key)
+            expr_funcs.update(value.atoms(sp.function.AppliedUndef))
+
+    attr_funcs = set(function_keys.keys())  # functions which are hidden in attribute-store dict
 
     all_funcs = expr_funcs.union(attr_funcs)
 
     rplmts, function_data = convert_functions_to_symbols(all_funcs)
 
-    substiuted_expr = expr.subs(rplmts)
+    for key in sp_obj_keys:
+        pdata.__dict__[key] = pdata.__dict__[key].subs(rplmts)
+
     substiuted_attributes = dict(attributes)
 
     united_key_set = set()
@@ -218,7 +223,7 @@ def replace_functions(expr, attributes, function_keys):
     for key in united_key_set:
         substiuted_attributes[key] = substiuted_attributes[key].subs(rplmts)
 
-    return substiuted_expr, substiuted_attributes, function_data
+    return substiuted_attributes, function_data
 
 
 def get_rplmts_from_function_data(function_data):
