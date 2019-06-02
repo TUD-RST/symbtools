@@ -108,28 +108,28 @@ class PseudoAppliedFunc(object):
         self.args = appl_func.args
         self.assumptions = appl_func._assumptions
 
-        if not appl_func.atoms(sp.function.AppliedUndef) == appl_func:
+        if not appl_func.atoms(sp.function.AppliedUndef) == {appl_func}:
             msg = "nested calls of applied Functions are not yet supported."
             raise NotImplementedError(msg)
 
 
-def convert_functions_to_symbols(expr):
+def convert_functions_to_symbols(appl_func_list):
     """
     Because unnamed functions cannot be pickled or dilled, we convert them to symbols before pickling,
     and convert them back after unpickling.
 
-    :param expr:
+    :param appl_func_list:  list of applied functions like ([x1(t), x3(t), ...])
     :return:
     """
 
-    appl_functions = list(expr.atoms(sp.function.AppliedUndef))
-
     rplmts = []
     function_data = {}
-    for i, f in enumerate(appl_functions):
+    for i, f in enumerate(appl_func_list):
         func_symb = sp.Dummy("FUNC{}".format(i), **f._assumptions)
-        rplmts.append(f, func_symb)
+        rplmts.append((f, func_symb))
         function_data[func_symb] = PseudoAppliedFunc(f)
+
+    return rplmts, function_data
 
 
 def find_relevant_attributes(symbol_list):
@@ -168,6 +168,23 @@ def find_relevant_attributes(symbol_list):
                 known_symbols.add(cand)
 
     return relevant_attributes, function_keys
+
+
+def replace_functions(expr, attributes, function_keys):
+    """
+
+    :param expr:            sympy expression
+    :param attributes:      relevant attribute-dict, in which the functions have to be replaced
+    :param function_keys:   dict like {x1(t): [key1, key2]} (where key1 etc refer to the attributes-dict)
+
+    :return:    replaced_expr, replaced_attributes, function_data
+    """
+    expr_funcs = expr.atoms(sp.function.AppliedUndef)
+    attr_funcs = set(function_keys.keys())
+
+    all_funcs = expr_funcs.union(attr_funcs)
+
+    rplmts, function_data = convert_functions_to_symbols(all_funcs)
 
 
 def pickle_full_load(path):

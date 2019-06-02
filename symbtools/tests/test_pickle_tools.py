@@ -7,6 +7,8 @@ from sympy import sin, cos, exp
 import symbtools as st
 import symbtools.pickle_tools as pt
 
+from ipydex import IPS
+
 
 # noinspection PyShadowingNames,PyPep8Naming,PySetFunctionToLiteral
 class Tests1(unittest.TestCase):
@@ -23,6 +25,29 @@ class Tests1(unittest.TestCase):
         pfname = "tmp_dump_test.pcl"
         st.pickle_full_dump(M, pfname)
         self.assertEqual(1, 2)
+
+    def test_convert_functions_to_symbols(self):
+        x1, x2, x3 = xx = st.symb_vector("x1, x2, x3")
+        f1a = sp.Function("f1", commutative=True)(st.t)
+        f1b = sp.Function("f1", commutative=False)(x1, x2)
+        f2a = sp.Function("f2")(x1)
+        f2b = sp.Function("f2")(x1 + x2)
+
+        funcs = {f1a, f1b, f2a, f2b}
+
+        rplmts, function_data = pt.convert_functions_to_symbols(funcs)
+
+        self.assertEqual(set(list(zip(*rplmts))[0]), funcs)
+
+        symb_keys = dict(rplmts)
+        fd1a = function_data[symb_keys[f1a]]
+        fd1b = function_data[symb_keys[f1b]]
+
+        self.assertEqual(fd1a.args, (st.t,))
+        self.assertEqual(fd1b.args, (x1, x2,))
+
+        self.assertEqual(fd1a.assumptions["commutative"], True)
+        self.assertEqual(fd1b.assumptions["commutative"], False)
 
     def test_find_relevant_attributes_and_function_keys(self):
         x1, x2, x3 = xx = st.symb_vector("x1, x2, x3")
