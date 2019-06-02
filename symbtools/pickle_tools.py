@@ -161,7 +161,7 @@ def find_relevant_attributes(symbol_list):
     relevant_attributes = {}
 
     # find out in which keys there are AppliedUndef-Instances
-    function_keys = defaultdict(list)
+    function_keys = defaultdict(set)
 
     # global_data.attribute_store looks like {(xddot, 'difforder'): 2, ...}
     ga_items = global_data.attribute_store.items()
@@ -180,7 +180,7 @@ def find_relevant_attributes(symbol_list):
 
                 # store the key to easily access this attribute later
                 for f in appl_funcs:
-                    function_keys[f].append(key)
+                    function_keys[f].add(key)
 
         for cand in new_symbol_candidates:
             if cand not in known_symbols:
@@ -195,7 +195,7 @@ def replace_functions(expr, attributes, function_keys):
 
     :param expr:            sympy expression
     :param attributes:      relevant attribute-dict, in which the functions have to be replaced
-    :param function_keys:   dict like {x1(t): [key1, key2]} (where key1 etc refer to the attributes-dict)
+    :param function_keys:   dict like {x1(t): {key1, key2}} (where key1 etc refer to the attributes-dict)
 
     :return:    replaced_expr, replaced_attributes, function_data
     """
@@ -211,8 +211,8 @@ def replace_functions(expr, attributes, function_keys):
 
     united_key_set = set()
 
-    for applied_func, keylist in function_keys.items():
-        united_key_set.update(keylist)
+    for applied_func, keyset in function_keys.items():
+        united_key_set.update(keyset)
 
     # apply replacements
     for key in united_key_set:

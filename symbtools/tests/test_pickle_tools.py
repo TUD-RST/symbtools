@@ -85,8 +85,8 @@ class Tests1(unittest.TestCase):
 
         self.assertEqual(relevant_attributes, eres1)
 
-        eres2 = {x1f: [(x1, 'ddt_func'), (xdot1, 'ddt_func'), (xddot1, 'ddt_func')],
-                 x2f: [(xdot2, 'ddt_func'), (xddot2, 'ddt_func'), (x2, 'ddt_func')]}
+        eres2 = {x1f: {(x1, 'ddt_func'), (xdot1, 'ddt_func'), (xddot1, 'ddt_func')},
+                 x2f: {(xdot2, 'ddt_func'), (xddot2, 'ddt_func'), (x2, 'ddt_func')}}
 
         self.assertEqual(function_keys, eres2)
 
