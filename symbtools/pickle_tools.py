@@ -16,10 +16,10 @@ def pickle_full_dump(obj, path):
         pdata = obj
 
         # prevent accidental name clashes
-        assert not hasattr(pdata,'relevant_symbols')
-        assert not hasattr(pdata,'attribute_store')
-        assert not hasattr(pdata,'atoms')
-        assert not hasattr(pdata,'data')
+        assert not hasattr(pdata, 'relevant_symbols')
+        assert not hasattr(pdata, 'attribute_store')
+        assert not hasattr(pdata, 'atoms')
+        assert not hasattr(pdata,' data')
 
         pdata.container_flag = True
         additional_data = pdata
@@ -83,14 +83,18 @@ def pickle_full_dump(obj, path):
     # now look in global_data.attribute_store (see above) if there are
     # some attributes stored concerning the relevant_symbols
     # global_data.attribute_store looks like {(xdot, 'difforder'): 1, ...}
-    relevant_items = [item for item in global_data.attribute_store.items()
-                                    if item[0][0] in pdata.relevant_symbols]
 
-    pdata.parent_symbols = []
-    for s in pdata.relevant_symbols:
-        pdata.parent_symbols.extend(list(get_all_deriv_parents(s)))
+    relevant_attributes, function_keys = find_relevant_attributes(pdata.relevant_symbols)
+    if not pdata.container_flag:
+        substituted_expr, substituted_attributes, function_data \
+                            = replace_functions(pdata.obj, relevant_attributes, function_keys)
 
-    pdata.attribute_store = dict(relevant_items)
+        pdata.obj = substituted_expr
+        pdata.attribute_store = substituted_attributes
+        pdata.function_data = function_data
+    else:
+        # TODO correctly handle the case of container_flag=True with function
+        pdata.attribute_store = relevant_attributes
 
     # explicitly save additional data (because the custom attribute seems not to be preserved by
     # pickling)
@@ -106,6 +110,7 @@ class PseudoAppliedFunc(object):
         assert isinstance(appl_func, sp.function.AppliedUndef)
         self.name = appl_func.name
         self.args = appl_func.args
+        # noinspection PyProtectedMember
         self.assumptions = appl_func._assumptions
 
         if not appl_func.atoms(sp.function.AppliedUndef) == {appl_func}:
@@ -119,12 +124,17 @@ def convert_functions_to_symbols(appl_func_list):
     and convert them back after unpickling.
 
     :param appl_func_list:  list of applied functions like ([x1(t), x3(t), ...])
-    :return:
+
+    :return:    rplmts, function_data
+
+    rplmts: list of 2-tuples
+    function_data: dict like {_FUNC0: <PseudoAppliedFunc instandce0>, ...}
     """
 
     rplmts = []
     function_data = {}
     for i, f in enumerate(appl_func_list):
+        # noinspection PyProtectedMember
         func_symb = sp.Dummy("FUNC{}".format(i), **f._assumptions)
         rplmts.append((f, func_symb))
         function_data[func_symb] = PseudoAppliedFunc(f)
@@ -185,6 +195,20 @@ def replace_functions(expr, attributes, function_keys):
     all_funcs = expr_funcs.union(attr_funcs)
 
     rplmts, function_data = convert_functions_to_symbols(all_funcs)
+
+    substiuted_expr = expr.subs(rplmts)
+    substiuted_attributes = dict(attributes)
+
+    united_key_set = set()
+
+    for applied_func, keylist in function_keys.items():
+        united_key_set.update(keylist)
+
+    # apply replacements
+    for key in united_key_set:
+        substiuted_attributes[key] = substiuted_attributes[key].subs(rplmts)
+
+    return substiuted_expr, substiuted_attributes, function_data
 
 
 def pickle_full_load(path):
