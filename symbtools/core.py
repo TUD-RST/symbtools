@@ -57,42 +57,51 @@ new_methods = []
 
 @property
 def satoms(self):
-    '''
+    """
     convenience property for interactive usage:
     returns self.atoms(sp.Symbol)
-    '''
+    """
     return self.atoms(sp.Symbol)
+
+
 new_methods.append(('s', satoms))
+
 
 @property
 def sco(self):
-    '''
+    """
     convenience property for interactive usage:
     returns count_ops(self)
-    '''
+    """
     return count_ops(self)
+
+
 new_methods.append(('co', sco))
 
 
 def subz(self, args1, args2):
-    '''
+    """
     convenience property for interactive usage:
     returns self.subs(lzip(args1, args2))
-    '''
+    """
     return self.subs(lzip(args1, args2))
+
+
 new_methods.append(('subz', subz))
 
 
 def subz0(self, *args):
-    '''
+    """
     convenience property for interactive usage:
     returns self.subs(zip0(arg[0]) + zip0(args[1]) + ...)
-    '''
+    """
 
     # nested list comprehension http://stackoverflow.com/a/952952/333403
     # flatten the args
     all_args = [symb for sequence in args for symb in sequence]
     return self.subs(zip0(all_args))
+
+
 new_methods.append(('subz0', subz0))
 
 
@@ -106,6 +115,8 @@ def smplf(self):
     (self.simplify() works in place for matrices, thus printing needs additional line)
     """
     return sp.simplify(self)
+
+
 new_methods.append(('smplf', smplf))
 
 
@@ -525,7 +536,7 @@ def integrate_pw(fnc, var, transpoints):
 
 # might be oboslete (intended use case did not carry on)
 def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
-    '''
+    """
     :param funcs1: source functions f(a, b)
     :param args: arguments of f -> (a, b)
     :param funcs2: "arg functions a, b" (a(x), b(x))
@@ -533,7 +544,7 @@ def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
     :return: the same as f.subs(...).diff(x, 2)
 
     background: the direct computation might take too long
-    '''
+    """
 
     if hasattr(funcs1, '__len__'):
         #funcs1 = list(funcs1)
@@ -2936,7 +2947,6 @@ def clean_numbers(expr, eps=1e-10):
     return res2
 
 
-
 def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, tol = 1e-14, min=-1, max=1):
     """
     serves to check numerically (with random numbers) whether exp1, epx2 are equal
@@ -2959,7 +2969,6 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
 
     exp1 = sp.sympify(exp1)
     exp2 = sp.sympify(exp2)
-
 
     gen = sp.numbered_symbols('ZZZ', cls=sp.Dummy)
 
@@ -3272,7 +3281,6 @@ def generic_rank(M, **kwargs):
     return rank
 
 
-
 # TODO: due to generic_rank() this function is obsolete and thus deprecated
 def rnd_number_rank(M, **kwargs):
     """
@@ -3547,8 +3555,6 @@ def ensure_mutable(arg):
         return arg
 
 
-
-
 def as_mutable_matrix(matrix):
     """
     sympy sometimes converts matrices to immutable objects
@@ -3557,6 +3563,7 @@ def as_mutable_matrix(matrix):
     (just for cleaner syntax)
     """
     return matrix.as_mutable()
+
 
 def is_col_reduced(A, symb, return_internals = False):
     """
@@ -3601,6 +3608,7 @@ def is_col_reduced(A, symb, return_internals = False):
     else:
         return result
 
+
 def is_row_reduced(A, symb, *args, **kwargs):
     """
     transposed Version of is_col_reduced(...)
@@ -3641,9 +3649,8 @@ def get_col_reduced_right(A, symb, T = None, return_internals = False):
         d = T.berkowitz_det().expand()
         assert d != 0 and not d.has(symb)
 
-
+    # noinspection PyPep8Naming
     A_work = trunc_small_values(sp.expand(A*T))
-
 
     cr_flag, C = is_col_reduced(A_work, symb, return_internals = True)
 
@@ -3659,6 +3666,7 @@ def get_col_reduced_right(A, symb, T = None, return_internals = False):
         # C.Gamma is nonregular
 
     g = C.Gamma.nullspace()[0]
+    # noinspection PyPep8Naming
     non_zero_cols_IDX = to_np(g).flatten() != 0
     # get the max_degrees wrt. to each non-zero component of g
     non_zero_cols_degrees = to_np(C.max_degrees)[non_zero_cols_IDX]
@@ -3673,7 +3681,6 @@ def get_col_reduced_right(A, symb, T = None, return_internals = False):
     # gamma_p:
     gp = sp.diag(*diag_list)*g
 
-
     T1 = unimod_completion(gp, symb)
 
     TT = trunc_small_values( sp.expand(T*T1) )
@@ -3681,7 +3688,6 @@ def get_col_reduced_right(A, symb, T = None, return_internals = False):
     # recall this method with new T
 
     return get_col_reduced_right(A, symb, TT, return_internals)
-
 
 
 def get_order_coeff_from_expr(expr, symb, order):
@@ -3707,14 +3713,17 @@ def element_deg_factory(symb):
 
     return element_deg
 
+
 def matrix_degrees(A, symb):
 
     element_deg = element_deg_factory(symb)
 
     return A.applyfunc(element_deg)
 
+
 def col_degree(col, symb):
     return max(matrix_degrees(col, symb))
+
 
 def unimod_completion(col, symb):
     """
@@ -3745,11 +3754,6 @@ def unimod_completion(col, symb):
     return T
 
 
-
-
-
-
-
 def subs_same_symbs(expr, new_symbs):
     """
     subs_same_symbs(x+y, [x, y])
@@ -3764,11 +3768,9 @@ def subs_same_symbs(expr, new_symbs):
 
     string_dict = dict([(s.name, s) for s in new_symbs])
 
-
     subs_list = [ (s, string_dict[s.name]) for s in old_symbs]
 
     return expr.subs(subs_list) # replpace new symbs by old ones
-
 
 
 def symm_matrix_to_vect(M):
@@ -3778,7 +3780,7 @@ def symm_matrix_to_vect(M):
             to      [a, b, c]
     """
 
-    n,m = M.shape
+    n, m = M.shape
     assert m == n
     assert M == M.T
 
@@ -3791,7 +3793,7 @@ def symm_matrix_to_vect(M):
             else:
                 val = 2*M[i,j]
             res[k] = val
-            k+=1
+            k += 1
 
     return res
 
@@ -3810,19 +3812,19 @@ def rpinv(M):
 
     return rpinv
 
+
 def lpinv(M):
     """compute symbolic left pseudo inverse"""
     # http://stackoverflow.com/questions/15426624/computing-pseudo-inverse-of-a-matrix-using-sympy
     M = sp.Matrix(M)
     n1, n2 = M.shape
-    #if n2 > n1:
 
-    #assume full column rank
+    # assume full column rank
     # left inverse
     lpinv = (M.T * M).inv() * M.T
     res = lpinv*M
 
-    #print res
+    # print res
     return lpinv
 
 
@@ -3848,6 +3850,7 @@ def pinv(M):
     return pinv
 
 
+# noinspection PyPep8Naming
 def nullspaceMatrix(M, *args, **kwargs):
     """
     wrapper for the sympy-nullspace method
@@ -3860,7 +3863,7 @@ def nullspaceMatrix(M, *args, **kwargs):
     return col_stack(*n)
 
 
-#todo: (idea) extend penalty to rational and complex numbers
+# todo: (idea) extend penalty to rational and complex numbers
 def _extended_count_ops(expr):
     """
     extended count ops, which penalizes symbols over numbers
@@ -4013,7 +4016,6 @@ def sorted_eigenvalues(M, **kwargs):
         for k in range(multiplicity):
             res.append(value)
 
-    #res.sort(key=sp.Abs)
     return res
 
 
@@ -4301,14 +4303,15 @@ def dynamic_time_deriv(thisfunc, expr, vf_Fxu, xx, uu, order=1):
         result += expr.diff(u)*udot
     return result
 
+
 def get_symbols_by_name(expr, *names):
-    '''
+    """
     convenience function to extract symbols from expressions by their name
     :param expr: expression or matrix
     :param *names: names of the desired symbols
     :return: a list of)symbols matching the names
     (if len == 1, only return the symbol)
-    '''
+    """
 
     symbols = atoms(expr, sp.Symbol)
     items = [(s.name, s) for s in symbols]
