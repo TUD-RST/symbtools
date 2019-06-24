@@ -593,6 +593,45 @@ class SymbToolsTest2(unittest.TestCase):
         # noinspection PyUnusedLocal
         res3_0 = rhs3(x0, 0)
 
+    def test_create_simfunction2(self):
+        x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))
+        u1, u2 = uu = sp.Matrix(sp.symbols("u1, u2"))  # inputs
+        p1, p2, p3, p4 = pp = sp.Matrix(sp.symbols("p1, p2, p3, p4"))  # parameter
+        t = sp.Symbol('t')
+
+        A = A0 =  sp.randMatrix(len(xx), len(xx), -10, 10, seed=704)
+        B = B0 = sp.randMatrix(len(xx), len(uu), -10, 10, seed=705)
+
+        v1 = A[0, 0]
+        A[0, 0] = p1
+        v2 = A[2, -1]
+        A[2, -1] = p2
+        v3 = B[3, 0]
+        B[3, 0] = p3
+        v4 = B[2, 1]
+        B[2, 1] = p4
+
+        par_vals = lzip(pp, [v1, v2, v3, v4])
+
+        f = A*xx
+        G = B
+
+        fxu = (f + G*uu).subs(par_vals)
+
+        # some random initial values
+        x0 = st.to_np( sp.randMatrix(len(xx), 1, -10, 10, seed=706) ).squeeze()
+        u0 = st.to_np( sp.randMatrix(len(uu), 1, -10, 10, seed=2257) ).squeeze()
+
+        # create the model and the rhs-function
+        mod = st.SimulationModel(f, G, xx, par_vals)
+        rhs_xx_uu = mod.create_simfunction(free_input_args=True)
+
+        res0_1 = rhs_xx_uu(x0, u0, 0)
+        dres0_1 = st.to_np(fxu.subs(lzip(xx, x0) + lzip(uu, u0))).squeeze()
+
+        bin_res01 = np.isclose(res0_1, dres0_1)  # binary array
+        self.assertTrue( np.all(bin_res01) )
+
     def test_num_trajectory_compatibility_test(self):
         x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))
         u1, u2 = uu = sp.Matrix(sp.symbols("u1, u2"))  # inputs

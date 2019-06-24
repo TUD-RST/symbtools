@@ -4395,6 +4395,7 @@ def symbolify_matrix(M):
     return replacements, res
 
 
+# TODO: this should live in a separate class
 # noinspection PyPep8Naming
 class SimulationModel(object):
     """
@@ -4455,6 +4456,11 @@ class SimulationModel(object):
         return newfnc
 
     def _get_input_func(self, kwargs):
+
+        if kwargs.get("free_input_args", False):
+            # this option leads to rhs(xx, uu, time)
+            return None
+
         input_function = kwargs.get('input_function')
         controller_function = kwargs.get('controller_function')
 
@@ -4488,6 +4494,7 @@ class SimulationModel(object):
         Creates the right-hand-side function of xdot = f(x) + G(x)u
 
         signature is adapted to scipy odeint: rhs(state, time)
+        exception: see `free_input_args` below
 
 
         :kwargs:
@@ -4500,6 +4507,9 @@ class SimulationModel(object):
 
         :param input_function: callable u(t)
         shortcut to pass only open-loop control
+
+        :param free_input_args: boolean;
+        True -> rhs has signature: rhs(state, input, time)
 
         :param use_sp2c: boolean flag whether to use sympy to c bridge (default: False)
 
@@ -4556,16 +4566,33 @@ class SimulationModel(object):
         G_func = self.G_func
         u_func = self.u_func
 
-        # do not use self.f_func here because resolution of self. is slow
-        def rhs(xx, time):
-            xx = np.ravel(xx)
-            uu = np.ravel(u_func(xx, time))
-            ff = np.ravel(f_func(*xx))
-            GG = G_func(*xx)
+        if u_func is not None:
+            # this is the usual case
 
-            xx_dot = ff + np.dot(GG, uu)
+            # do not use self.f_func here because resolution of `self.xyz` is slow
+            def rhs(xx, time):
+                xx = np.ravel(xx)
+                uu = np.ravel(u_func(xx, time))
+                ff = np.ravel(f_func(*xx))
+                GG = G_func(*xx)
 
-            return xx_dot
+                xx_dot = ff + np.dot(GG, uu)
+
+                return xx_dot
+        else:
+            # user wants to pass input (uu) by themselves (kwarg: "free_input_args")
+
+            # noinspection PyUnusedLocal
+            def rhs(xx, uu, time):
+                xx = np.ravel(xx)
+
+                ff = np.ravel(f_func(*xx))
+                GG = G_func(*xx)
+
+                xx_dot = ff + np.dot(GG, uu)
+
+                return xx_dot
+
         return rhs
 
     def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
