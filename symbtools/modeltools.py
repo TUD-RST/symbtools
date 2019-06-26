@@ -123,6 +123,8 @@ class SymbolicModel(object):
         self.ttdd = None
         self.llmd = None
 
+        self.dae = None  # might become a Container
+
         # for Lagrange-Byrnes-Normalform
         self.zz = None
         self.fz = None
@@ -211,6 +213,44 @@ class SymbolicModel(object):
         if simplify:
             self.f.simplify()
             self.g.simplify()
+
+    def calc_dae_eq(self):
+        """
+        In case of present constraints ode representation is not possible.
+        This method constructs a representation F(y, ydot) = 0.
+
+        Such a form can be passed to a DAE solver like IDA (from SUNDIALS / Assimulo)
+
+        :return: None, but sets self.dae (Container), self.dae.yy, self.dae.yyd, self.dae.eqns, ...
+        """
+
+        assert self.constraints
+        assert self.llmd
+
+        self.xx = st.row_stack(self.tt, self.ttd)
+
+        xxd = st.row_stack(self.ttd, self.ttdd)
+        ntt = len(self.tt)
+        nx = len(self.xx)
+        nll = len(self.llmd)
+
+        # time derivative of algebraic variables (only formally needed)
+        llmdd = st.time_deriv(self.llmd, self.llmd)
+
+        self.dae = st.Container(info="encapsulate all dae-relevant information")
+        self.dae.yy = st.row_stack(self.xx, self.llmd)
+
+        self.dae.yyd = yyd = st.symb_vector("ydot1:{}".format(1 + nx + nll))
+
+        # list of flags whether a variable occurs differentially (1) or only algebraically (0)
+        self.dae.diff_alg_vars = [1]*len(self.xx) + [0]*len(self.llmd)
+
+        # definiotric equations
+        eqns1 = yyd[:ntt, :] - self.ttd
+
+        # dynamic equations (second order; M(tt)*ttdd + ... = 0)
+        eqns2 = self.eqns.subz(self.ttdd, yyd[ntt:2*ntt])
+        self.dae.eqns = st.row_stack(eqns1, eqns2, self.constraints)
 
     def calc_coll_part_lin_state_eq(self, simplify=True):
         """

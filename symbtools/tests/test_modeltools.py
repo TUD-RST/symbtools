@@ -136,7 +136,13 @@ class ModelToolsTest(unittest.TestCase):
 
         mod = mt.generate_symbolic_model(T, V, ttheta, external_forces, constraints=[G2 - G2b])
 
-        IPS()
+        self.assertEqual(mod.llmd.shape, (2, 1))
+        self.assertEqual(mod.constraints.shape, (2, 1))
+
+        mod.calc_dae_eq()
+
+        nc = len(mod.llmd)
+        self.assertEqual(mod.dae.eqns[-nc:, :], mod.constraints)
 
     def test_cart_pole(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
