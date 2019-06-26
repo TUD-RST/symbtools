@@ -102,6 +102,7 @@ class SymbolicModel(object):
         self.qs = None  # var_list
         self.extforce_list = None  # extforce_list
         self.disforce_list = None  # disforce_list
+        self.constraints = None
 
         # for the classical state representation
         self.f = None
@@ -115,6 +116,12 @@ class SymbolicModel(object):
         self.ff = None
         self.gg = None
         self.aa = None
+
+        # coordinates (and lagrange multipliers)
+        self.tt = None
+        self.ttd = None
+        self.ttdd = None
+        self.llmd = None
 
         # for Lagrange-Byrnes-Normalform
         self.zz = None
@@ -338,105 +345,108 @@ Hinweis: 2014-10-15: Verhalten wurde geändert.
  Ableitungen zurück gegeben
 """
 
+# TODO: this can be removed soon (2019-06-26)
+# def generate_model(T, U, qq, F, **kwargs):
+#     raise DeprecationWarning('generate_symbolic_model should be used')
+#     """
+#     T kinetic energy
+#     U potential energy
+#     q independend deflection variables
+#     F external forces
+#     D dissipation function
+#     """
+#
+#     n = len(qq)
+#
+#     # time variable
+#     t = sp.symbols('t')
+#
+#     # symbolic Variables (to prevent Functions where we not want them)
+#     qs = []
+#     qds = []
+#     qdds = []
+#
+#     if not kwargs:
+#         # assumptions for the symbols (facilitating the postprocessing)
+#         kwargs ={"real": True}
+#
+#     for qi in qq:
+#         # ensure that the same Symbol for t is used
+#         assert qi.is_Function and qi.args == (t,)
+#         s = str(qi.func)
+#
+#         qs.append(sp.Symbol(s, **kwargs))
+#         qds.append(sp.Symbol(s + "_d",  **kwargs))
+#         qdds.append(sp.Symbol(s + "_dd",  **kwargs))
+#
+#     qs, qds, qdds = sp.Matrix(qs), sp.Matrix(qds), sp.Matrix(qdds)
+#
+#     #derivative of configuration variables
+#     qd = qq.diff(t)
+#     qdd = qd.diff(t)
+#
+#     #lagrange function
+#     L = T - U
+#
+#     #substitute functions with symbols for partial derivatives
+#
+#     #highest derivative first
+#     subslist = lzip(qdd, qdds) + lzip(qd, qds) + lzip(qq, qs)
+#     L = L.subs(subslist)
+#
+#     # partial derivatives of L
+#     Ldq = st.jac(L, qs)
+#     Ldqd = st.jac(L, qds)
+#
+#     # generalised external force
+#     f = sp.Matrix(F)
+#
+#     # substitute symbols with functions for time derivative
+#     subslistrev = st.rev_tuple(subslist)
+#     Ldq = Ldq.subs(subslistrev)
+#     Ldqd = Ldqd.subs(subslistrev)
+#     Ldqd = Ldqd.diff(t)
+#
+#     #lagrange equation 2nd kind
+#     model_eq = qq * 0
+#     for i in range(n):
+#         model_eq[i] = Ldqd[i] - Ldq[i] - f[i]
+#
+#     # model equations with symbols
+#     model_eq = model_eq.subs(subslist)
+#
+#     # create object of model
+#     model1 = SymbolicModel()  # model_eq, qs, f, D)
+#     model1.eqns = model_eq
+#     model1.qs = qs
+#     model1.extforce_list = f
+#     model1.tau = f
+#
+#     model1.qds = qds
+#     model1.qdds = qdds
+#
+#
+#     # also store kinetic and potential energy
+#     model1.T = T
+#     model1.U = U
+#
+#     # analyse the model
+#
+#     return model1
 
-def generate_model(T, U, qq, F, **kwargs):
-    raise DeprecationWarning('generate_symbolic_model should be used')
-    """
-    T kinetic energy
-    U potential energy
-    q independend deflection variables
-    F external forces
-    D dissipation function
-    """
-
-    n = len(qq)
-
-    # time variable
-    t = sp.symbols('t')
-
-    # symbolic Variables (to prevent Functions where we not want them)
-    qs = []
-    qds = []
-    qdds = []
-
-    if not kwargs:
-        # assumptions for the symbols (facilitating the postprocessing)
-        kwargs ={"real": True}
-
-    for qi in qq:
-        # ensure that the same Symbol for t is used
-        assert qi.is_Function and qi.args == (t,)
-        s = str(qi.func)
-
-        qs.append(sp.Symbol(s, **kwargs))
-        qds.append(sp.Symbol(s + "_d",  **kwargs))
-        qdds.append(sp.Symbol(s + "_dd",  **kwargs))
-
-    qs, qds, qdds = sp.Matrix(qs), sp.Matrix(qds), sp.Matrix(qdds)
-
-    #derivative of configuration variables
-    qd = qq.diff(t)
-    qdd = qd.diff(t)
-
-    #lagrange function
-    L = T - U
-
-    #substitute functions with symbols for partial derivatives
-
-    #highest derivative first
-    subslist = lzip(qdd, qdds) + lzip(qd, qds) + lzip(qq, qs)
-    L = L.subs(subslist)
-
-    # partial derivatives of L
-    Ldq = st.jac(L, qs)
-    Ldqd = st.jac(L, qds)
-
-    # generalised external force
-    f = sp.Matrix(F)
-
-    # substitute symbols with functions for time derivative
-    subslistrev = st.rev_tuple(subslist)
-    Ldq = Ldq.subs(subslistrev)
-    Ldqd = Ldqd.subs(subslistrev)
-    Ldqd = Ldqd.diff(t)
-
-    #lagrange equation 2nd kind
-    model_eq = qq * 0
-    for i in range(n):
-        model_eq[i] = Ldqd[i] - Ldq[i] - f[i]
-
-    # model equations with symbols
-    model_eq = model_eq.subs(subslist)
-
-    # create object of model
-    model1 = SymbolicModel()  # model_eq, qs, f, D)
-    model1.eqns = model_eq
-    model1.qs = qs
-    model1.extforce_list = f
-    model1.tau = f
-
-    model1.qds = qds
-    model1.qdds = qdds
-
-
-    # also store kinetic and potential energy
-    model1.T = T
-    model1.U = U
-
-    # analyse the model
-
-    return model1
 
 # TODO add remark stating that due to construction, the equations stored in
 # the returned `SymbolicModel` under `eqns`
-def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
+# noinspection PyPep8Naming
+def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, **kwargs):
     """
-    T:          kinetic energy
-    U:          potential energy
-    tt:         sequence of independent deflection variables ("theta")
-    F:          external forces
-    simplify:   determines whether the equations of motion should be simplified
-                (default=True)
+    T:             kinetic energy
+    U:             potential energy
+    tt:            sequence of independent deflection variables ("theta")
+    F:             external forces
+    simplify:      determines whether the equations of motion should be simplified
+                   (default=True)
+    constraints:   None (default) or sequence of constraints (will introduce lagrange multipliers)
 
     kwargs: optional assumptions like 'real=True'
     """
@@ -444,6 +454,20 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
 
     for theta_i in tt:
         assert isinstance(theta_i, sp.Symbol)
+
+    if constraints is None:
+        constraints_flag = False
+        # ensure well define calculations (jacobian of empty matrix would not be possible)
+        constraints = [0]
+    else:
+        constraints_flag = True
+    assert len(constraints) > 0
+    constraints = sp.Matrix(constraints)
+    assert constraints.shape[1] == 1
+    nC = constraints.shape[0]
+    jac_constraints = constraints.jacobian(tt)
+
+    llmd = st.symb_vector("lambda_1:{}".format(nC+1))
 
     F = sp.Matrix(F)
 
@@ -455,13 +479,12 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
         str(n) + " but is %i!"  % F.shape[0]
         raise ValueError(msg)
 
-
     # introducing symbols for the derivatives
     tt = sp.Matrix(tt)
     ttd = st.time_deriv(tt, tt, **kwargs)
     ttdd = st.time_deriv(tt, tt, order=2, **kwargs)
 
-    #Lagrange function
+    # Lagrange function
     L = T - U
 
     if not T.atoms().intersection(ttd) == set(ttd):
@@ -471,16 +494,21 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
     L_diff_tt = st.jac(L, tt)
     L_diff_ttd = st.jac(L, ttd)
 
-    #prov_deriv_symbols = [ttd, ttdd]
+    # prov_deriv_symbols = [ttd, ttdd]
 
     # time-depended_symbols
     tds = list(tt) + list(ttd)
     L_diff_ttd_dt = st.time_deriv(L_diff_ttd, tds, **kwargs)
 
-    #lagrange equation 2nd kind
+    # constraints
+
+    constraint_terms = list(llmd.T*jac_constraints)
+
+    # lagrange equation 1st kind (which include 2nd kind as special case if constraints are empty)
+
     model_eq = sp.zeros(n, 1)
     for i in range(n):
-        model_eq[i] = L_diff_ttd_dt[i] - L_diff_tt[i] - F[i]
+        model_eq[i] = L_diff_ttd_dt[i] - L_diff_tt[i] - F[i] - constraint_terms[i]
 
     # create object of model
     mod = SymbolicModel()  # model_eq, qs, f, D)
@@ -490,6 +518,13 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, **kwargs):
     reduced_F = sp.Matrix([s for s in F if st.is_symbol(s)])
     mod.F = reduced_F
     mod.tau = reduced_F
+    if constraints_flag:
+        mod.llmd = llmd
+        mod.constraints = constraints
+    else:
+        # omit fake constraint [0]
+        mod.constraints = None
+        mod.llmd = None
 
     # coordinates velocities and accelerations
     mod.tt = tt

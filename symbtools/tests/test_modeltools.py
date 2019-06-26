@@ -11,12 +11,14 @@ from sympy import sin, cos, Matrix
 import symbtools as st
 import numpy as np
 import symbtools.modeltools as mt
+from symbtools.modeltools import Rz
 import sys
 
 
 from IPython import embed as IPS
 
 
+# noinspection PyPep8Naming
 class ModelToolsTest(unittest.TestCase):
 
     def setUp(self):
@@ -43,6 +45,98 @@ class ModelToolsTest(unittest.TestCase):
         # test the application of the @property
         M = mod.MM
         self.assertEqual(M[0], m)
+
+    def test_simple_constraints(self):
+        q1, q2 = qq = sp.Matrix(sp.symbols('q1, q2'))
+        F1, = FF = sp.Matrix(sp.symbols('F1,'))
+
+        m = sp.Symbol('m')
+
+        q1d, q2d = st.time_deriv(qq, qq)
+        q1dd, q2dd = st.time_deriv(qq, qq, order=2)
+
+        T = q1d**2*m/4 + q2d**2*m/4
+        V = 0
+
+        mod = mt.generate_symbolic_model(T, V, qq, [F1, 0], constraints=[q1-q2])
+        self.assertEqual(mod.llmd.shape, (1, 1))
+        self.assertEqual(mod.constraints[0], q1 - q2)
+
+    def test_four_bar_constraints(self):
+        t = sp.Symbol('t')  # time variable
+
+        # 2 passive Gelenke
+        np = 2
+        nq = 1
+        n = np + nq
+        p1, p2 = pp = st.symb_vector("p1:{0}".format(np + 1))
+        q1, = qq = st.symb_vector("q1:{0}".format(nq + 1))
+
+        aa = st.symb_vector("a1:{0}".format(nq + 1))
+
+        ttheta = st.row_stack(pp, qq)
+        pdot1, pdot2, qdot1 = tthetad = st.time_deriv(ttheta, ttheta)
+        tthetadd = st.time_deriv(ttheta, ttheta, order=2)
+        st.make_global(ttheta, tthetad, tthetadd)
+
+        params = sp.symbols('s1, s2, s3, m1, m2, m3, J1, J2, J3, l1, l2, l3, kappa1, kappa2, g')
+        s1, s2, s3, m1, m2, m3, J1, J2, J3, l1, l2, l3, kappa1, kappa2, g = params
+        st.make_global(params)
+
+        # ttau = sp.symbols('tau')
+        tau1, tau2 = ttau = st.symb_vector("tau1, tau2")
+
+        # Einheitsvektoren
+
+        ex = sp.Matrix([1, 0])
+        ey = sp.Matrix([0, 1])
+
+        # Basis 1 und 2
+        B1 = sp.Matrix([0, 0])
+        B2 = sp.Matrix([2*l1, 0])
+
+        # Koordinaten der Schwerpunkte und Gelenke
+        S1 = Rz(q1)*ex*s1  ##:
+
+        G1 = Rz(q1)*ex*l1  ##:
+
+        S2 = G1 + Rz(q1 + p1)*ex*s2  ##:
+
+        G2 = G1 + Rz(q1 + p1)*ex*l2  ##:
+
+        # Ein-Gelenk-Manioulator
+        G2b = B2 + Rz(p2)*ex*l3  ##:
+
+        S3 = B2 + Rz(p2)*ex*s3  ##:
+
+        # Zeitableitungen der Schwerpunktskoordinaten
+        Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), ttheta))
+
+        # Kinetische Energie
+
+        T_rot = (J1*qdot1 ** 2 + J2*(qdot1 + pdot1) ** 2 + J3*(pdot2) ** 2)/2
+        T_trans = (m1*Sd1.T*Sd1 + m2*Sd2.T*Sd2 + m3*Sd3.T*Sd3)/2
+
+        T = T_rot + T_trans[0]  ##:
+
+        # Potentielle Energie
+        V = m1*g*S1[1] + m2*g*S2[1] + m3*g*S3[1]  ##:
+
+        # Kinetische Energie mit Platzhaltersymbolen einführen (jetzt nicht):
+
+        M1, M2, M3 = MM = st.symb_vector('M1:4')
+        MM_subs = [(J1 + m1*s1 ** 2 + m2*l1 ** 2, M1), (J2 + m2*s2 ** 2, M2), (m2*l1*s2, M3)]
+        MM_rplm = st.rev_tuple(MM_subs)  # Umkehrung der inneren Tupel -> [(M1, J1+... ), ...]
+
+
+        # virtuelle Drehmomente
+        mu1, mu2 = mmu = st.symb_vector("mu1, mu2")
+
+        external_forces = [mu1, mu2, tau1]
+
+        mod = mt.generate_symbolic_model(T, V, ttheta, external_forces, constraints=[G2 - G2b])
+
+        IPS()
 
     def test_cart_pole(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
@@ -146,7 +240,6 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(mod.tau[0], F1)
 
         mod.calc_coll_part_lin_state_eq()
-
 
     def test_simple_pendulum_with_actuated_mountpoint(self):
 
