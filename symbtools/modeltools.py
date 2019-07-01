@@ -221,36 +221,13 @@ class SymbolicModel(object):
 
         Such a form can be passed to a DAE solver like IDA (from SUNDIALS / Assimulo)
 
-        :return: None, but sets self.dae (Container), self.dae.yy, self.dae.yyd, self.dae.eqns, ...
+        :return: dae (Container); also set self.dae = dae , self.dae.yy, self.dae.yyd, self.dae.eqns, ...
         """
 
-        assert self.constraints
-        assert self.llmd
+        self.dae = DAE_System(self)
 
-        self.xx = st.row_stack(self.tt, self.ttd)
 
-        xxd = st.row_stack(self.ttd, self.ttdd)
-        ntt = len(self.tt)
-        nx = len(self.xx)
-        nll = len(self.llmd)
-
-        # time derivative of algebraic variables (only formally needed)
-        llmdd = st.time_deriv(self.llmd, self.llmd)
-
-        self.dae = st.Container(info="encapsulate all dae-relevant information")
-        self.dae.yy = st.row_stack(self.xx, self.llmd)
-
-        self.dae.yyd = yyd = st.symb_vector("ydot1:{}".format(1 + nx + nll))
-
-        # list of flags whether a variable occurs differentially (1) or only algebraically (0)
-        self.dae.diff_alg_vars = [1]*len(self.xx) + [0]*len(self.llmd)
-
-        # definiotric equations
-        eqns1 = yyd[:ntt, :] - self.ttd
-
-        # dynamic equations (second order; M(tt)*ttdd + ... = 0)
-        eqns2 = self.eqns.subz(self.ttdd, yyd[ntt:2*ntt])
-        self.dae.eqns = st.row_stack(eqns1, eqns2, self.constraints)
+        return self.dae
 
     def calc_coll_part_lin_state_eq(self, simplify=True):
         """
@@ -379,11 +356,47 @@ class SymbolicModel(object):
     def uu(self):
         return self.tau
 
-"""
-Hinweis: 2014-10-15: Verhalten wurde geändert.
- Die Gleichungen werden jetzt in den originalen Zeit-Funktionen und ihren
- Ableitungen zurück gegeben
-"""
+
+class DAE_System(object):
+    """
+    This class encapsulates an differential algebraic equation (DAE).
+    """
+    
+    info = "encapsulate all dae-relevant information"
+
+    def __init__(self, mod):
+
+        # ensure not None nor empty sequence
+        assert mod.constraints
+        assert mod.llmd
+
+        mod.xx = st.row_stack(mod.tt, mod.ttd)
+
+        # xxd = st.row_stack(mod.ttd, mod.ttdd)
+        ntt = len(mod.tt)
+        nx = len(mod.xx)
+        nll = len(mod.llmd)
+
+        # time derivative of algebraic variables (only formally needed)
+        # llmdd = st.time_deriv(mod.llmd, mod.llmd)
+
+        mod.dae = self
+        self.yy = st.row_stack(mod.xx, mod.llmd)
+
+        self.yyd = yyd = st.symb_vector("ydot1:{}".format(1 + nx + nll))
+
+        # list of flags whether a variable occurs differentially (1) or only algebraically (0)
+        self.diff_alg_vars = [1]*len(mod.xx) + [0]*len(mod.llmd)
+
+        # definiotric equations
+        eqns1 = yyd[:ntt, :] - mod.ttd
+
+        # dynamic equations (second order; M(tt)*ttdd + ... = 0)
+        eqns2 = mod.eqns.subz(mod.ttdd, yyd[ntt:2*ntt])
+
+        self.constraints = mod.constraints = sp.Matrix(mod.constraints)
+        self.eqns = st.row_stack(eqns1, eqns2, mod.constraints)
+
 
 # TODO: this can be removed soon (2019-06-26)
 # def generate_model(T, U, qq, F, **kwargs):
