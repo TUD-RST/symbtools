@@ -7,6 +7,8 @@ Authors: Thomas Mutzke (2013), Carsten Knoll (2013-2015)
 """
 
 import sympy as sp
+import numpy as np
+from scipy.optimize import fmin
 import symbtools as st
 from symbtools import lzip
 from IPython import embed as IPS
@@ -94,6 +96,7 @@ def new_model_from_equations_of_motion(eqns, theta, tau):
     return mod
 
 
+# noinspection PyPep8Naming
 class SymbolicModel(object):
     """ model class """
 
@@ -130,6 +133,7 @@ class SymbolicModel(object):
         self.fz = None
         self.gz = None
         self.ww = None
+        self.ww_def = None
 
         self.solved_eq = None
         self.zero_equilibrium = None
@@ -214,7 +218,7 @@ class SymbolicModel(object):
             self.f.simplify()
             self.g.simplify()
 
-    def calc_dae_eq(self):
+    def calc_dae_eq(self, parameter_values=None, **kwargs):
         """
         In case of present constraints ode representation is not possible.
         This method constructs a representation F(y, ydot) = 0.
@@ -224,8 +228,7 @@ class SymbolicModel(object):
         :return: dae (Container); also set self.dae = dae , self.dae.yy, self.dae.yyd, self.dae.eqns, ...
         """
 
-        self.dae = DAE_System(self)
-
+        self.dae = DAE_System(self, parameter_values=parameter_values, **kwargs)
 
         return self.dae
 
@@ -357,6 +360,7 @@ class SymbolicModel(object):
         return self.tau
 
 
+# noinspection PyPep8Naming
 class DAE_System(object):
     """
     This class encapsulates an differential algebraic equation (DAE).
@@ -364,7 +368,16 @@ class DAE_System(object):
     
     info = "encapsulate all dae-relevant information"
 
-    def __init__(self, mod):
+    def __init__(self, mod, parameter_values=None):
+        """
+        :param mod:                 SymbolicModel-instance
+        :param parameter_values:    subs-compatible sequence
+        """
+
+        if parameter_values is None:
+            parameter_values = []
+
+        self.parameter_values = parameter_values
 
         # ensure not None nor empty sequence
         assert mod.constraints
@@ -372,10 +385,16 @@ class DAE_System(object):
 
         mod.xx = st.row_stack(mod.tt, mod.ttd)
 
+        # save a reference to the whole model
+        self.mod = mod
+
         # xxd = st.row_stack(mod.ttd, mod.ttdd)
-        ntt = len(mod.tt)
+        self.ntt = len(mod.tt)
         nx = len(mod.xx)
-        nll = len(mod.llmd)
+        self.nll = len(mod.llmd)
+
+        # degree of freedom = (number of coordinates) - (number of constraints)
+        self.ndof = self.ntt - self.nll
 
         # time derivative of algebraic variables (only formally needed)
         # llmdd = st.time_deriv(mod.llmd, mod.llmd)
@@ -383,19 +402,138 @@ class DAE_System(object):
         mod.dae = self
         self.yy = st.row_stack(mod.xx, mod.llmd)
 
-        self.yyd = yyd = st.symb_vector("ydot1:{}".format(1 + nx + nll))
+        self.yyd = yyd = st.symb_vector("ydot1:{}".format(1 + nx + self.nll))
 
         # list of flags whether a variable occurs differentially (1) or only algebraically (0)
         self.diff_alg_vars = [1]*len(mod.xx) + [0]*len(mod.llmd)
 
         # definiotric equations
-        eqns1 = yyd[:ntt, :] - mod.ttd
+        eqns1 = yyd[:self.ntt, :] - mod.ttd
 
         # dynamic equations (second order; M(tt)*ttdd + ... = 0)
-        eqns2 = mod.eqns.subz(mod.ttdd, yyd[ntt:2*ntt])
+        eqns2 = mod.eqns.subz(mod.ttdd, yyd[self.ntt:2*self.ntt])
 
-        self.constraints = mod.constraints = sp.Matrix(mod.constraints)
-        self.eqns = st.row_stack(eqns1, eqns2, mod.constraints)
+        self.constraints = mod.constraints = sp.Matrix(mod.constraints).subs(parameter_values)
+        self.eqns = st.row_stack(eqns1, eqns2, mod.constraints).subs(parameter_values)
+        self.MM = mod.MM.subs(parameter_values)
+
+        self.eq_func = None
+
+        self.constraints_func = None
+        self.generate_eqns_func()
+
+    def generate_eqns_func(self):
+        """
+        Create a callable function of the form F(ww) which internally represents the lhs of F(t, yy, yyd) = 0
+        with ww = (yy, yydot, ttau). Note that the input tau will later be calculated by a controller ttau = k(t, yy).
+
+        :return: None, set self.eq_func
+        """
+
+        fvars = st.concat_rows(self.yy, self.yyd, self.mod.tau)
+
+        actual_symbs = self.eqns.atoms(sp.Symbol)
+        expected_symbs = set(fvars)
+        unexpected_symbs = actual_symbs.difference(expected_symbs)
+        if unexpected_symbs:
+            msg = "Equations can only converted to numerical func if all parameters are passed for substitution. " \
+                  "Unexpected symbols: {}".format(unexpected_symbs)
+            raise ValueError(msg)
+
+        self.eq_func = st.expr_to_func(fvars, self.eqns)
+
+    def generate_constraints_func(self):
+
+        if self.constraints_func is not None:
+            return
+
+        actual_symbs = self.constraints.atoms(sp.Symbol)
+        expected_symbs = set(self.mod.tt)
+        if not actual_symbs == expected_symbs:
+            msg = "Constraints can only converted to numerical func if all parameters are passed for substitution. " \
+                  "Unexpected symbols: {}".format(actual_symbs.difference(expected_symbs))
+            raise ValueError(msg)
+
+        self.constraints_func = st.expr_to_func(self.mod.tt, self.constraints)
+
+    def calc_constistent_conf(self, **kwargs):
+        """
+        Example call: calc_consistent_conf(p1=0.5, _eps=1e-12)
+
+        :param kwargs:
+        :return:
+        """
+
+        num_requests = []
+        estimates = []
+
+        # index lists fot independent and dependent vars
+        indep_idcs = []
+        dep_idcs = []
+        for i, theta_i in enumerate(self.mod.tt):
+            assert theta_i.name not in ("_ftol", "_xtol",)
+            val = kwargs.get(theta_i.name)
+            if val is not None:
+                # num_requests.append((theta_i, val))
+                num_requests.append(val)
+                indep_idcs.append(i)
+            else:
+                # look for estimate or choose 0 otherwise
+                est = kwargs.get(theta_i.name + "_estimate", 0)
+                # estimates.append((theta_i, est))
+                estimates.append(est)
+
+                # this is an independent var
+                dep_idcs.append(i)
+
+        assert len(num_requests) == self.ndof
+        assert len(num_requests) + len(estimates) == self.ntt
+
+        self.generate_constraints_func()
+
+        # construct the full argument for the constraints (zeros will be replaced at runtime)
+        arg = np.zeros(self.ntt)
+        arg[indep_idcs] = num_requests
+
+        def min_target(dep_coords):
+            arg[dep_idcs] = dep_coords
+
+            return np.linalg.norm(self.constraints_func(*arg))
+
+        ftol = kwargs.get("_ftol", 1e-8)
+        xtol = kwargs.get("_xtol", 1e-8)
+
+        c0 = np.array(estimates)
+        sol = fmin(min_target, c0, ftol=ftol, xtol=xtol)
+
+        arg[dep_idcs] = sol
+        ttheta_cons = arg
+
+        assert np.allclose(self.constraints_func(*ttheta_cons), 0)
+
+        return ttheta_cons
+
+    def calc_consistent_init_vals(self, xinit, llmd_guess=None):
+        """
+        Assume yy = (xx, llmd) and xx = (ttheta, ttheta_d)
+        -> return yy_0 and and yyd_0 sucht that F(0, yy_0, yyd_0) = 0
+
+        Note that it might be necessary to find a consistent initial configuration first (xx cannot choosen freely)
+
+        :param xinit:       initial state (part of y)
+        :param llmd_guess:  guess for initial state of llmd
+        """
+
+        if llmd_guess is None:
+            llmd_guess = [0] * self.nll
+
+        raise NotImplementedError("Not yet ready")
+
+
+
+
+
+
 
 
 # TODO: this can be removed soon (2019-06-26)

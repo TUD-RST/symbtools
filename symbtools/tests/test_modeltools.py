@@ -9,7 +9,7 @@ import unittest
 import sympy as sp
 from sympy import sin, cos, Matrix
 import symbtools as st
-import numpy as np
+import numpy as npy
 import symbtools.modeltools as mt
 from symbtools.modeltools import Rz
 import sys
@@ -62,6 +62,17 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(mod.llmd.shape, (1, 1))
         self.assertEqual(mod.constraints[0], q1 - q2)
 
+        with self.assertRaises(ValueError) as cm:
+            # no parameters passed
+            dae = mod.calc_dae_eq()
+
+        dae = mod.calc_dae_eq(parameter_values=[(m, 1)])
+
+        ttheta_c1 = dae.calc_constistent_conf(q1=0.123)
+        eres = npy.array([0.123, 0.123])
+
+        self.assertTrue(npy.allclose(ttheta_c1, eres))
+
     def test_four_bar_constraints(self):
         t = sp.Symbol('t')  # time variable
 
@@ -83,13 +94,15 @@ class ModelToolsTest(unittest.TestCase):
         s1, s2, s3, m1, m2, m3, J1, J2, J3, l1, l2, l3, kappa1, kappa2, g = params
         st.make_global(params)
 
+        parameter_values = dict(s1=1/2, s2=1/2, s3=1/2, m1=1, m2=1, m3=3, J1=1/12, J2=1/12, J3=1/12, l1=1, l2=1.5,
+                                l3=1.5, kappa1=3/2, kappa2=14.715, g=9.81).items()
+
         # ttau = sp.symbols('tau')
         tau1, tau2 = ttau = st.symb_vector("tau1, tau2")
 
         # Einheitsvektoren
 
         ex = sp.Matrix([1, 0])
-        ey = sp.Matrix([0, 1])
 
         # Basis 1 und 2
         B1 = sp.Matrix([0, 0])
@@ -126,23 +139,26 @@ class ModelToolsTest(unittest.TestCase):
 
         M1, M2, M3 = MM = st.symb_vector('M1:4')
         MM_subs = [(J1 + m1*s1 ** 2 + m2*l1 ** 2, M1), (J2 + m2*s2 ** 2, M2), (m2*l1*s2, M3)]
-        MM_rplm = st.rev_tuple(MM_subs)  # Umkehrung der inneren Tupel -> [(M1, J1+... ), ...]
+        # MM_rplm = st.rev_tuple(MM_subs)  # Umkehrung der inneren Tupel -> [(M1, J1+... ), ...]
 
-
-        # virtuelle Drehmomente
-        mu1, mu2 = mmu = st.symb_vector("mu1, mu2")
-
-        external_forces = [mu1, mu2, tau1]
+        external_forces = [0, 0, tau1]
 
         mod = mt.generate_symbolic_model(T, V, ttheta, external_forces, constraints=[G2 - G2b])
 
         self.assertEqual(mod.llmd.shape, (2, 1))
         self.assertEqual(mod.constraints.shape, (2, 1))
 
-        mod.calc_dae_eq()
+        dae = mod.calc_dae_eq(parameter_values=parameter_values)
 
         nc = len(mod.llmd)
-        self.assertEqual(mod.dae.eqns[-nc:, :], mod.constraints)
+        self.assertEqual(dae.eqns[-nc:, :], mod.constraints)
+
+        ttheta_c1 = dae.calc_constistent_conf(q1=npy.pi/4)
+
+        eres = npy.array([-0.2285526,  1.58379902,  0.78539816])
+
+        self.assertTrue(npy.allclose(ttheta_c1, eres))
+
 
     def test_cart_pole(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
@@ -458,9 +474,9 @@ class ModelToolsTest2(unittest.TestCase):
 
     def testRz(self):
         Rz1 = mt.Rz(sp.pi*0.4)
-        Rz2 = mt.Rz(np.pi*0.4, to_numpy=True)
+        Rz2 = mt.Rz(npy.pi*0.4, to_numpy=True)
 
-        self.assertTrue(np.allclose(st.to_np(Rz1), Rz2))
+        self.assertTrue(npy.allclose(st.to_np(Rz1), Rz2))
 
     def test_transform_2nd_to_1st(self):
 

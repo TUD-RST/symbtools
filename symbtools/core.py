@@ -3480,8 +3480,9 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
         unexpected_symbols.extend(xpr.atoms(sp.Symbol).difference(arg_tup))
     unexpected_symbols = list(set(unexpected_symbols))  # dismiss duplicates
     unexpected_symbols.sort(key=lambda s: str(s))
+    # noinspection PySimplifyBooleanCheck
     if unexpected_symbols != []:
-        msg = "the following symbols where in expr, but not in args:\n{}\n"
+        msg = "the following symbols were in expr, but not in args:\n{}\n"
         warnings.warn(msg.format(unexpected_symbols))
 
     # TODO: Test how this works with np_wrapper and vectorized arguments
