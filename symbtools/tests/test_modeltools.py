@@ -52,10 +52,10 @@ class ModelToolsTest(unittest.TestCase):
 
         m = sp.Symbol('m')
 
-        q1d, q2d = st.time_deriv(qq, qq)
+        qdot1, qdot2 = st.time_deriv(qq, qq)
         q1dd, q2dd = st.time_deriv(qq, qq, order=2)
 
-        T = q1d**2*m/4 + q2d**2*m/4
+        T = qdot1**2*m/4 + qdot2**2*m/4
         V = 0
 
         mod = mt.generate_symbolic_model(T, V, qq, [F1, 0], constraints=[q1-q2])
@@ -65,13 +65,27 @@ class ModelToolsTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             # no parameters passed
             dae = mod.calc_dae_eq()
+            dae.generate_eqns_func()
 
         dae = mod.calc_dae_eq(parameter_values=[(m, 1)])
 
-        ttheta_c1 = dae.calc_constistent_conf(q1=0.123)
-        eres = npy.array([0.123, 0.123])
+        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q1=0.123, _disp=False)
 
-        self.assertTrue(npy.allclose(ttheta_c1, eres))
+        self.assertTrue(npy.allclose(ttheta_1, npy.array([0.123, 0.123])))
+        self.assertTrue(npy.allclose(ttheta_d_1, npy.array([0.0, 0.0])))
+
+        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q2=567, qdot2=-100, _disp=False)
+
+        self.assertTrue(npy.allclose(ttheta_1, npy.array([567., 567.])))
+        self.assertTrue(npy.allclose(ttheta_d_1, npy.array([-100.0, -100.0])))
+
+        with self.assertRaises(ValueError) as cm:
+            # wrong argument
+            ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q2=567, q2d=-100, _disp=False)
+
+        with self.assertRaises(ValueError) as cm:
+            # unexpected argument
+            ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q2=567, qdot2=-100, foobar="fnord", _disp=False)
 
     def test_four_bar_constraints(self):
         t = sp.Symbol('t')  # time variable
@@ -153,12 +167,23 @@ class ModelToolsTest(unittest.TestCase):
         nc = len(mod.llmd)
         self.assertEqual(dae.eqns[-nc:, :], mod.constraints)
 
-        ttheta_c1 = dae.calc_constistent_conf(q1=npy.pi/4)
+        # qdot1 = 0
+        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q1=npy.pi/4, _disp=False)
 
-        eres = npy.array([-0.2285526,  1.58379902,  0.78539816])
+        eres_c = npy.array([-0.2285526,  1.58379902,  0.78539816])
+        eres_v = npy.array([0, 0, 0])
 
-        self.assertTrue(npy.allclose(ttheta_c1, eres))
+        self.assertTrue(npy.allclose(ttheta_1, eres_c))
+        self.assertTrue(npy.allclose(ttheta_d_1, eres_v))
 
+        # qdot1 ≠ 0
+        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
+
+        eres_c = npy.array([-0.85754267,  0.89969149,  0.875])*npy.pi
+        eres_v = npy.array([-3.42862311,  2.39360715,  3.])
+
+        self.assertTrue(npy.allclose(ttheta_1, eres_c))
+        self.assertTrue(npy.allclose(ttheta_d_1, eres_v))
 
     def test_cart_pole(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))

@@ -414,15 +414,16 @@ class DAE_System(object):
         eqns2 = mod.eqns.subz(mod.ttdd, yyd[self.ntt:2*self.ntt])
 
         self.constraints = mod.constraints = sp.Matrix(mod.constraints).subs(parameter_values)
+        self.constraints_d = None
+
         self.eqns = st.row_stack(eqns1, eqns2, mod.constraints).subs(parameter_values)
         self.MM = mod.MM.subs(parameter_values)
 
         self.eq_func = None
-
         self.constraints_func = None
-        self.generate_eqns_func()
+        self.constraints_d_func = None
 
-    def generate_eqns_func(self):
+    def generate_eqns_func(self, parameter_values=None):
         """
         Create a callable function of the form F(ww) which internally represents the lhs of F(t, yy, yyd) = 0
         with ww = (yy, yydot, ttau). Note that the input tau will later be calculated by a controller ttau = k(t, yy).
@@ -430,9 +431,21 @@ class DAE_System(object):
         :return: None, set self.eq_func
         """
 
+        if self.eq_func is not None:
+            return
+
+        if parameter_values is None:
+            parameter_values = []
+
+        # also respect those values, which have been passed to the constructor
+        parameter_values = self.parameter_values + parameter_values
+
         fvars = st.concat_rows(self.yy, self.yyd, self.mod.tau)
 
-        actual_symbs = self.eqns.atoms(sp.Symbol)
+        # keep self.eqns unchanged (maybe not necessary)
+        eqns = self.eqns.subs(parameter_values)
+
+        actual_symbs = eqns.atoms(sp.Symbol)
         expected_symbs = set(fvars)
         unexpected_symbs = actual_symbs.difference(expected_symbs)
         if unexpected_symbs:
@@ -440,7 +453,7 @@ class DAE_System(object):
                   "Unexpected symbols: {}".format(unexpected_symbs)
             raise ValueError(msg)
 
-        self.eq_func = st.expr_to_func(fvars, self.eqns)
+        self.eq_func = st.expr_to_func(fvars, eqns)
 
     def generate_constraints_func(self):
 
@@ -456,62 +469,132 @@ class DAE_System(object):
 
         self.constraints_func = st.expr_to_func(self.mod.tt, self.constraints)
 
-    def calc_constistent_conf(self, **kwargs):
+        # now we need also the differentiated constraints (e.g. to calculate consistent velocities)
+
+        self.constraints_d = st.time_deriv(self.constraints, self.mod.tt)
+
+        xx = st.row_stack(self.mod.tt, self.mod.ttd)
+
+        # this functions depends on coordinates ttheta and velocities ttheta_dot
+        self.constraints_d_func = st.expr_to_func(xx, self.constraints_d)
+
+    def calc_constistent_conf_vel(self, **kwargs):
         """
-        Example call: calc_consistent_conf(p1=0.5, _eps=1e-12)
+        Example call: calc_consistent_conf(p1=0.5, pdot1=-1.2, p2_estimate=-2, _ftol=1e-12)
+
+        Notes,
+            - There must self.ndof coordinates be specified. These will be the independent variables.
+            - If velocities (of indep. vars) are not given explicitly, they are assumed to be zero.
+            - If estimates (guess) for coords or velocities (of dep. vars) are not given explicitly,
+              they are assumed to be zero.
 
         :param kwargs:
         :return:
         """
 
-        num_requests = []
-        estimates = []
+        # for coordinates and velocities
+        c_num_requests = []
+        c_estimates = []
+        v_num_requests = []
+        v_estimates = []
 
-        # index lists fot independent and dependent vars
+        disp_flag = kwargs.get("_disp", True)
+
+        option_names = {"_ftol", "_xtol", "_disp"}
+
+        # check if (accidentally) wrong symbol names have been passed (like 'q2d' instead of 'qdot2')
+        # or if symbol names clash with additional options
+        keys = set(kwargs.keys())
+        valid_symbol_names = set([s.name for s in list(self.mod.tt) + list(self.mod.ttd)])
+        valid_estimate_names = set([n+"_estimate" for n in valid_symbol_names])
+
+        assert not valid_symbol_names.intersection(option_names)
+        assert not valid_estimate_names.intersection(option_names)
+
+        valid_keys = option_names.union(valid_symbol_names, valid_estimate_names)
+
+        invalid_keys = keys - valid_keys
+
+        if invalid_keys:
+            msg = "The following invalid keywords were passed: {}. " \
+                  "Valid keywords are a subset of {}".format(invalid_keys, valid_keys)
+            raise ValueError(msg)
+
+        # index lists for independent and dependent vars
         indep_idcs = []
         dep_idcs = []
-        for i, theta_i in enumerate(self.mod.tt):
-            assert theta_i.name not in ("_ftol", "_xtol",)
-            val = kwargs.get(theta_i.name)
-            if val is not None:
-                # num_requests.append((theta_i, val))
-                num_requests.append(val)
+        for i, (theta_i, theta_dot_i) in enumerate(zip(self.mod.tt, self.mod.ttd)):
+
+            # first handle coordinates
+            c_val = kwargs.get(theta_i.name)
+            if c_val is not None:
+                c_num_requests.append(c_val)
                 indep_idcs.append(i)
             else:
                 # look for estimate or choose 0 otherwise
-                est = kwargs.get(theta_i.name + "_estimate", 0)
-                # estimates.append((theta_i, est))
-                estimates.append(est)
+                c_est = kwargs.get(theta_i.name + "_estimate", 0)
+                c_estimates.append(c_est)
 
                 # this is an independent var
                 dep_idcs.append(i)
 
-        assert len(num_requests) == self.ndof
-        assert len(num_requests) + len(estimates) == self.ntt
+            # now look for velocities
+            if c_val is not None:
+                # this is an indep. var
+                v_val = kwargs.get(theta_dot_i.name, 0)
+                v_num_requests.append(v_val)
+            else:
+                assert theta_dot_i.name not in kwargs
+                v_est = kwargs.get(theta_dot_i.name + "_estimate", 0)
+                v_estimates.append(v_est)
+
+        assert len(c_num_requests) == self.ndof
+        assert len(c_num_requests) + len(c_estimates) == self.ntt
+        assert len(v_num_requests) == self.ndof
+        assert len(v_num_requests) + len(v_estimates) == self.ntt
 
         self.generate_constraints_func()
 
         # construct the full argument for the constraints (zeros will be replaced at runtime)
-        arg = np.zeros(self.ntt)
-        arg[indep_idcs] = num_requests
+        arg_c = np.zeros(self.ntt)
+        arg_c[indep_idcs] = c_num_requests
 
-        def min_target(dep_coords):
-            arg[dep_idcs] = dep_coords
+        def min_target_c(dep_coords):
+            # write the dependent values at the corresponding places in the array
+            arg_c[dep_idcs] = dep_coords
 
-            return np.linalg.norm(self.constraints_func(*arg))
+            return np.linalg.norm(self.constraints_func(*arg_c))
 
         ftol = kwargs.get("_ftol", 1e-8)
         xtol = kwargs.get("_xtol", 1e-8)
 
-        c0 = np.array(estimates)
-        sol = fmin(min_target, c0, ftol=ftol, xtol=xtol)
+        c0 = np.array(c_estimates)
+        sol_c = fmin(min_target_c, c0, ftol=ftol, xtol=xtol, disp=disp_flag)
 
-        arg[dep_idcs] = sol
-        ttheta_cons = arg
+        arg_c[dep_idcs] = sol_c
+        ttheta_cons = arg_c
 
         assert np.allclose(self.constraints_func(*ttheta_cons), 0)
 
-        return ttheta_cons
+        # now calculate velocities
+
+        arg_v = np.zeros(self.ntt)
+        arg_v[indep_idcs] = v_num_requests
+
+        def min_target_v(dep_vels):
+            # write the dependent values at the corresponding places in the velocity-array
+            arg_v[dep_idcs] = dep_vels
+
+            arg_cv = np.concatenate((ttheta_cons, arg_v))
+            return np.linalg.norm(self.constraints_d_func(*arg_cv))
+
+        v0 = np.array(v_estimates)
+        sol_v = fmin(min_target_v, v0, ftol=ftol, xtol=xtol, disp=disp_flag)
+
+        arg_v[dep_idcs] = sol_v
+        ttheta_dot_cons = arg_v
+
+        return ttheta_cons, ttheta_dot_cons
 
     def calc_consistent_init_vals(self, xinit, llmd_guess=None):
         """
