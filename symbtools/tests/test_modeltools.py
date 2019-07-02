@@ -53,7 +53,7 @@ class ModelToolsTest(unittest.TestCase):
         m = sp.Symbol('m')
 
         qdot1, qdot2 = st.time_deriv(qq, qq)
-        q1dd, q2dd = st.time_deriv(qq, qq, order=2)
+        # q1dd, q2dd = st.time_deriv(qq, qq, order=2)
 
         T = qdot1**2*m/4 + qdot2**2*m/4
         V = 0
@@ -62,6 +62,7 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(mod.llmd.shape, (1, 1))
         self.assertEqual(mod.constraints[0], q1 - q2)
 
+        # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # no parameters passed
             dae = mod.calc_dae_eq()
@@ -79,25 +80,23 @@ class ModelToolsTest(unittest.TestCase):
         self.assertTrue(npy.allclose(ttheta_1, npy.array([567., 567.])))
         self.assertTrue(npy.allclose(ttheta_d_1, npy.array([-100.0, -100.0])))
 
+        # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # wrong argument
-            ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q2=567, q2d=-100, _disp=False)
+            dae.calc_constistent_conf_vel(q2=567, q2d=-100, _disp=False)
 
+        # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # unexpected argument
-            ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q2=567, qdot2=-100, foobar="fnord", _disp=False)
+            dae.calc_constistent_conf_vel(q2=567, qdot2=-100, foobar="fnord", _disp=False)
 
     def test_four_bar_constraints(self):
-        t = sp.Symbol('t')  # time variable
 
         # 2 passive Gelenke
         np = 2
         nq = 1
-        n = np + nq
         p1, p2 = pp = st.symb_vector("p1:{0}".format(np + 1))
         q1, = qq = st.symb_vector("q1:{0}".format(nq + 1))
-
-        aa = st.symb_vector("a1:{0}".format(nq + 1))
 
         ttheta = st.row_stack(pp, qq)
         pdot1, pdot2, qdot1 = tthetad = st.time_deriv(ttheta, ttheta)
@@ -112,48 +111,43 @@ class ModelToolsTest(unittest.TestCase):
                                 l3=1.5, kappa1=3/2, kappa2=14.715, g=9.81).items()
 
         # ttau = sp.symbols('tau')
-        tau1, tau2 = ttau = st.symb_vector("tau1, tau2")
+        tau1, tau2 = st.symb_vector("tau1, tau2")
 
-        # Einheitsvektoren
-
+        # unit vectors
         ex = sp.Matrix([1, 0])
 
-        # Basis 1 und 2
-        B1 = sp.Matrix([0, 0])
+        # Basis 1 and 2
+        # B1 = sp.Matrix([0, 0])
         B2 = sp.Matrix([2*l1, 0])
 
         # Koordinaten der Schwerpunkte und Gelenke
-        S1 = Rz(q1)*ex*s1  ##:
+        S1 = Rz(q1)*ex*s1
+        G1 = Rz(q1)*ex*l1
+        S2 = G1 + Rz(q1 + p1)*ex*s2
+        G2 = G1 + Rz(q1 + p1)*ex*l2
 
-        G1 = Rz(q1)*ex*l1  ##:
+        # one link manioulator
+        G2b = B2 + Rz(p2)*ex*l3
+        S3 = B2 + Rz(p2)*ex*s3
 
-        S2 = G1 + Rz(q1 + p1)*ex*s2  ##:
-
-        G2 = G1 + Rz(q1 + p1)*ex*l2  ##:
-
-        # Ein-Gelenk-Manioulator
-        G2b = B2 + Rz(p2)*ex*l3  ##:
-
-        S3 = B2 + Rz(p2)*ex*s3  ##:
-
-        # Zeitableitungen der Schwerpunktskoordinaten
+        # timederivatives of centers of masses
         Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), ttheta))
 
-        # Kinetische Energie
+        # kinetic energy
 
         T_rot = (J1*qdot1 ** 2 + J2*(qdot1 + pdot1) ** 2 + J3*(pdot2) ** 2)/2
         T_trans = (m1*Sd1.T*Sd1 + m2*Sd2.T*Sd2 + m3*Sd3.T*Sd3)/2
 
-        T = T_rot + T_trans[0]  ##:
+        T = T_rot + T_trans[0]
 
-        # Potentielle Energie
-        V = m1*g*S1[1] + m2*g*S2[1] + m3*g*S3[1]  ##:
+        # potential energy
+        V = m1*g*S1[1] + m2*g*S2[1] + m3*g*S3[1]
 
-        # Kinetische Energie mit Platzhaltersymbolen einführen (jetzt nicht):
-
-        M1, M2, M3 = MM = st.symb_vector('M1:4')
-        MM_subs = [(J1 + m1*s1 ** 2 + m2*l1 ** 2, M1), (J2 + m2*s2 ** 2, M2), (m2*l1*s2, M3)]
-        # MM_rplm = st.rev_tuple(MM_subs)  # Umkehrung der inneren Tupel -> [(M1, J1+... ), ...]
+        # # Kinetische Energie mit Platzhaltersymbolen einführen (jetzt nicht):
+        #
+        # M1, M2, M3 = MM = st.symb_vector('M1:4')
+        # MM_subs = [(J1 + m1*s1 ** 2 + m2*l1 ** 2, M1), (J2 + m2*s2 ** 2, M2), (m2*l1*s2, M3)]
+        # # MM_rplm = st.rev_tuple(MM_subs)  # Umkehrung der inneren Tupel -> [(M1, J1+... ), ...]
 
         external_forces = [0, 0, tau1]
 
@@ -195,13 +189,13 @@ class ModelToolsTest(unittest.TestCase):
         pdot1 = st.time_deriv(p1, ttheta)
         # q1dd = st.time_deriv(q1, ttheta, order=2)
 
-        ex = Matrix([1,0])
-        ey = Matrix([0,1])
+        ex = Matrix([1, 0])
+        ey = Matrix([0, 1])
 
         S0 = ex*q1  # joint of the pendulum
         S1 = S0 - mt.Rz(p1)*ey*l1  # center of mass
 
-        #velocity
+        # velocity
         S0d = st.time_deriv(S0, ttheta)
         S1d = st.time_deriv(S1, ttheta)
 
@@ -210,15 +204,16 @@ class ModelToolsTest(unittest.TestCase):
         T = T_rot + T_trans[0]
 
         V = m1*g*S1[1]
-        
+
+        # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # wrong length of external forces
             mt.generate_symbolic_model(T, V, ttheta, [F1])
-            
+
+        # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # wrong length of external forces
             mt.generate_symbolic_model(T, V, ttheta, [F1, 0, 0])
-            
 
         QQ = sp.Matrix([0, F1])
         mod = mt.generate_symbolic_model(T, V, ttheta, [0, F1])
@@ -236,7 +231,9 @@ class ModelToolsTest(unittest.TestCase):
         M_ref = Matrix([[l1**2*m1, l1*m1*cos(p1)], [l1*m1*cos(p1), m1 + m0]])
         self.assertEqual(M, M_ref)
 
-        rest = mod.eqns.subs(st.zip0((mod.ttdd)))
+        # noinspection PyUnusedLocal
+        rest = mod.eqns.subs(st.zip0(mod.ttdd))
+        # noinspection PyUnusedLocal
         rest_ref = Matrix([[g*l1*m1*sin(p1)], [-F1 - l1*m1*pdot1**2*sin(p1)]])
 
         self.assertEqual(M, M_ref)
@@ -254,7 +251,7 @@ class ModelToolsTest(unittest.TestCase):
 
     def test_cart_pole_with_dissi(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
-        F1, tau_dissi = ttau = sp.Matrix(sp.symbols('F1, tau_dissi'))
+        F1, tau_dissi = sp.Matrix(sp.symbols('F1, tau_dissi'))
 
         params = sp.symbols('m0, m1, l1, g, d1')
         m0, m1, l1, g, d1 = params
@@ -297,32 +294,31 @@ class ModelToolsTest(unittest.TestCase):
         qq = st.symb_vector("q1:{0}".format(nq+1))
 
         p1, q1, q2 = ttheta = st.row_stack(pp, qq)
-        pdot1, qdot1, qdot2 = tthetad = st.time_deriv(ttheta, ttheta)
-        mud = st.time_deriv(ttheta, ttheta, order=2)
+        pdot1, qdot1, qdot2 = st.time_deriv(ttheta, ttheta)
         params = sp.symbols('l3, l4, s3, s4, J3, J4, m1, m2, m3, m4, g')
         l3, l4, s3, s4, J3, J4, m1, m2, m3, m4, g = params
 
-        tau1, tau2 = ttau= st.symb_vector("tau1, tau2")
+        tau1, tau2 = st.symb_vector("tau1, tau2")
 
-        ## Geometry
+        # Geometry
 
         ex = sp.Matrix([1,0])
         ey = sp.Matrix([0,1])
 
-        # Koordinaten der Schwerpunkte und Gelenke
+        # Coordinates of centers of masses (com) and joints
         S1 = ex*q1
         S2 = ex*q1 + ey*q2
-        G3 = S2 # Gelenk
+        G3 = S2  # Joints
 
-        # Schwerpunkt des Pendels #zeigt nach oben
+        # com of pendulum (points upwards)
         S3 = G3 + mt.Rz(p1)*ey*s3
 
-        # Zeitableitungen der Schwerpunktskoordinaten
+        # timederivatives
         Sd1, Sd2, Sd3 = st.col_split(st.time_deriv(st.col_stack(S1, S2, S3), ttheta)) ##
 
         # Energy
         T_rot = ( J3*pdot1**2 )/2
-        T_trans = ( m1*Sd1.T*Sd1  +  m2*Sd2.T*Sd2 + m3*Sd3.T*Sd3 )/2
+        T_trans = ( m1*Sd1.T*Sd1 + m2*Sd2.T*Sd2 + m3*Sd3.T*Sd3 )/2
         T = T_rot + T_trans[0]
         V = m1*g*S1[1] + m2*g*S2[1] + m3*g*S3[1]
 
@@ -331,7 +327,7 @@ class ModelToolsTest(unittest.TestCase):
         mod = mt.generate_symbolic_model(T, V, ttheta, external_forces)
         mod.calc_coll_part_lin_state_eq(simplify=True)
 
-        #pdot1, qdot1, qdot2 = mod.ttd
+        # Note: pdot1, qdot1, qdot2 = mod.ttd
 
         ff_ref = sp.Matrix([[pdot1], [qdot1], [qdot2], [g*m3*s3*sin(p1)/(J3 + m3*s3**2)], [0], [0]])
         gg_ref_part = sp.Matrix([m3*s3*cos(p1)/(J3 + m3*s3**2), m3*s3*sin(p1)/(J3 + m3*s3**2)]).T
@@ -342,19 +338,20 @@ class ModelToolsTest(unittest.TestCase):
     def test_two_link_manipulator(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))
         pdot1, qdot1 = st.time_deriv(ttheta, ttheta)
-        tau1, = ttau = sp.Matrix(sp.symbols('F1,'))
+        tau1, = sp.Matrix(sp.symbols('F1,'))
 
         params = sp.symbols('m1, m2, l1, l2, s1, s2, J1, J2')
         m1, m2, l1, l2, s1, s2, J1, J2 = params
 
-        ex = Matrix([1,0])
-        ey = Matrix([0,1])
+        ex = Matrix([1, 0])
+        # noinspection PyUnusedLocal
+        ey = Matrix([0, 1])
 
         S1 = mt.Rz(q1)*ex*s1  # center of mass (first link)
         G1 = mt.Rz(q1)*ex*l1  # first joint
         S2 = G1 + mt.Rz(q1+p1)*ex*s2
 
-        #velocity
+        # velocity
         S1d = st.time_deriv(S1, ttheta)
         S2d = st.time_deriv(S2, ttheta)
 
@@ -366,15 +363,12 @@ class ModelToolsTest(unittest.TestCase):
         V = 0
 
         mod = mt.generate_symbolic_model(T, V, ttheta, [tau1, 0])
-        #mod.eqns.simplify()
-
-        #mod.calc_coll_part_lin_state_eq(simplify=True)
         mod.calc_lbi_nf_state_eq(simplify=True)
 
         w1 = mod.ww[0]
 
         kappa = l1*m2*s2 / (J2 + m2*s2**2)
-        fz4 = - kappa * qdot1*sin(p1) *(w1 - kappa*qdot1*cos(p1))
+        fz4 = - kappa * qdot1*sin(p1)*(w1 - kappa*qdot1*cos(p1))
         fzref = sp.Matrix([[                               qdot1],
                            [                                   0],
                            [ (-qdot1*(1 + kappa*cos(p1) ) ) + w1],
@@ -395,7 +389,6 @@ class ModelToolsTest(unittest.TestCase):
 
         theta = st.symb_vector("p1, q1, q2")
         p1, q1, q2 = theta
-        theta
 
         params = sp.symbols('l1, l2, s1, s2, delta0, delta1, delta2, J0, J1, J2, m0, m1, m2, r, g')
         l1, l2, s1, s2, delta0, delta1, delta2, J0, J1, J2, m0, m1, m2, r, g = params
@@ -407,8 +400,9 @@ class ModelToolsTest(unittest.TestCase):
         p1d, q1d, q2d = mu
 
         # Geometry
-        ex = Matrix([1,0])
-        ey = Matrix([0,1])
+        # noinspection PyUnusedLocal
+        ex = Matrix([1, 0])
+        ey = Matrix([0, 1])
 
         M0 = Matrix([-r*p1, r])
 
@@ -428,7 +422,13 @@ class ModelToolsTest(unittest.TestCase):
         V = m1*g*S1[1] + m2*g*S2[1]
 
         mod = mt.generate_symbolic_model(T, V, theta, [0, Q1, Q2])
+        self.assertEqual(mod.fz, None)
+        self.assertEqual(mod.gz, None)
+
         mod.calc_lbi_nf_state_eq()
+
+        self.assertEqual(mod.fz.shape, (6, 1))
+        self.assertEqual(mod.gz, sp.eye(6)[:, 2:4])
 
     def test_triple_pendulum(self):
 
@@ -439,9 +439,8 @@ class ModelToolsTest(unittest.TestCase):
         ttheta = st.row_stack(pp, qq)
         Q1, Q2 = sp.symbols('Q1, Q2')
 
-
-        p1_d, q1_d, q2_d = mu = st.time_deriv(ttheta, ttheta)
-        p1_dd, q1_dd, q2_dd = mu_d = st.time_deriv(ttheta, ttheta, order=2)
+        p1_d, q1_d, q2_d = st.time_deriv(ttheta, ttheta)
+        p1_dd, q1_dd, q2_dd = st.time_deriv(ttheta, ttheta, order=2)
 
         p1, q1, q2 = ttheta
 
@@ -449,17 +448,13 @@ class ModelToolsTest(unittest.TestCase):
         kk = sp.Matrix([q1, q2, p1])
         kd1, kd2, kd3 = q1_d, q2_d, p1_d
 
-
         params = sp.symbols('l1, l2, l3, l4, s1, s2, s3, s4, J1, J2, J3, J4, m1, m2, m3, m4, g')
         l1, l2, l3, l4, s1, s2, s3, s4, J1, J2, J3, J4, m1, m2, m3, m4, g = params
 
-
         # geometry
-
         mey = -Matrix([0,1])
 
         # coordinates for centers of inertia and joints
-
         S1 = mt.Rz(kk[0])*mey*s1
         G1 = mt.Rz(kk[0])*mey*l1
 
@@ -467,6 +462,7 @@ class ModelToolsTest(unittest.TestCase):
         G2 = G1 + mt.Rz(sum(kk[:2]))*mey*l2
 
         S3 = G2 + mt.Rz(sum(kk[:3]))*mey*s3
+        # noinspection PyUnusedLocal
         G3 = G2 + mt.Rz(sum(kk[:3]))*mey*l3
 
         # velocities of joints and center of inertia
@@ -492,6 +488,7 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(eqns_ref, mod.eqns)
 
 
+# noinspection PyPep8Naming
 class ModelToolsTest2(unittest.TestCase):
 
     def setUp(self):
