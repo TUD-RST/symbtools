@@ -75,10 +75,10 @@ class ModelToolsTest(unittest.TestCase):
         self.assertTrue(npy.allclose(ttheta_1, npy.array([0.123, 0.123])))
         self.assertTrue(npy.allclose(ttheta_d_1, npy.array([0.0, 0.0])))
 
-        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q2=567, qdot2=-100, _disp=False)
+        ttheta_2, ttheta_d_2 = dae.calc_constistent_conf_vel(q2=567, qdot2=-100, _disp=False)
 
-        self.assertTrue(npy.allclose(ttheta_1, npy.array([567., 567.])))
-        self.assertTrue(npy.allclose(ttheta_d_1, npy.array([-100.0, -100.0])))
+        self.assertTrue(npy.allclose(ttheta_2, npy.array([567., 567.])))
+        self.assertTrue(npy.allclose(ttheta_d_2, npy.array([-100.0, -100.0])))
 
         # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
@@ -89,6 +89,23 @@ class ModelToolsTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             # unexpected argument
             dae.calc_constistent_conf_vel(q2=567, qdot2=-100, foobar="fnord", _disp=False)
+
+        dae.gen_leqs_for_acc_llmd()
+        A, b = dae.leqs_acc_lmd_func(*npy.r_[ttheta_1, ttheta_1, 1])
+
+        self.assertEqual(A.shape, (dae.ntt+dae.nll,)*2)
+        self.assertEqual(b.shape, (dae.ntt+dae.nll,))
+        self.assertTrue(npy.allclose(b, [1, 0, 0]))
+
+        # in that situation there is no force
+        acc_1, llmd_1 = dae.calc_consistent_accel_lmd((ttheta_1, ttheta_d_1))
+        self.assertTrue(npy.allclose(acc_1, [0, 0]))
+        self.assertTrue(npy.allclose(llmd_1, [0, 0]))
+
+        # in that situation there is also no force
+        acc_2, llmd_2 = dae.calc_consistent_accel_lmd((ttheta_2, ttheta_d_2))
+        self.assertTrue(npy.allclose(acc_2, [0, 0]))
+        self.assertTrue(npy.allclose(llmd_2, [0, 0]))
 
     def test_four_bar_constraints(self):
 
@@ -170,14 +187,20 @@ class ModelToolsTest(unittest.TestCase):
         self.assertTrue(npy.allclose(ttheta_1, eres_c))
         self.assertTrue(npy.allclose(ttheta_d_1, eres_v))
 
+        # in that situation there is no force
+        acc_1, llmd_1 = dae.calc_consistent_accel_lmd((ttheta_1, ttheta_d_1))
+        # these values seem reasonable but have yet not been checked analytically
+        self.assertTrue(npy.allclose(acc_1, [13.63475466, -1.54473017, -8.75145644]))
+        self.assertTrue(npy.allclose(llmd_1, [-0.99339947,  0.58291489]))
+
         # qdot1 ≠ 0
-        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
+        ttheta_2, ttheta_d_2 = dae.calc_constistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
 
         eres_c = npy.array([-0.85754267,  0.89969149,  0.875])*npy.pi
         eres_v = npy.array([-3.42862311,  2.39360715,  3.])
 
-        self.assertTrue(npy.allclose(ttheta_1, eres_c))
-        self.assertTrue(npy.allclose(ttheta_d_1, eres_v))
+        self.assertTrue(npy.allclose(ttheta_2, eres_c))
+        self.assertTrue(npy.allclose(ttheta_d_2, eres_v))
 
     def test_cart_pole(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))

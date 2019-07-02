@@ -415,6 +415,7 @@ class DAE_System(object):
 
         self.constraints = mod.constraints = sp.Matrix(mod.constraints).subs(parameter_values)
         self.constraints_d = None
+        self.constraints_dd = None
 
         self.eqns = st.row_stack(eqns1, eqns2, mod.constraints).subs(parameter_values)
         self.MM = mod.MM.subs(parameter_values)
@@ -422,6 +423,18 @@ class DAE_System(object):
         self.eq_func = None
         self.constraints_func = None
         self.constraints_d_func = None
+        self.constraints_dd_func = None
+        self.leqs_acc_lmd_func = None
+
+
+        # default input-function
+        u_zero = np.zeros((len(self.mod.tau)))
+
+        # noinspection PyUnusedLocal
+        def input_func(t):
+            return u_zero
+
+        self.input_func = input_func
 
     def generate_eqns_func(self, parameter_values=None):
         """
@@ -438,7 +451,7 @@ class DAE_System(object):
             parameter_values = []
 
         # also respect those values, which have been passed to the constructor
-        parameter_values = self.parameter_values + parameter_values
+        parameter_values = list(self.parameter_values) + list(parameter_values)
 
         fvars = st.concat_rows(self.yy, self.yyd, self.mod.tau)
 
@@ -455,7 +468,7 @@ class DAE_System(object):
 
         self.eq_func = st.expr_to_func(fvars, eqns)
 
-    def generate_constraints_func(self):
+    def generate_constraints_funcs(self):
 
         if self.constraints_func is not None:
             return
@@ -469,14 +482,75 @@ class DAE_System(object):
 
         self.constraints_func = st.expr_to_func(self.mod.tt, self.constraints)
 
-        # now we need also the differentiated constraints (e.g. to calculate consistent velocities)
+        # now we need also the differentiated constraints (e.g. to calculate consistent velocities and accelerations)
 
         self.constraints_d = st.time_deriv(self.constraints, self.mod.tt)
+        self.constraints_dd = st.time_deriv(self.constraints_d, self.mod.tt)
 
         xx = st.row_stack(self.mod.tt, self.mod.ttd)
 
-        # this functions depends on coordinates ttheta and velocities ttheta_dot
+        # this function depends on coordinates ttheta and velocities ttheta_dot
         self.constraints_d_func = st.expr_to_func(xx, self.constraints_d)
+
+        zz = st.row_stack(self.mod.tt, self.mod.ttd, self.mod.ttdd)
+
+        # this function depends on coordinates ttheta and velocities ttheta_dot and accel
+        self.constraints_dd_func = st.expr_to_func(zz, self.constraints_dd)
+
+    def gen_leqs_for_acc_llmd(self, parameter_values=None):
+        """
+        Create a callable function which returns A, bnum of the linear eqn-system A*ww = bnum, where ww = (ttheta_dd, llmnd)
+
+
+        :return: None, set self.leqs_acc_lmd_func
+        """
+
+        if self.leqs_acc_lmd_func is not None:
+            return
+
+        if parameter_values is None:
+            parameter_values = []
+
+        self.generate_constraints_funcs()
+
+        # also respect those values, which have been passed to the constructor
+        parameter_values = list(self.parameter_values) + list(parameter_values)
+
+        # we use mod.eqns here because we do not want ydot-vars inside
+        eqns = st.concat_rows(self.mod.eqns.subs(parameter_values), self.constraints_dd)
+
+        ww = st.concat_rows(self.mod.ttdd, self.mod.llmd)
+
+        A = eqns.jacobian(ww)
+        b = -eqns.subz0(ww)  # rhs of the leqs
+
+        Ab = st.concat_cols(A, b)
+
+        fvars = st.concat_rows(self.mod.tt, self.mod.ttd, self.mod.tau)
+
+        actual_symbs = Ab.atoms(sp.Symbol)
+        expected_symbs = set(fvars)
+        unexpected_symbs = actual_symbs.difference(expected_symbs)
+        if unexpected_symbs:
+            msg = "Equations can only converted to numerical func if all parameters are passed for substitution. " \
+                  "Unexpected symbols: {}".format(unexpected_symbs)
+            raise ValueError(msg)
+
+        A_fnc = st.expr_to_func(fvars, A, keep_shape=True)
+        b_fnc = st.expr_to_func(fvars, b)
+
+        nargs = len(fvars)
+
+        # noinspection PyShadowingNames
+        def leqs_acc_lmd_func(*args):
+            assert len(args) == nargs
+            Anum = A_fnc(*args)
+            bnum = b_fnc(*args)
+
+            # theese arrays can now be passed to a linear equation solver
+            return Anum, bnum
+
+        self.leqs_acc_lmd_func = leqs_acc_lmd_func
 
     def calc_constistent_conf_vel(self, **kwargs):
         """
@@ -553,7 +627,7 @@ class DAE_System(object):
         assert len(v_num_requests) == self.ndof
         assert len(v_num_requests) + len(v_estimates) == self.ntt
 
-        self.generate_constraints_func()
+        self.generate_constraints_funcs()
 
         # construct the full argument for the constraints (zeros will be replaced at runtime)
         arg_c = np.zeros(self.ntt)
@@ -591,10 +665,50 @@ class DAE_System(object):
         v0 = np.array(v_estimates)
         sol_v = fmin(min_target_v, v0, ftol=ftol, xtol=xtol, disp=disp_flag)
 
+        # ensure that solution was successful
+        assert np.allclose(min_target_v(sol_v), 0)
+
         arg_v[dep_idcs] = sol_v
         ttheta_dot_cons = arg_v
 
         return ttheta_cons, ttheta_dot_cons
+
+    def calc_consistent_accel_lmd(self, xx, t=0):
+        """
+        This function solves numerically the the equations system
+         M(ttheta) * ttheta_dd + ... + H(llmd) = 0
+         Constraints_dd(ttheta, ttheta_d, ttheta_dd) = 0
+
+        It consists of ntt + nll equations in the same number of variables: (ttheta_dd, llmd).
+
+        External forces are assumed to be given by a function (open or closed loop controller).
+
+        :param xx:              numerical values for (ttheta, ttheta_dot)
+        :param t:               time (default: 0)
+        :return:
+        """
+
+        # speed up trick (omit dots in inner loops)
+        ntt = self.ntt
+        nll = self.nll
+
+        if isinstance(xx, (tuple, list)) and len(xx) == 2 \
+           and isinstance(xx[0], np.ndarray) and isinstance(xx[1], np.ndarray):
+
+            xx = np.concatenate(xx)
+
+        assert xx.shape == (2*ntt,)
+
+        external_forces = self.input_func(t)
+
+        self.gen_leqs_for_acc_llmd()
+        A, b = self.leqs_acc_lmd_func(*np.r_[xx, external_forces])
+        sol = np.linalg.solve(A, b)
+
+        acc = sol[:ntt]
+        llmd = sol[-nll:]
+
+        return acc, llmd
 
     def calc_consistent_init_vals(self, xinit, llmd_guess=None):
         """
@@ -611,10 +725,6 @@ class DAE_System(object):
             llmd_guess = [0] * self.nll
 
         raise NotImplementedError("Not yet ready")
-
-
-
-
 
 
 
