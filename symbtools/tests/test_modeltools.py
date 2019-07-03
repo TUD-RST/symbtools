@@ -66,7 +66,7 @@ class ModelToolsTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             # no parameters passed
             dae = mod.calc_dae_eq()
-            dae.generate_eqns_func()
+            dae.generate_eqns_funcs()
 
         dae = mod.calc_dae_eq(parameter_values=[(m, 1)])
 
@@ -106,6 +106,16 @@ class ModelToolsTest(unittest.TestCase):
         acc_2, llmd_2 = dae.calc_consistent_accel_lmd((ttheta_2, ttheta_d_2))
         self.assertTrue(npy.allclose(acc_2, [0, 0]))
         self.assertTrue(npy.allclose(llmd_2, [0, 0]))
+
+        yy_1, yyd_1 = dae.calc_consistent_init_vals(q2=12.7, qdot2=100)
+
+        dae.generate_eqns_funcs()
+        res = dae.model_func(0, yy_1, yyd_1)
+
+        self.assertEqual(res.shape, (dae.ntt*2 + dae.nll,))
+        self.assertTrue(npy.allclose(res, 0))
+
+        # End of test_simple_constraints
 
     def test_four_bar_constraints(self):
 
@@ -201,6 +211,14 @@ class ModelToolsTest(unittest.TestCase):
 
         self.assertTrue(npy.allclose(ttheta_2, eres_c))
         self.assertTrue(npy.allclose(ttheta_d_2, eres_v))
+
+        yy_1, yyd_1 = dae.calc_consistent_init_vals(q1=12.7, qdot1=100)
+
+        dae.generate_eqns_funcs()
+        res = dae.model_func(0, yy_1, yyd_1)
+
+        self.assertEqual(res.shape, (dae.ntt*2 + dae.nll,))
+        self.assertTrue(npy.allclose(res, 0))
 
     def test_cart_pole(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))

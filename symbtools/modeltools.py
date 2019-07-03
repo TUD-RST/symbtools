@@ -420,12 +420,13 @@ class DAE_System(object):
         self.eqns = st.row_stack(eqns1, eqns2, mod.constraints).subs(parameter_values)
         self.MM = mod.MM.subs(parameter_values)
 
-        self.eq_func = None
+        self.eq_func = None  # internal representation (with signature F(ww) with ww = (yy, yyd, tau)
+        self.model_func = None  # solver-friendly representation (with signature F(t, yy, yyd))
+
         self.constraints_func = None
         self.constraints_d_func = None
         self.constraints_dd_func = None
         self.leqs_acc_lmd_func = None
-
 
         # default input-function
         u_zero = np.zeros((len(self.mod.tau)))
@@ -436,15 +437,19 @@ class DAE_System(object):
 
         self.input_func = input_func
 
-    def generate_eqns_func(self, parameter_values=None):
+    def generate_eqns_funcs(self, parameter_values=None):
         """
-        Create a callable function of the form F(ww) which internally represents the lhs of F(t, yy, yyd) = 0
+        Creates two callable functions.
+
+        The first of the form F_tilde(ww) which *internally* represents the lhs of F(t, yy, yyd) = 0
         with ww = (yy, yydot, ttau). Note that the input tau will later be calculated by a controller ttau = k(t, yy).
+
+        The second: F itself with the signature as above.
 
         :return: None, set self.eq_func
         """
 
-        if self.eq_func is not None:
+        if self.eq_func is not None and self.model_func is not None:
             return
 
         if parameter_values is None:
@@ -467,6 +472,23 @@ class DAE_System(object):
             raise ValueError(msg)
 
         self.eq_func = st.expr_to_func(fvars, eqns)
+
+        def model_func(t, yy, yyd):
+            """
+            This function is intended to be passed to a DAE solver like IDA
+
+            :param t:
+            :param yy:
+            :param yyd:
+            :return: F(t, yy, yyd) (should be 0 with shape (2*ntt + nll,))
+            """
+
+            # to use a controller, this needs to be more sophisticated
+            external_forces = self.input_func(t)
+            args = np.concatenate((yy, yyd, external_forces))
+            return self.eq_func(*args)
+
+        self.model_func = model_func
 
     def generate_constraints_funcs(self):
 
@@ -710,23 +732,29 @@ class DAE_System(object):
 
         return acc, llmd
 
-    def calc_consistent_init_vals(self, xinit, llmd_guess=None):
+    def calc_consistent_init_vals(self, t=0, **kwargs):
         """
         Assume yy = (xx, llmd) and xx = (ttheta, ttheta_d)
         -> return yy_0 and and yyd_0 sucht that F(0, yy_0, yyd_0) = 0
 
         Note that it might be necessary to find a consistent initial configuration first (xx cannot choosen freely)
 
-        :param xinit:       initial state (part of y)
-        :param llmd_guess:  guess for initial state of llmd
+        :param t:           time variabel (needed to evaluate the external_input_func)
+        :param kwargs:      conditions (and estimates) for independent (and dependent) coordinates and velocities
+                            see calc_constistent_conf_vel
         """
 
-        if llmd_guess is None:
-            llmd_guess = [0] * self.nll
+        ttheta, ttheta_d = self.calc_constistent_conf_vel(**kwargs)
 
-        raise NotImplementedError("Not yet ready")
+        # noinspection PyTypeChecker
+        acc, llmd = self.calc_consistent_accel_lmd((ttheta, ttheta_d), t=t)
 
+        yy = np.concatenate((ttheta, ttheta_d, llmd))
+        yyd = np.concatenate((ttheta_d, acc, llmd*0))
 
+        # a b c # write unit test for this function, then try IDA algorithm
+
+        return yy, yyd
 
 
 # TODO: this can be removed soon (2019-06-26)
