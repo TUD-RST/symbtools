@@ -461,6 +461,10 @@ class DAE_System(object):
         # also respect those values, which have been passed to the constructor
         parameter_values = list(self.parameter_values) + list(parameter_values)
 
+        # create needed helper function:
+
+        self.gen_leqs_for_acc_llmd(parameter_values=parameter_values)
+
         # avoid dot access in the internal function below
         ntt, nll, acc_of_lmd_func = self.ntt, self.nll, self.acc_of_lmd_func
 
@@ -477,11 +481,11 @@ class DAE_System(object):
                   "Unexpected symbols: {}".format(unexpected_symbs)
             raise ValueError(msg)
 
-        # full equations in classical formulation
+        # full equations in classical formulation (currently not needed internally)
         self.eq_func = st.expr_to_func(fvars, eqns)
 
         # only the ode part
-        self.deq_func = st.expr_to_func(fvars, eqns[:self.ntt, :])
+        self.deq_func = st.expr_to_func(fvars, eqns[:2*self.ntt, :])
 
         def model_func(t, yy, yyd):
             """
@@ -519,13 +523,14 @@ class DAE_System(object):
             # Note: args = (yy, ttau)
             ttheta_dd = acc_of_lmd_func(*np.concatenate((yy, external_forces)))
             c2 = self.constraints_dd_func(*np.concatenate((ttheta, ttheta_d, ttheta_dd)))
+            c2 = np.atleast_1d(c2)
 
             # elementwise squared -> all conditions must be fulfilled to get this to zero
             c_combined = np.atleast_1d(c0**2 + c1**2 + c2**2)
 
-            res = np.concatenate((ode_part, c_combined))
+            res = np.concatenate((ode_part, c2))
 
-            return self.eq_func(*args)
+            return res
 
         self.model_func = model_func
 
@@ -566,7 +571,7 @@ class DAE_System(object):
         :return: None, set self.leqs_acc_lmd_func
         """
 
-        if self.leqs_acc_lmd_func is not None:
+        if self.leqs_acc_lmd_func is not None and self.acc_of_lmd_func is not None:
             return
 
         if parameter_values is None:
