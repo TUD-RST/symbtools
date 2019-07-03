@@ -421,12 +421,15 @@ class DAE_System(object):
         self.MM = mod.MM.subs(parameter_values)
 
         self.eq_func = None  # internal representation (with signature F(ww) with ww = (yy, yyd, tau)
+        self.deq_func = None  # internal representation of ode-part (with signature F(ww) with ww = (yy, yyd, tau)
+
         self.model_func = None  # solver-friendly representation (with signature F(t, yy, yyd))
 
         self.constraints_func = None
         self.constraints_d_func = None
         self.constraints_dd_func = None
         self.leqs_acc_lmd_func = None
+        self.acc_of_lmd_func = None
 
         # default input-function
         u_zero = np.zeros((len(self.mod.tau)))
@@ -458,6 +461,9 @@ class DAE_System(object):
         # also respect those values, which have been passed to the constructor
         parameter_values = list(self.parameter_values) + list(parameter_values)
 
+        # avoid dot access in the internal function below
+        ntt, nll, acc_of_lmd_func = self.ntt, self.nll, self.acc_of_lmd_func
+
         fvars = st.concat_rows(self.yy, self.yyd, self.mod.tau)
 
         # keep self.eqns unchanged (maybe not necessary)
@@ -467,15 +473,26 @@ class DAE_System(object):
         expected_symbs = set(fvars)
         unexpected_symbs = actual_symbs.difference(expected_symbs)
         if unexpected_symbs:
-            msg = "Equations can only converted to numerical func if all parameters are passed for substitution. " \
+            msg = "Equations can only be converted to numerical func if all parameters are passed for substitution. " \
                   "Unexpected symbols: {}".format(unexpected_symbs)
             raise ValueError(msg)
 
+        # full equations in classical formulation
         self.eq_func = st.expr_to_func(fvars, eqns)
+
+        # only the ode part
+        self.deq_func = st.expr_to_func(fvars, eqns[:self.ntt, :])
 
         def model_func(t, yy, yyd):
             """
-            This function is intended to be passed to a DAE solver like IDA
+            This function is intended to be passed to a DAE solver like IDA.
+
+            The model consists of two coupled parts: ODE part F_ode(yy, yydot)=0 and algebraic C(yy)=0 part.
+
+            Problem is, that for mechanical systems with constraints we have differential index=3,
+            i.e. C and C_dot not depend on llmd. C_ddot can be formulated to depend on llmd (if F_ode is plugged in).
+
+            Idea: instead fo returning just C we return C**2 + C_dot**2 + C_ddot**2
 
             :param t:
             :param yy:
@@ -486,6 +503,28 @@ class DAE_System(object):
             # to use a controller, this needs to be more sophisticated
             external_forces = self.input_func(t)
             args = np.concatenate((yy, yyd, external_forces))
+
+            ttheta = yy[:ntt]
+            ttheta_d = yy[ntt:2*ntt]
+
+            # not needed, just for comprehension
+            # llmd = yy[2*ntt:2*ntt + nll]
+
+            ode_part = self.deq_func(*args)
+
+            c0 = self.constraints_func(*ttheta)
+            c1 = self.constraints_d_func(*np.concatenate((ttheta, ttheta_d)))
+
+            # now calculate the accelerations in depencency of yy (and thus in dependency of llmd)
+            # Note: args = (yy, ttau)
+            ttheta_dd = acc_of_lmd_func(*np.concatenate((yy, external_forces)))
+            c2 = self.constraints_dd_func(*np.concatenate((ttheta, ttheta_d, ttheta_dd)))
+
+            # elementwise squared -> all conditions must be fulfilled to get this to zero
+            c_combined = np.atleast_1d(c0**2 + c1**2 + c2**2)
+
+            res = np.concatenate((ode_part, c_combined))
+
             return self.eq_func(*args)
 
         self.model_func = model_func
@@ -533,6 +572,9 @@ class DAE_System(object):
         if parameter_values is None:
             parameter_values = []
 
+        ntt = self.ntt
+        nll = self.nll
+
         self.generate_constraints_funcs()
 
         # also respect those values, which have been passed to the constructor
@@ -565,6 +607,12 @@ class DAE_System(object):
 
         # noinspection PyShadowingNames
         def leqs_acc_lmd_func(*args):
+            """
+            Calculate the matrices of the linear equation system for ttheta and llmd.
+            Assume args = (ttheta, theta_d, ttau)
+            :param args:
+            :return:
+            """
             assert len(args) == nargs
             Anum = A_fnc(*args)
             bnum = b_fnc(*args)
@@ -573,6 +621,33 @@ class DAE_System(object):
             return Anum, bnum
 
         self.leqs_acc_lmd_func = leqs_acc_lmd_func
+
+        def acc_of_lmd_func(*args):
+            """
+            Calculate ttheta in dependency of args= (yy, ttau) = ((ttheta, ttheta_d, llmd), ttau)
+
+            :param args:
+            :return:
+            """
+
+            ttheta = args[:ntt]
+            ttheta_d = args[ntt:2*ntt]
+            llmd = args[2*ntt:2*ntt+nll]
+            ttau = args[2*ntt+nll:]
+
+            args1 = np.concatenate((ttheta, ttheta_d, ttau))
+
+            Anum = A_fnc(*args1)
+            A1 = Anum[:ntt, :ntt]
+            A2 = Anum[:ntt, ntt:]
+
+            b1 = b_fnc(*args1)[:ntt]
+
+            ttheta_dd_res = np.linalg.solve(A1, b1 - np.dot(A2, llmd))
+
+            return ttheta_dd_res
+
+        self.acc_of_lmd_func = acc_of_lmd_func
 
     def calc_constistent_conf_vel(self, **kwargs):
         """
