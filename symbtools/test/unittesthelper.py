@@ -1,5 +1,7 @@
 """
-This modules serves to handle command line args which are passed to the test_* scripts.
+This modules provides some auxiliary functions for test execution.
+1. Handle command line args which are passed to the test_* scripts.
+2. Enable the command: python -c "from symbtools.test import run_all; run_all()".
 
 It should be loaded before the `untitest` module as it alters sys.argv which seems to be evaluated by that module
 """
@@ -7,6 +9,8 @@ It should be loaded before the `untitest` module as it alters sys.argv which see
 import sys
 import os
 import types
+import inspect
+import importlib
 
 
 class Container(object):
@@ -41,6 +45,8 @@ def set_flags():
 
     return flags
 
+
+# this has to be executed before `import unittest`
 FLAGS = set_flags()
 
 import unittest
@@ -143,3 +149,27 @@ def smart_run_tests_in_ns(ns):
         globals().update(ns)
         unittest.main()
 
+
+def run_all():
+    """
+    This function enables the command: python -c "from symbtools.test import run_all; run_all()"
+    (see also test/__init__.py)
+
+    :return: None
+    """
+
+    mod_name = __name__.split('.')[0]
+    release = importlib.import_module(mod_name+".release")
+
+    print("Running all tests for module `{}` {}.".format(mod_name, release.__version__))
+
+    current_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+
+    loader = unittest.TestLoader()
+    suite = loader.discover(current_path)
+
+    runner = unittest.TextTestRunner()
+    res = runner.run(suite)
+
+    # cause CI to fail if tests have failed (otherwise this script returns 0 despite of failing tests)
+    assert res.wasSuccessful()
