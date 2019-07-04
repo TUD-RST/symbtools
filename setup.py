@@ -1,5 +1,4 @@
-from distutils.core import setup
-import os
+from setuptools import setup, find_packages
 
 # This directory
 from symbtools import __version__
@@ -21,8 +20,8 @@ setup(
     version=__version__,
     author='Carsten Knoll, Klemens Fritzsche',
     author_email='Carsten.Knoll@tu-dresden.de',
-    packages=['symbtools'],
-    url='https://github.com/cknoll/rst_symbtools',
+    packages=find_packages(),
+    url='https://github.com/TUD-RST/symbtools',
     license='BSD3',
     description='Symbolic calculations related to dynamical systems.',
     long_description="""
