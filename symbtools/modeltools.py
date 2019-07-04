@@ -11,9 +11,9 @@ import numpy as np
 from scipy.optimize import fmin
 import symbtools as st
 from symbtools import lzip
-from IPython import embed as IPS
 
 
+# noinspection PyPep8Naming
 def Rz(phi, to_numpy=False):
     """
     Rotation Matrix in the xy plane
@@ -50,25 +50,27 @@ def point_velocity(point, coord_symbs, velo_symbs, t):
     return v1_f.subs(backsubs)
 
 
+# noinspection PyPep8Naming
 def symbColVector(n, s='a'):
+    # noinspection PyTypeChecker
     """
-    returns a column vector with n symbols s, index 1..n
-    >>> symbColVector(3)
-    [a1]
-    [a2]
-    [a3]
-    >>> symbColVector(2,'k')
-    [k1]
-    [k2]
-    >>> symbRowVector(-1)
-    Traceback (most recent call last):
-        ...
-    ValueError: Positive integer required
-    >>> symbColVector(1,3)
-    Traceback (most recent call last):
-        ...
-    TypeError: unsupported operand type(s) for +: 'int' and 'str'
-    """
+        returns a column vector with n symbols s, index 1..n
+        >>> symbColVector(3)
+        [a1]
+        [a2]
+        [a3]
+        >>> symbColVector(2,'k')
+        [k1]
+        [k2]
+        >>> symbRowVector(-1)
+        Traceback (most recent call last):
+            ...
+        ValueError: Positive integer required
+        >>> symbColVector(1, 3)
+        Traceback (most recent call last):
+            ...
+        TypeError: unsupported operand type(s) for +: 'int' and 'str'
+        """
     if n <= 0 or int(n) != n:
         raise ValueError("Positive integer required")
 
@@ -76,20 +78,20 @@ def symbColVector(n, s='a'):
     return A
 
 
-def new_model_from_equations_of_motion(eqns, theta, tau):
+def new_model_from_equations_of_motion(eqns, ttheta, tau):
     """
 
     :param eqns:    vector of equations of motion
-    :param tt:      generalized coordinates
+    :param ttheta:  generalized coordinates
     :param tau:     input
     :return:        SymbolicModel instance
     """
 
     mod = SymbolicModel()
     mod.eqns = eqns
-    mod.tt = theta
-    mod.ttd = st.time_deriv(theta, theta)
-    mod.ttdd = st.time_deriv(theta, theta, order=2)
+    mod.tt = ttheta
+    mod.ttd = st.time_deriv(ttheta, ttheta)
+    mod.ttdd = st.time_deriv(ttheta, ttheta, order=2)
     mod.extforce_list = tau
     mod.tau = tau
 
@@ -169,10 +171,11 @@ class SymbolicModel(object):
         if isinstance(self.M, sp.Matrix):
             assert self.M.is_square
             return self.M
-        # Übergangsweise:
+        # for backward compatibility (can be dropped in 2020):
         if hasattr(self, 'ttdd'):
             self.M = self.eqns.jacobian(self.ttdd)
         else:
+            # noinspection PyUnresolvedReferences
             self.M = self.eqns.jacobian(self.qdds)
 
         return self.M
@@ -218,7 +221,7 @@ class SymbolicModel(object):
             self.f.simplify()
             self.g.simplify()
 
-    def calc_dae_eq(self, parameter_values=None, **kwargs):
+    def calc_dae_eq(self, parameter_values=None):
         """
         In case of present constraints ode representation is not possible.
         This method constructs a representation F(y, ydot) = 0.
@@ -228,7 +231,7 @@ class SymbolicModel(object):
         :return: dae (Container); also set self.dae = dae , self.dae.yy, self.dae.yyd, self.dae.eqns, ...
         """
 
-        self.dae = DAE_System(self, parameter_values=parameter_values, **kwargs)
+        self.dae = DAE_System(self, parameter_values=parameter_values)
 
         return self.dae
 
