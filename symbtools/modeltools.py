@@ -519,17 +519,11 @@ class DAE_System(object):
 
             ode_part = self.deq_func(*args)
 
-            c0 = self.constraints_func(*ttheta)
-            c1 = self.constraints_d_func(*np.concatenate((ttheta, ttheta_d)))
-
             # now calculate the accelerations in depencency of yy (and thus in dependency of llmd)
-            # Note: args = (yy, ttau)
+            # Note: signature: acc_of_lmd_func(yy, ttau)
             ttheta_dd = acc_of_lmd_func(*np.concatenate((yy, external_forces)))
             c2 = self.constraints_dd_func(*np.concatenate((ttheta, ttheta_d, ttheta_dd)))
             c2 = np.atleast_1d(c2)
-
-            # elementwise squared -> all conditions must be fulfilled to get this to zero
-            c_combined = np.atleast_1d(c0**2 + c1**2 + c2**2)
 
             res = np.concatenate((ode_part, c2))
 
