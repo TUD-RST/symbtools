@@ -11,7 +11,7 @@ install:
 
 # command to run tests
 script:
- - python symbtools/tests/test_all.py all
+ - python symbtools/test/test_all.py all
 #  install optional dependency
  - pip install control casadi
- - python symbtools/tests/test_all.py optdep
+ - python symbtools/test/test_all.py optdep
