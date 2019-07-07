@@ -4497,8 +4497,9 @@ class SimulationModel(object):
         signature is adapted to scipy odeint: rhs(state, time)
         exception: see `free_input_args` below
 
-
         :kwargs:
+
+        :param time_direction: 1 (default) or -1
 
         :param controller_function: callable u(x, t)
         this can be a controller function,
@@ -4517,12 +4518,15 @@ class SimulationModel(object):
         Note: input_function and controller_function mutually exclude each other
         """
 
+        time_direction = kwargs.get("time_direction", 1)
+        assert time_direction in (-1, 1)
+
         self.u_func = self._get_input_func(kwargs)
         use_sp2c = bool(kwargs.get("use_sp2c", False))
 
         if callable(self.f_func) and callable(self.G_func) and use_sp2c == self.use_sp2c:
             # this is just an update (of input function)
-            return self._produce_sim_function()
+            return self._produce_sim_function(time_direction)
 
         self.use_sp2c = use_sp2c
         n = self.state_dim
@@ -4554,13 +4558,15 @@ class SimulationModel(object):
             self.G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
             self.compiler_called = False
 
-        rhs = self._produce_sim_function()
+        rhs = self._produce_sim_function(time_direction)
 
         # handle exceptions which occur inside
         # rhs = self.exceptionwrapper(rhs)
         return rhs
 
-    def _produce_sim_function(self):
+    def _produce_sim_function(self, time_direction):
+
+        assert time_direction in (-1, 1)
         # load the (possibly compiled) functions
         # this is faster than resolve `self.` in every step
         f_func = self.f_func
@@ -4579,7 +4585,7 @@ class SimulationModel(object):
 
                 xx_dot = ff + np.dot(GG, uu)
 
-                return xx_dot
+                return xx_dot*time_direction
         else:
             # user wants to pass input (uu) by themselves (kwarg: "free_input_args")
 
@@ -4592,7 +4598,7 @@ class SimulationModel(object):
 
                 xx_dot = ff + np.dot(GG, uu)
 
-                return xx_dot
+                return xx_dot*time_direction
 
         return rhs
 

@@ -25,11 +25,12 @@ except ImportError:
     control = None
 
 
-import unittesthelper as uth
+from symbtools.test import unittesthelper as uth
 import unittest
-import test_core1
-import test_time_deriv
-import test_pickle_tools
+
+from symbtools.test import test_core1
+from symbtools.test import test_time_deriv
+from symbtools.test import test_pickle_tools
 
 uth.inject_tests_into_namespace(globals(), test_time_deriv)
 uth.inject_tests_into_namespace(globals(), test_core1)
@@ -592,6 +593,12 @@ class SymbToolsTest2(unittest.TestCase):
         rhs3 = mod2.create_simfunction(input_function=des_input_func_vec)
         # noinspection PyUnusedLocal
         res3_0 = rhs3(x0, 0)
+
+        rhs4 = mod2.create_simfunction(input_function=des_input_func_vec, time_direction=-1)
+        res4_0 = rhs4(x0, 0)
+
+        self.assertTrue(np.allclose(res3_0, np.array([119., -18., -36., -51.])))
+        self.assertTrue(np.allclose(res4_0, - res3_0))
 
     def test_create_simfunction2(self):
         x1, x2, x3, x4 = xx = sp.Matrix(sp.symbols("x1, x2, x3, x4"))
