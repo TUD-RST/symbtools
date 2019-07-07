@@ -283,6 +283,15 @@ class ModelToolsTest(unittest.TestCase):
         mod.calc_state_eq(simplify=True)
         mod.calc_coll_part_lin_state_eq(simplify=True)
 
+        # ensure that recalculation is carried out only when we want it
+        tmp_f, tmp_g = mod.f, mod.g
+        mod.f, mod.g = "foo", "bar"
+        mod.calc_state_eq(simplify=True)
+        self.assertEqual(mod.f, "foo")
+
+        mod.calc_state_eq(simplify=True, force_recalculation=True)
+        self.assertEqual((mod.f, mod.g), (tmp_f, tmp_g))
+
         pdot1, qdot1 = mod.ttd
 
         ff_ref = sp.Matrix([[pdot1],[qdot1], [-g*sin(p1)/l1], [0]])

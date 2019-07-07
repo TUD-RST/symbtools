@@ -220,11 +220,14 @@ class SymbolicModel(object):
 
     # TODO add remark stating that this methods assumes self.eqns to be
     # affine regarding self.tau
-    def calc_state_eq(self, simplify=True):
+    def calc_state_eq(self, simplify=True, force_recalculation=False):
         """
         reformulate the second order model to a first order statespace model
         xd = f(x)+g(x)*u
         """
+
+        if None not in (self.f, self.g) and not force_recalculation:
+            return
 
         self.xx = st.row_stack(self.tt, self.ttd)
         self.x = self.xx  # xx is preferred now
