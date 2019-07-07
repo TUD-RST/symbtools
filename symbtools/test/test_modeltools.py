@@ -225,6 +225,7 @@ class ModelToolsTest(unittest.TestCase):
         F1, = FF = sp.Matrix(sp.symbols('F1,'))
 
         params = sp.symbols('m0, m1, l1, g')
+        parameter_values = list(dict(m0=2.0, m1=1.0, l1=2.0, g=9.81).items())
         m0, m1, l1, g = params
 
         pdot1 = st.time_deriv(p1, ttheta)
@@ -289,6 +290,32 @@ class ModelToolsTest(unittest.TestCase):
 
         self.assertEqual(mod.ff, ff_ref)
         self.assertEqual(mod.gg, gg_ref)
+
+        A, b = mod.calc_jac_lin(base="coll_part_lin", parameter_values=parameter_values)
+
+        Ae = sp.Matrix([
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [-4.905, 0, 0, 0],
+                [0, 0, 0, 0]])
+
+        be = sp.Matrix([0, 0, -0.5, 1])
+
+        self.assertEqual(A, Ae)
+        self.assertEqual(b, be)
+
+        A, b = mod.calc_jac_lin(base="force_input", parameter_values=parameter_values)
+
+        Ae = sp.Matrix([
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [-7.3575, 0, 0, 0],
+                [4.905, 0, 0, 0]])
+
+        be = sp.Matrix([0, 0, -.25, 0.5])
+
+        self.assertEqual(A, Ae)
+        self.assertEqual(b, be)
 
     def test_cart_pole_with_dissi(self):
         p1, q1 = ttheta = sp.Matrix(sp.symbols('p1, q1'))

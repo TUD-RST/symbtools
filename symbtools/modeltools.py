@@ -102,7 +102,11 @@ def new_model_from_equations_of_motion(eqns, ttheta, tau):
 class SymbolicModel(object):
     """ model class """
 
-    def __init__(self):
+    def __init__(self, src=None):
+        """
+        :param src: optinonal other objects from which data is copied over
+        """
+
         self.eqns = None  # eq_list
         self.qs = None  # var_list
         self.extforce_list = None  # extforce_list
@@ -146,6 +150,20 @@ class SymbolicModel(object):
         self.xd = None
         self.h = None
         self.M = None
+
+        if src is not None:
+            self._copy_attributes_from_other_object(src)
+
+    # TODO: unittest
+    def _copy_attributes_from_other_object(self, other):
+        """
+        This method (called from __init__) helps to create an copy of the passed Symbolic-Model.
+        This is useful during development when there are different versions of the class in namespace.
+        """
+
+        for k in self.__dict__.keys():
+            attr = getattr(other, k, None)
+            setattr(self, k, attr)
 
     def substitute_ext_forces(self, old_F, new_F, new_F_symbols):
         """
@@ -270,7 +288,7 @@ class SymbolicModel(object):
 
         # setting input and acceleration to 0
         C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
-        #eq_passive = -M11inv*C1K1 - M11inv*M12*self.aa
+        # eq_passive = -M11inv*C1K1 - M11inv*M12*self.aa
 
         self.ff = st.row_stack(self.ttd, -M11inv*C1K1, self.aa*0)
         self.gg = st.row_stack(sp.zeros(np + nq, nq), -M11inv*M12, sp.eye(nq))
@@ -299,10 +317,10 @@ class SymbolicModel(object):
             msg = "The jacobian of the equations of motion do not have the expected structure: %s"
             raise NotImplementedError(msg % str(B))
 
-        pp = self.tt[:np,:]
-        qq = self.tt[np:,:]
-        uu = self.ttd[:np,:]
-        vv = self.ttd[np:,:]
+        pp = self.tt[:np, :]
+        qq = self.tt[np:, :]
+        uu = self.ttd[:np, :]
+        vv = self.ttd[np:, :]
         ww = st.symb_vector('w1:{0}'.format(np+1))
         assert len(vv) == nq
 
@@ -353,6 +371,49 @@ class SymbolicModel(object):
             self.fz.simplify()
             self.gz.simplify()
             self.ww_def.simplify()
+
+    def calc_jac_lin(self, base="force_input", eqlbr=None, parameter_values=None):
+        """Calculate the Jacobian linarization.
+
+        :param base:                specify from which model we should start (coll_part_lin, lbi, force_input)
+        :param eqlbr:               equilibrium point (default: [0]*n)
+        :param parameter_values:    optional numerical values for the system parameters
+        """
+
+        assert base in ("coll_part_lin", "lbi", "force_input")
+
+        if base == "force_input":
+            ff = self.f
+            gg = self.g
+            xx = self.xx
+
+        elif base == "coll_part_lin":
+            ff = self.ff
+            gg = self.gg
+            xx = self.xx
+
+        elif base == "lbi":
+            ff = self.fz
+            gg = self.gz
+            xx = self.ww
+        else:
+            raise ValueError("Unexpected value for parameter `base`: {}".format(base))
+
+        if None in (ff, gg, xx):
+            msg = "The nonlinear equations must be created first."
+            raise ValueError(msg)
+
+        if parameter_values is None:
+            parameter_values = []
+        if eqlbr is None:
+            eqlbr = list(zip(self.tt, self.tt*0)) + list(zip(self.ttd, self.tt*0))
+
+        parameter_values = list(eqlbr) + list(parameter_values)
+
+        self.A = ff.jacobian(xx).subs(parameter_values)
+        self.b = gg.subs(parameter_values)
+
+        return self.A, self.b
 
     @property  # legacy (compatibility with older convention)
     def eq_list(self):
