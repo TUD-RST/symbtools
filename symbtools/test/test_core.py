@@ -731,6 +731,13 @@ class SymbToolsTest2(unittest.TestCase):
         # noinspection PyTypeChecker
         self.assertTrue(np.all(res1 == res2.flatten()))
 
+        fnc = st.expr_to_func(xx, x1 + x2)
+        self.assertEqual(fnc(1, 3), 4)
+
+        xx = np.array([1, 3, 1.1, 3, 1.2, 3.0]).reshape(3, -1)
+        self.assertEqual(fnc(*xx.T), np.array([4, 4.1, 4.2]))
+
+
     def test_reformulate_Integral(self):
         t = sp.Symbol('t')
         c = sp.Symbol('c')

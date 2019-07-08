@@ -3497,7 +3497,6 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
     use_imps = kwargs.get('use_imps', True)
     func = sp.lambdify(args, new_expr, modules, printer, use_imps)
 
-
     if kwargs.get('np_vectorize', False):
         func1 = np.vectorize(func)
     else:
