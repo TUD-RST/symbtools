@@ -4434,9 +4434,14 @@ class SimulationModel(object):
         self.f = sp.Matrix(f)
         self.G = sp.Matrix(G)
         if model_parameters is None:
-            self.mod_param_dict = {}
+            self.mod_params = []
+        elif isinstance(model_parameters, dict):
+            self.mod_params = list(model_parameters.items())
         else:
-            self.mod_param_dict = dict(model_parameters)
+            self.mod_params = model_parameters
+
+        # ensure that subs works
+        assert xx.subs(self.mod_params) == xx
 
         assert G.shape[0] == f.shape[0]
         self.state_dim = f.shape[0]
@@ -4545,8 +4550,8 @@ class SimulationModel(object):
         self.use_sp2c = use_sp2c
         n = self.state_dim
 
-        f = self.f.subs(self.mod_param_dict)
-        G = self.G.subs(self.mod_param_dict)
+        f = self.f.subs(self.mod_params)
+        G = self.G.subs(self.mod_params)
 
         # find unexpected symbols:
         ue_symbols_f = atoms(f, sp.Symbol).difference(set(self.xx))
@@ -4642,8 +4647,8 @@ class SimulationModel(object):
 
         threshold = np.max(np.abs(xdot_num))*rtol * self.state_dim
 
-        f = self.f.subs(self.mod_param_dict)
-        G = self.G.subs(self.mod_param_dict)
+        f = self.f.subs(self.mod_params)
+        G = self.G.subs(self.mod_params)
 
         f_func = expr_to_func(self.xx, f, np_wrapper=True)
         G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
