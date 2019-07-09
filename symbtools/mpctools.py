@@ -2,9 +2,11 @@
 import casadi as cs
 # noinspection PyUnresolvedReferences
 from casadi.casadi import SX
-import math
 
 import os
+import numpy as np
+import symbtools as st
+
 from sympy.printing.lambdarepr import lambdarepr, LambdaPrinter
 
 
@@ -141,10 +143,14 @@ def create_casadi_func(sp_expr, sp_xx, sp_uu=None, name="cs_from_sp"):
 
     return func_cs
 
+
 # convenience functions (maybe there is a more elegant way)
 
 # noinspection PyPep8Naming
 def seq_to_SX_matrix(seq):
+    """
+    In many cases this is equivalent to cs.vertcat.
+    """
     n = len(seq)
 
     # leading element:
@@ -181,3 +187,46 @@ def unpack(sx_matrix):
     assert n2 == 1
     res = [sx_matrix[i, 0] for i in range(n1)]
     return res
+
+
+def distribute(in_data, *shapes):
+    """
+    Return sequence of arrays which have shapes as in `shapes` and together contain the data in `in_data`.
+
+    Call like so: distribute(arr, (1, 2), (7,) (100, 7))
+
+    This is useful for easy acces to the optimization results of e.g. casadi.
+
+    :param in_data: (almost) flat array
+    :param shapes: sequence of shapes
+    :return:
+    """
+
+    assert isinstance(shapes[0], (tuple, list, np.ndarray))
+
+    len_list = [np.prod(s) for s in shapes]
+
+    # assert that in_data is almost flat (all but one dims are 1)
+
+    assert np.count_nonzero(np.array(in_data.shape) - 1) in (1, 0)
+
+    in_data = np.array(in_data.squeeze())
+
+    assert sum(len_list) == len(in_data)
+
+    start = 0
+    res = []
+    for s, l in zip(shapes, len_list):
+        d = in_data[start:start+l]
+
+        res.append(d.reshape(s))
+
+        start += l
+
+    return res
+
+
+
+
+
+

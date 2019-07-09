@@ -77,6 +77,15 @@ class MPCToolsTest(unittest.TestCase):
         res_cs = func_cs(*argvals_cs).full().squeeze()
         self.assertTrue(np.allclose(res_np, res_cs))
 
+    def test_distribute(self):
+        arr1 = np.arange(23)
+
+        a, b, c = mpc.distribute(arr1, (5, 2), (1, ), (3, 1, 4))
+
+        self.assertTrue(np.all(a == np.arange(10).reshape(5, 2)))
+        self.assertTrue(np.all(b == np.array([10])))
+        self.assertEqual(c.shape, (3, 1, 4))
+
 
 def main():
     # remove command line args which should not be passed to the testframework
