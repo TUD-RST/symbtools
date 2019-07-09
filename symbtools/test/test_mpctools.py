@@ -5,7 +5,7 @@ Created 2019-05-27 17:56:03
 @author: Carsten Knoll
 """
 
-import unittesthelper as uth
+from symbtools.test import unittesthelper as uth
 import unittest
 import sys
 import sympy as sp

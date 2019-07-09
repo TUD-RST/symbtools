@@ -79,7 +79,7 @@ class CassadiPrinter(LambdaPrinter):
 def casidify(expr, state_vect, input_vect):
     # source: https://gist.github.com/cklb/60362e1f49ef65f5212fb5eb5904b3fd
     """
-    Convert a sympy-expression into a casadi expression
+    Convert a sympy-expression into a casadi expression. This is used by create_casadi_func(...).
 
     :param expr:        symbolic expression which is to convert to casadi
     :param state_vect:  symbolic state vector
@@ -123,9 +123,18 @@ def casidify(expr, state_vect, input_vect):
     return scope["rhs"], scope["x"], scope["u"]
 
 
-def create_casadi_func(sp_expr, sp_xx, sp_uu, name="rhs_cs"):
+def create_casadi_func(sp_expr, sp_xx, sp_uu=None, name="cs_from_sp"):
+
+    multiple_args = True
+    if sp_uu is None:
+        sp_uu = []
+        multiple_args = False
+
     expr_cs, xx_cs, uu_cs = casidify(sp_expr, sp_xx, sp_uu)
-    func_cs = cs.Function('name', (xx_cs, uu_cs), (expr_cs,))
+    if multiple_args:
+        func_cs = cs.Function(name, (xx_cs, uu_cs), (expr_cs,))
+    else:
+        func_cs = cs.Function(name, (xx_cs,), (expr_cs,))
 
     func_cs.xx = xx_cs
     func_cs.uu = uu_cs
