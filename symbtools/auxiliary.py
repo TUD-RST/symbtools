@@ -61,3 +61,31 @@ def atoms(expr, *args, **kwargs):
         return matrix_atoms(expr, *args, **kwargs)
     else:
         return expr.atoms(*args, **kwargs)
+
+
+def kwarg_wrapper(func, args=None):
+    """
+    Problem: Auto-generated functions (see e.g. expr_to_func) sometimes have many arguments.
+    Then it is convenient to call them with keywordargs. If however the func has been wrapped by some postprocessing
+    function (e.g. vectorization) this is not possible.
+
+    Solution: This function creates a wrapper which takes the values from the dict and creates arglist according to
+    the names in `args` (or func.args)
+
+    :param func:    function which will be wrapped
+    :param args:    list of argument names in correct order
+    :return:
+    """
+    if args is None:
+        args = func.args
+
+    def inner(**kwargs):
+        assert len(kwargs) == len(args)
+
+        aa = [kwargs[a.name] for a in args]
+        return func(*aa)
+
+    inner.func = func
+    inner.info = "This is a wrapper of `this.func`"
+
+    return inner

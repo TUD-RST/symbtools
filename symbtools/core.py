@@ -11,6 +11,7 @@ import random
 import itertools as it
 import collections as col
 from functools import reduce
+from . import auxiliary as aux
 from .auxiliary import lzip, atoms, matrix_atoms, recursive_function, Container, global_data, t
 from .time_deriv import time_deriv, is_derivative_symbol, matrix_time_deriv, get_sp_deriv_order, symb_to_time_func,\
     match_symbols_by_name, get_all_deriv_childs, get_all_deriv_parents
@@ -322,24 +323,26 @@ import fractions as fr
 
 Fr = fr.Fraction
 
-def fractionfromfloat(x_, maxden = 1000):
-  """
-  fraction from float
-  args:
-   x
-   maxdenominator (default = 1000)
-  """
 
-  x = float(x_)
-  assert x == x_ # fails intentionally for numpy.complex
-  return Fr.from_float(x).limit_denominator(maxden)
+def fractionfromfloat(x_, maxden = 1000):
+    """
+    fraction from float
+    args:
+    x
+    maxdenominator (default = 1000)
+    """
+
+    x = float(x_)
+    assert x == x_ # fails intentionally for numpy.complex
+    return Fr.from_float(x).limit_denominator(maxden)
+
 
 def sp_fff(x, maxden):
     """ sympy_fraction from float"""
     return sp.Rational(fractionfromfloat(x, maxden))
 
 
-
+# noinspection PyPep8Naming
 def condition_poly(var, *conditions):
     """
     This function is intended to be a generalization of trans_poly
@@ -3399,7 +3402,8 @@ def aux_make_tup_if_necc(arg):
 
     return arg
 
-#TODO:
+
+# TODO:
 """
 https://github.com/sympy/sympy/wiki/Release-Notes-for-0.7.6
 
@@ -3438,6 +3442,8 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
 
     keep_shape:     (default False)
                     Flag to ensure that the result has the same shape as the input
+
+    allow_kwargs:   wrap the result by aux.kwargs_wrapper
 
     """
 
@@ -3539,7 +3545,16 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
     else:
         func3 = func2
 
-    return func3
+    func3.args = arg_tup
+    func3.expr = expr_tup
+    func3.kwargs = kwargs
+
+    if kwargs.get("allow_kwargs", False):
+        func4 = aux.kwarg_wrapper(func3)
+    else:
+        func4 = func3
+
+    return func4
 
 
 def ensure_mutable(arg):
