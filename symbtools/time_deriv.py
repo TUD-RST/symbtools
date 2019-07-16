@@ -5,7 +5,7 @@ This has several advantages compared to using time-dependent functions, e.g. the
 """
 
 import sympy as sp
-from .aux import lzip, atoms, recursive_function, t
+from .auxiliary import lzip, atoms, recursive_function, t
 
 from ipydex import IPS
 

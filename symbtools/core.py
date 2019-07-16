@@ -11,7 +11,7 @@ import random
 import itertools as it
 import collections as col
 from functools import reduce
-from .aux import lzip, atoms, matrix_atoms, recursive_function, Container, global_data, t
+from .auxiliary import lzip, atoms, matrix_atoms, recursive_function, Container, global_data, t
 from .time_deriv import time_deriv, is_derivative_symbol, matrix_time_deriv, get_sp_deriv_order, symb_to_time_func,\
     match_symbols_by_name, get_all_deriv_childs, get_all_deriv_parents
 

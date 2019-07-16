@@ -1,7 +1,7 @@
 import pickle
 import sympy as sp
 from collections import defaultdict
-from .aux import Container, global_data
+from .auxiliary import Container, global_data
 from .time_deriv import get_all_deriv_parents
 
 
