@@ -195,6 +195,9 @@ def distribute(in_data, *shapes):
 
     Call like so: distribute(arr, (1, 2), (7,) (100, 7))
 
+
+    # NOTE: casadi has a different reshape behavior than numpy.
+
     This is useful for easy acces to the optimization results of e.g. casadi.
 
     :param in_data: (almost) flat array
@@ -210,16 +213,23 @@ def distribute(in_data, *shapes):
 
     assert np.count_nonzero(np.array(in_data.shape) - 1) in (1, 0)
 
-    in_data = np.array(in_data.squeeze())
+    if isinstance(in_data, np.ndarray):
+        in_data = np.array(in_data).squeeze()
+        order = "C"
+    else:
+        order = "F"
 
-    assert sum(len_list) == len(in_data)
+    assert sum(len_list) == np.prod(in_data.shape)
 
     start = 0
     res = []
     for s, l in zip(shapes, len_list):
         d = in_data[start:start+l]
 
-        res.append(d.reshape(s))
+        if np.prod(d.shape) == 1:
+            d = np.array(d)
+
+        res.append(np.array(d).reshape(s, order=order))
 
         start += l
 
