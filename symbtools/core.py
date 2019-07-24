@@ -1941,7 +1941,14 @@ def all_k_minors(M, k, **kwargs):
     Note that if k == M.shape[0]
 
     this computes all "column-minors"
+
+    kwargs:
+
+    return_inidices: (default=False)
+                     -> return list of tuples [((row_indices1, col_indices1), minor1), ((...), minor2), ...]
     """
+    return_indices = kwargs.get("return_indices", False)
+
     m, n = M.shape
 
     assert k<= m
@@ -1954,11 +1961,16 @@ def all_k_minors(M, k, **kwargs):
 
     method = kwargs.get('method', "berkowitz")
 
-    res = []
+    res_list = []
     for rr, cc in rc_idx_tuples:
-        res.append(general_minor(M, rr, cc, method = method))
+        res = general_minor(M, rr, cc, method=method)
 
-    return res
+        if return_indices:
+            res = ((rr, cc), res)
+
+        res_list.append(res)
+
+    return res_list
 
 def row_col_select(A, rows, cols):
     """
