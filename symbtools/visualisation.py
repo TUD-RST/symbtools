@@ -28,9 +28,10 @@ class Visualiser:
         self.elements = []
         self.axes_options = axes_options
 
-    def create_default_axes(self):
-        fig = plt.figure()
-        ax = plt.axes(**merge_options(self.axes_options, aspect='equal', xlim=(-2.0, 2.0), ylim=(-2.0, 2.0)))
+    def create_default_axes(self, fig=None, add_subplot_args=111):
+        if fig is None:
+            fig = plt.figure()
+        ax = fig.add_subplot(add_subplot_args, **merge_options(self.axes_options, aspect='equal', xlim=(-2.0, 2.0), ylim=(-2.0, 2.0)))
         ax.grid()
 
         return fig, ax
@@ -178,18 +179,40 @@ class SimAnimation:
         self.fig = fig
         self.axes = []
 
-    def add_axes(self, content, ax=None, **kwargs):
+    def add_visualiser(self, vis, ax=None, subplot_pos=None):
         if ax is None:
             # TODO: Create default axes
             pass
 
-        assert isinstance(content, Visualiser) or isinstance(content, sp.Expr) or isinstance(content,
-                                                                                             sp.Matrix) or isinstance(
-            content, list)
-        self.axes.append((ax, content))
+        assert isinstance(vis, Visualiser)
+        vis_var_indices = self._find_variable_indices(vis.variables)
+        self.axes.append((ax, vis, vis_var_indices))
+
+    def add_graph(self, expr, ax=None, subplot_pos=None, ax_kwargs=None, plot_kwargs=None):
+        if ax is None:
+            # TODO: Create default axes
+            pass
+        assert isinstance(expr, sp.Expr) or isinstance(expr, sp.Matrix) or isinstance(expr, list)
+
+        if plot_kwargs is None:
+            plot_kwargs = dict()
+
+        if isinstance(expr, sp.Expr):
+            expr = sp.Matrix([expr])
+        elif isinstance(expr, list):
+            expr = sp.Matrix(expr)
+
+        expr_fun = st.expr_to_func(self.x_symb, expr, keep_shape=True)
+        data = np.zeros((len(self.t), len(expr)))
+
+        for i in range(data.shape[0]):
+            data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()
+
+        self.axes.append((ax, data, plot_kwargs))
 
     def display(self):
         init_drawables = []
+        graph_lines = {}
 
         def anim_init():
             nonlocal init_drawables
@@ -200,26 +223,37 @@ class SimAnimation:
                 drawable = init_drawables.pop()
                 drawable.remove()
 
-            for (ax, content) in self.axes:
+            for (ax, content, content_args) in self.axes:
                 if isinstance(content, Visualiser):
                     new_drawables = content.plot_init(np.zeros(len(content.variables)), ax)
+                    init_drawables += new_drawables
+                elif isinstance(content, np.ndarray):
+                    new_drawables = ax.plot(self.t, content, **content_args)
+                    graph_lines[ax] = new_drawables
                     init_drawables += new_drawables
 
             return init_drawables
 
-        def anim_update(x):
+        def anim_update(i):
             drawables = []
 
-            for (ax, content) in self.axes:
+            for (ax, content, content_args) in self.axes:
                 if isinstance(content, Visualiser):
-                    vis_var_indices = self._find_variable_indices(content.variables)
-                    vis_var_values = x[vis_var_indices]
+                    vis_var_indices = content_args
+                    vis_var_values = self.x_sim[i, vis_var_indices]
 
                     drawables += content.plot_update(vis_var_values, ax)
+                elif isinstance(content, np.ndarray):
+                    lines = graph_lines[ax]
+
+                    for line_i, line in enumerate(lines):
+                        line.set_data(self.t[:i+1], content[:i+1, line_i])
+
+                    drawables += lines
 
             return drawables
 
-        anim = animation.FuncAnimation(self.fig, anim_update, init_func=anim_init, frames=self.x_sim,
+        anim = animation.FuncAnimation(self.fig, anim_update, init_func=anim_init, frames=len(self.t),
                                        interval=1000 * (self.t[-1] - self.t[0]) / (len(self.t) - 1))
         display(HTML(anim.to_jshtml()))
 
