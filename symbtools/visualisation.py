@@ -251,33 +251,33 @@ def update_disk(ax, drawables, points, kwargs):
 
 
 class SimAnimation:
-    def __init__(self, x_symb, t, x_sim, fig=None):
+    def __init__(self, x_symb, t, x_sim, fig=None, **fig_kwargs):
         self.x_symb = x_symb
         self.t = t
         self.x_sim = x_sim
         if fig is None:
-            # TODO: Create default fig
-            pass
+            fig = plt.figure(**fig_kwargs)
+            plt.close()
         self.fig = fig
         self.axes = []
 
-    def add_visualiser(self, vis, ax=None, subplot_pos=None):
+    def add_visualiser(self, vis, subplot_pos=111, ax=None):
         if ax is None:
-            # TODO: Create default axes
-            pass
+            _, ax = vis.create_default_axes(self.fig, subplot_pos)
 
         assert isinstance(vis, Visualiser)
         vis_var_indices = self._find_variable_indices(vis.variables)
         self.axes.append((ax, vis, vis_var_indices))
 
-    def add_graph(self, expr, ax=None, subplot_pos=None, ax_kwargs=None, plot_kwargs=None):
-        if ax is None:
-            # TODO: Create default axes
-            pass
-        assert isinstance(expr, sp.Expr) or isinstance(expr, sp.Matrix) or isinstance(expr, list)
+        return ax
 
-        if plot_kwargs is None:
-            plot_kwargs = dict()
+    def add_graph(self, expr, subplot_pos=111, ax_kwargs=None, plot_kwargs=None, ax=None):
+        if ax is None:
+            if ax_kwargs is None:
+                ax_kwargs = dict()
+            ax = self.fig.add_subplot(subplot_pos, **ax_kwargs)
+            ax.grid()
+        assert isinstance(expr, sp.Expr) or isinstance(expr, sp.Matrix) or isinstance(expr, list)
 
         if isinstance(expr, sp.Expr):
             expr = sp.Matrix([expr])
@@ -290,7 +290,12 @@ class SimAnimation:
         for i in range(data.shape[0]):
             data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()
 
+        if plot_kwargs is None:
+            plot_kwargs = dict()
+
         self.axes.append((ax, data, plot_kwargs))
+
+        return ax
 
     def display(self):
         init_drawables = []
@@ -313,6 +318,12 @@ class SimAnimation:
                     new_drawables = ax.plot(self.t, content, **content_args)
                     graph_lines[ax] = new_drawables
                     init_drawables += new_drawables
+
+                    handles, labels = ax.get_legend_handles_labels()
+
+                    # Create an auto-legend if any plot has defined line labels
+                    if handles:
+                        ax.legend(handles, labels)
 
             return init_drawables
 
