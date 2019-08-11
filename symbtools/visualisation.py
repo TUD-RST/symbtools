@@ -8,49 +8,92 @@ from IPython.display import HTML, display
 
 
 def merge_options(custom_options, **default_options):
+    """
+    Utility function to merge some default options with a dictionary of custom_options.
+    Example: custom_options = dict(a=5, b=3)
+             merge_options(custom_options, a=1, c=4)
+             --> results in {a: 5, b: 3, c: 4}
+    """
     merged_options = default_options
     merged_options.update(custom_options)
     return merged_options
 
 
 class VisualiserElement:
+    """
+    One visual element in a kinematic visualisation, for example a link or a polygon.
+    """
     def __init__(self, points_fun, init_fun, update_fun, kwargs):
+        """
+        :param points_fun: callable, that takes values for all visualiser variables as arguments and returns a 2x?
+        matrix of 2D points that define the position/orientation of the element
+        :param init_fun: callable with args (matplotlib axes, 2x? numpy array of points, dict of kwargs) that returns a
+        list of matplotlib drawables. Will get called to create all drawables needed by this element.
+        :param update_fun: callable with args (matplotlib axes, list of drawables, 2x? numpy array of points, dict of
+        kwargs) that returns a list of matplotlib drawables. Will get called every time the plot needs to be updated.
+        :param kwargs: dict of arbitrary keyword arguments that get passed to init_fun and update_fun
+        """
         self.points_fun = points_fun
         self.init_fun = init_fun
         self.update_fun = update_fun
         self.kwargs = kwargs
         self.drawables = []
+        """list of drawables created by this element, required to update their data when kinematic values changed"""
 
 
 class Visualiser:
-    def __init__(self, variables, **axes_options):
+    def __init__(self, variables, **axes_kwargs):
+        """
+        Creates a new visualiser. A visualiser describes a set of graphical elements that somehow depend on some free
+        variables. It can be used for plotting a kinematic configuration, creating an interactive version or rendering
+        animations of a numeric simulation.
+        :param variables: iterable of SymPy symbols, all free variables in the system to be visualised
+        :param axes_kwargs: keyword arguments that should be passed to the axes object that is automatically created
+        """
         self.variables = variables
         self.elements = []
-        self.axes_options = axes_options
+        self.axes_kwargs = axes_kwargs
 
     def create_default_axes(self, fig=None, add_subplot_args=111):
+        """
+        Create a figure if none is given and add axes to it
+        :param fig: the figure to add the axes to
+        :param add_subplot_args: specification of the subplot layout that is passed to fig.add_subplot
+        :return: (figure, axes)
+        """
         if fig is None:
-            fig = plt.figure()
-        ax = fig.add_subplot(add_subplot_args, **merge_options(self.axes_options, aspect='equal', xlim=(-2.0, 2.0), ylim=(-2.0, 2.0)))
+            fig = plt.figure()  # TODO: Get rid of pyplot calls, we don't want to affect the global state machine
+        ax = fig.add_subplot(add_subplot_args, **merge_options(self.axes_kwargs, aspect='equal', xlim=(-2.0, 2.0), ylim=(-2.0, 2.0)))
         ax.grid()
 
         return fig, ax
 
     def plot(self, variables_values, axes=None):
+        """
+        Plot for some specific variable values.
+        :param variables_values: iterable of values for all free variables
+        :param axes: the matplotlib axes to plot on, one will be created if none is given
+        """
         assert len(self.variables) == len(
             variables_values), f"You need to pass as many variable values as this visualiser has variables. Required: {len(self.variables)}, Given: {len(variables_values)}"
 
         fig = None
         if axes is None:
             fig, axes = self.create_default_axes()
-            plt.close()
+            plt.close()  # TODO: Get rid of pyplot calls, we don't want to affect the global state machine
 
         self.plot_init(variables_values, axes)
         self.plot_update(variables_values, axes)
         if fig is not None:
-            display(fig)
+            display(fig)  # TODO: Don't just call display, we might not be in an IPython context
 
     def plot_init(self, variables_values, axes):
+        """
+        Initialize all graphical elements
+        :param variables_values: iterable of values for all free variables
+        :param axes: the matplotlib axes to plot on
+        :return: list of created drawables
+        """
         drawables = []
         for element in self.elements:
             element.drawables = element.init_fun(axes, element.points_fun(*variables_values), element.kwargs)
@@ -59,6 +102,12 @@ class Visualiser:
         return drawables
 
     def plot_update(self, variables_values, axes):
+        """
+        Update all graphical elements with the current free variable values
+        :param variables_values: iterable of values for all free variables
+        :param axes: the matplotlib axes to plot on
+        :return: list of updated drawables
+        """
         drawables = []
         for element in self.elements:
             element.drawables = element.update_fun(axes, element.drawables, element.points_fun(*variables_values),
@@ -68,6 +117,12 @@ class Visualiser:
         return drawables
 
     def interact(self, fig=None, axes=None, **kwargs):
+        """
+        Display an interactive plot where all free variables can be manipulated, with the plot updating accordingly
+        :param fig: matplotlib figure to update, can be ommitted if axes should be created automatically
+        :param axes: matplotlib axes to draw on, can be ommitted if axes should be created automatically
+        :param kwargs: ipywidgets specifications using the SymPy symbol string representations as keys
+        """
         widget_dict = dict()
 
         for var in self.variables:
@@ -94,9 +149,20 @@ class Visualiser:
             self.plot_update(variables_values, axes)
             display(fig)
 
+        # TODO: Maybe return the control elements or something, so that they can be customized
         interact(interact_fun, **widget_dict)
 
     def add_element(self, points, init_fun, update_fun, **kwargs):
+        """
+        Add a visualiser element
+        :param points: 2x? SymPy matrix or list of 2x1 SymPy vectors describing the defining points as symbolic
+        expressions w.r.t the visualisers free variables
+        :param init_fun: callable with args (matplotlib axes, 2x? numpy array of points, dict of kwargs) that returns a
+        list of matplotlib drawables. Will get called to create all drawables needed by this element.
+        :param update_fun: callable with args (matplotlib axes, list of drawables, 2x? numpy array of points, dict of
+        kwargs) that returns a list of matplotlib drawables. Will get called every time the plot needs to be updated.
+        :param kwargs: arbitrary keyword arguments that get passed to init_fun and update_fun
+        """
         if not isinstance(points, sp.Matrix):
             if isinstance(points, list):
                 points = st.col_stack(*points)
@@ -107,12 +173,28 @@ class Visualiser:
         self.elements.append(VisualiserElement(points_fun, init_fun, update_fun, kwargs))
 
     def add_linkage(self, points, **kwargs):
+        """
+        Add a linkage chain element, consisting of round markers at the points and lines connecting them
+        :param points: SymPy expressions for the points on the chain
+        :param kwargs: keyword arguments passed to matplotlib plot() call
+        """
         self.add_element(points, init_linkage, update_linkage, **kwargs)
 
     def add_polygon(self, points, **kwargs):
+        """
+        Add a polygon element
+        :param points: SymPy expressions for the polygon corners
+        :param kwargs: keyword arguments passed to matplotlib Polygon() call
+        """
         self.add_element(points, init_polygon, update_polygon, **kwargs)
 
     def add_disk(self, points, **kwargs):
+        """
+        Add a disk element, consisting of a circle and a line from the center to the circumference, indicating the
+        orientation
+        :param points: SymPy expressions for the center point and a point on the circumference
+        :param kwargs: keyword arguments passed to matplotlib
+        """
         self.add_element(points, init_disk, update_disk, **kwargs)
 
 
