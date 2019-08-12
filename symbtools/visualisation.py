@@ -271,24 +271,39 @@ class SimAnimation:
 
         return ax
 
-    def add_graph(self, expr, subplot_pos=111, ax_kwargs=None, plot_kwargs=None, ax=None):
+    def add_graph(self, content, subplot_pos=111, ax_kwargs=None, plot_kwargs=None, ax=None):
         if ax is None:
             if ax_kwargs is None:
                 ax_kwargs = dict()
             ax = self.fig.add_subplot(subplot_pos, **ax_kwargs)
             ax.grid()
-        assert isinstance(expr, sp.Expr) or isinstance(expr, sp.Matrix) or isinstance(expr, list)
+        assert isinstance(content, np.ndarray) or isinstance(content, sp.Expr) or isinstance(content, sp.Matrix)\
+            or isinstance(content, list)
 
-        if isinstance(expr, sp.Expr):
-            expr = sp.Matrix([expr])
-        elif isinstance(expr, list):
-            expr = sp.Matrix(expr)
+        if isinstance(content, np.ndarray):
+            assert content.ndim == 1 or content.ndim == 2, "Data must be one or two-dimensional"
+            assert content.shape[0] == len(self.t), "Data must have as many rows as there are entries in 't' vector"
 
-        expr_fun = st.expr_to_func(self.x_symb, expr, keep_shape=True)
-        data = np.zeros((len(self.t), len(expr)))
+        # convert all types of symbolic content to a SymPy vector
+        if isinstance(content, sp.Expr):
+            content = sp.Matrix([content])
+        elif isinstance(content, list):
+            content = sp.Matrix(content)
 
-        for i in range(data.shape[0]):
-            data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()
+        # content is now a SymPy vector or an array of values
+        if isinstance(content, np.ndarray):
+            # We later expect all data to be two dimensional, so a vector must be converted to a ?x1 matrix
+            if content.ndim == 1:
+                data = np.reshape(content, (content.shape[0], 1))
+            else:
+                data = content
+        else:
+            # content is still symbolic, we need to generate the data vector ourselves
+            expr_fun = st.expr_to_func(self.x_symb, content, keep_shape=True)
+            data = np.zeros((len(self.t), len(content)))
+
+            for i in range(data.shape[0]):
+                data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()
 
         if plot_kwargs is None:
             plot_kwargs = dict()
