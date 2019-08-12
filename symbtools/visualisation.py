@@ -119,8 +119,8 @@ class Visualiser:
     def interact(self, fig=None, axes=None, **kwargs):
         """
         Display an interactive plot where all free variables can be manipulated, with the plot updating accordingly
-        :param fig: matplotlib figure to update, can be ommitted if axes should be created automatically
-        :param axes: matplotlib axes to draw on, can be ommitted if axes should be created automatically
+        :param fig: matplotlib figure to update, can be omitted if axes should be created automatically
+        :param axes: matplotlib axes to draw on, can be omitted if axes should be created automatically
         :param kwargs: ipywidgets specifications using the SymPy symbol string representations as keys
         """
         widget_dict = dict()
