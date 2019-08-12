@@ -317,8 +317,6 @@ class SimAnimation:
         graph_lines = {}
 
         def anim_init():
-            nonlocal init_drawables
-
             # If anim_init gets called multiple times (as is the case when blit=True), we need to remove
             # all remaining drawables before instantiating new ones
             while init_drawables:
@@ -328,11 +326,11 @@ class SimAnimation:
             for (ax, content, content_args) in self.axes:
                 if isinstance(content, Visualiser):
                     new_drawables = content.plot_init(np.zeros(len(content.variables)), ax)
-                    init_drawables += new_drawables
+                    init_drawables.extend(new_drawables)
                 elif isinstance(content, np.ndarray):
                     new_drawables = ax.plot(self.t, content, **content_args)
                     graph_lines[ax] = new_drawables
-                    init_drawables += new_drawables
+                    init_drawables.extend(new_drawables)
 
                     handles, labels = ax.get_legend_handles_labels()
 
