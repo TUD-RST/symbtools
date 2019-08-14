@@ -537,6 +537,37 @@ def integrate_pw(fnc, var, transpoints):
     return piece_wise(*pieces)
 
 
+# this is copied from pytrajectory
+def penalty_expression(x, xmin, xmax, m=5, scale=1):
+    """
+    return a quadratic parabola (vertex in the middle between xmin and xmax)
+    multiplied by a smooth switching function sucht that the resulting curve
+    is almost zero between xmin and xmax (exponentially faded) and almost identical
+    to the parabola outside that interval
+
+    :param x:
+    :param xmin:
+    :param xmax:
+    :param m:       slope at the (smooth) saltus
+    :param scale:   scaling factor of result
+    :return:
+    """
+
+    if not isinstance(x, (sp.Symbol, float, int, np.number)):
+        msg = "unexpected type for variable in penalty expression: %s" % type(x)
+        raise TypeError(msg)
+
+    if xmin == xmax:
+        print("Probably not intended: penalty expression: xmin == xmax == %s." % xmin)
+
+    xmid = xmin + (xmax - xmin)/2
+    # first term: parabola -> 0,                            second term: 0 -> parabola
+    res = (x-xmid)**2/(1 + sp.exp(m*(x - xmin))) + (x-xmid)**2/(1 + sp.exp(m*(xmax - x)))
+    res *= scale
+    # sp.plot(res, (x, xmin-xmid, xmax+xmid))
+    return res
+
+
 # might be oboslete (intended use case did not carry on)
 def deriv_2nd_order_chain_rule(funcs1, args1, funcs2, arg2):
     """

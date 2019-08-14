@@ -454,3 +454,24 @@ class SymbToolsTest(unittest.TestCase):
         res = st.smart_integrate(z, t)
         eres = x1 - 4*x2 + t**2/2 + 5*xdot2 + 3*sp.integrate(x1.ddt_func, t)
         self.assertEqual(res, eres)
+
+
+class FunctionToolsTest(unittest.TestCase):
+    """
+    This class collects (in the future) all tests regarding functions like transition_poly(), penalty_expression() etc.
+    """
+    def setUp(self):
+        st.init_attribute_store(reinit=True)
+
+    def test_penalty_expression(self):
+        x1, = xx = st.symb_vector('x1:2')
+        pe = st.penalty_expression(x1, -2, 2)
+
+        pefnc = st.expr_to_func(x1, pe)
+
+        eps = 1e-2
+        self.assertTrue(pefnc(1) < eps)
+        self.assertTrue(pefnc(5) - 25 < eps)
+        self.assertTrue(pefnc(-3) - 9 < eps)
+
+
