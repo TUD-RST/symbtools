@@ -4583,6 +4583,7 @@ class SimulationModel(object):
         time_direction = kwargs.get("time_direction", 1)
         assert time_direction in (-1, 1)
 
+        # here we evaluate input_function / controller_function
         self.u_func = self._get_input_func(kwargs)
         use_sp2c = bool(kwargs.get("use_sp2c", False))
 

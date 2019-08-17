@@ -988,10 +988,9 @@ class DAE_System(object):
 #     return model1
 
 
-# TODO add remark stating that due to construction, the equations stored in
-# the returned `SymbolicModel` under `eqns`
+# TODO add unittest for dissipation_function
 # noinspection PyPep8Naming
-def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, **kwargs):
+def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, dissipation_function=0, **kwargs):
     """
     T:             kinetic energy
     U:             potential energy
@@ -1001,7 +1000,12 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, **kwar
                    (default=True)
     constraints:   None (default) or sequence of constraints (will introduce lagrange multipliers)
 
+    dissipation_function:
+                    Rayleigh dissipation function. Its Differential w.r.t. tthetadot is added to the systems equation
+
     kwargs: optional assumptions like 'real=True'
+
+    :returns SymbolicModel instance mod. The equations are contained in mod.eqns
     """
     n = len(tt)
 
@@ -1019,6 +1023,9 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, **kwar
     assert constraints.shape[1] == 1
     nC = constraints.shape[0]
     jac_constraints = constraints.jacobian(tt)
+
+    dissipation_function = sp.sympify(dissipation_function)
+    assert isinstance(dissipation_function, sp.Expr)
 
     llmd = st.symb_vector("lambda_1:{}".format(nC+1))
 
@@ -1063,6 +1070,7 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, **kwar
     for i in range(n):
         model_eq[i] = L_diff_ttd_dt[i] - L_diff_tt[i] - F[i] - constraint_terms[i]
 
+    model_eq += st.gradient(dissipation_function, ttd).T
     # create object of model
     mod = SymbolicModel()  # model_eq, qs, f, D)
     mod.eqns = model_eq
