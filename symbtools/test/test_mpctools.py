@@ -41,6 +41,27 @@ class MPCToolsTest(unittest.TestCase):
         self.assertTrue(np.allclose(res_np, res_cs))
 
     @uth.optional_dependency
+    def test_conversion2(self):
+        x1, x2, x3 = xx = st.symb_vector("x1:4")
+        u1, u2 = uu = st.symb_vector("u1:3")
+        lmd1, lmd2 = llmd = st.symb_vector("lmd1:3")
+
+        xxuullmd = list(xx) + list(uu) + list(llmd)
+
+        expr_sp = sp.Matrix([x1 + x2 + x3, sp.sin(x1)*x2**x3, 1.23, 0, u1*sp.exp(u2), x1*lmd1 + lmd2**4])
+        func_cs = mpc.create_casadi_func(expr_sp, xxuullmd)
+
+        func_np = st.expr_to_func(xxuullmd, expr_sp)
+        argvals = np.random.rand(len(xxuullmd))
+
+        # unpack the array for lambdified function
+        res_np = func_np(*argvals)
+
+        # pass the whole array for casadi function
+        res_cs = func_cs(argvals).full().squeeze()
+        self.assertTrue(np.allclose(res_np, res_cs))
+
+    @uth.optional_dependency
     def test_conversion_all_funcs(self):
         x1, x2, x3 = xx = st.symb_vector("x1:4")
         u1, u2 = uu = st.symb_vector("u1:3")

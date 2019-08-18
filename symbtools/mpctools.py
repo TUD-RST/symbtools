@@ -4,6 +4,7 @@ import casadi as cs
 from casadi.casadi import SX
 
 import os
+import warnings
 import numpy as np
 import symbtools as st
 
@@ -125,14 +126,27 @@ def casidify(expr, state_vect, input_vect):
     return scope["rhs"], scope["x"], scope["u"]
 
 
-def create_casadi_func(sp_expr, sp_xx, sp_uu=None, name="cs_from_sp"):
+def create_casadi_func(sp_expr, sp_vars, sp_uu=None, name="cs_from_sp"):
+    """
+
+    :param sp_expr:     sympy expression which should be converted
+    :param sp_vars:     sequence of sympy vars e.g. ( x1, x2, x3, x4, u1, lmd1 ) for a Lagrangian system model with
+                        state_dim = 4, input_dim = 1, constraint_dim = 1
+    :param sp_uu:       sequence of input variables (deprecated) put inputs into `sp_vars`
+    :param name:
+    :return:            callable casadi function
+    """
 
     multiple_args = True
     if sp_uu is None:
         sp_uu = []
         multiple_args = False
+    else:
+        msg = "passing parameter `sp_uu` is deprecated and will not work in future symbtools releases anymore. "\
+              "Please see the docstring of `create_casadi_func()` on how to pass input (and other variables)"
+        warnings.warn(msg, DeprecationWarning)
 
-    expr_cs, xx_cs, uu_cs = casidify(sp_expr, sp_xx, sp_uu)
+    expr_cs, xx_cs, uu_cs = casidify(sp_expr, sp_vars, sp_uu)
     if multiple_args:
         func_cs = cs.Function(name, (xx_cs, uu_cs), (expr_cs,))
     else:
