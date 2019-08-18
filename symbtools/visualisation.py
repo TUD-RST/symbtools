@@ -62,7 +62,7 @@ class Visualiser:
         :return: (figure, axes)
         """
         if fig is None:
-            fig = plt.figure()  # TODO: Get rid of pyplot calls, we don't want to affect the global state machine
+            fig = plt.figure()
         ax = fig.add_subplot(add_subplot_args, **merge_options(self.axes_kwargs, aspect='equal', xlim=(-2.0, 2.0), ylim=(-2.0, 2.0)))
         ax.grid()
 
@@ -74,13 +74,13 @@ class Visualiser:
         :param variables_values: iterable of values for all free variables
         :param axes: the matplotlib axes to plot on, one will be created if none is given
         """
-        assert len(self.variables) == len(
-            variables_values), f"You need to pass as many variable values as this visualiser has variables. Required: {len(self.variables)}, Given: {len(variables_values)}"
+        assert len(self.variables) == len(variables_values), \
+            f"You need to pass as many variable values as this visualiser has variables. Required: {len(self.variables)}, Given: {len(variables_values)}"
 
         fig = None
         if axes is None:
             fig, axes = self.create_default_axes()
-            plt.close()  # TODO: Get rid of pyplot calls, we don't want to affect the global state machine
+            plt.close(fig)
 
         self.plot_init(variables_values, axes)
         self.plot_update(variables_values, axes)
