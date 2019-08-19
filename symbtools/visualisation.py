@@ -257,13 +257,17 @@ def update_disk(ax, drawables, points, kwargs):
 
 
 class SimAnimation:
-    def __init__(self, x_symb, t, x_sim, fig=None, **fig_kwargs):
+    def __init__(self, x_symb, t, x_sim, start_pause=1.0, end_pause=1.0, fig=None, **fig_kwargs):
         self.x_symb = x_symb
         self.t = t
         self.x_sim = x_sim
         if fig is None:
             fig = plt.figure(**fig_kwargs)
             plt.close()
+        self.n_sim_frames = len(self.t)
+        self.dt = (self.t[-1] - self.t[0]) / (self.n_sim_frames - 1)
+        self.start_pause_frames = int(start_pause / self.dt)
+        self.end_pause_frames = int(end_pause / self.dt)
         self.fig = fig
         self.axes = []
         self._drawables = []
@@ -289,7 +293,7 @@ class SimAnimation:
 
         if isinstance(content, np.ndarray):
             assert content.ndim == 1 or content.ndim == 2, "Data must be one or two-dimensional"
-            assert content.shape[0] == len(self.t), "Data must have as many rows as there are entries in 't' vector"
+            assert content.shape[0] == self.n_sim_frames, "Data must have as many rows as there are entries in 't' vector"
 
         # convert all types of symbolic content to a SymPy vector
         if isinstance(content, sp.Expr):
@@ -307,7 +311,7 @@ class SimAnimation:
         else:
             # content is still symbolic, we need to generate the data vector ourselves
             expr_fun = st.expr_to_func(self.x_symb, content, keep_shape=True)
-            data = np.zeros((len(self.t), len(content)))
+            data = np.zeros((self.n_sim_frames, len(content)))
 
             for i in range(data.shape[0]):
                 data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()
@@ -367,9 +371,10 @@ class SimAnimation:
 
     def plot_frame(self, frame_number=None):
         if frame_number is None:  # Default to the last frame
-            frame_number = len(self.t) - 1
+            frame_number = self.n_sim_frames - 1
 
-        assert 0 <= frame_number < len(self.t), f"Frame number needs to be in the supplied data range [0, {len(self.t)-1}]"
+        assert 0 <= frame_number < self.n_sim_frames,\
+            f"Frame number needs to be in the supplied data range [0, {self.n_sim_frames-1}]"
 
         anim_init, anim_update = self._get_animation_callables()
         anim_init()
@@ -385,8 +390,11 @@ class SimAnimation:
     def to_animation(self):
         anim_init, anim_update = self._get_animation_callables()
 
-        return animation.FuncAnimation(self.fig, anim_update, init_func=anim_init, frames=len(self.t),
-                                       interval=1000 * (self.t[-1] - self.t[0]) / (len(self.t) - 1))
+        anim_update_with_pause = lambda i: anim_update(max(min(i - self.start_pause_frames, self.n_sim_frames - 1), 0))
+
+        return animation.FuncAnimation(self.fig, anim_update_with_pause, init_func=anim_init,
+                                       frames=self.n_sim_frames + self.start_pause_frames + self.end_pause_frames,
+                                       interval=1000 * self.dt)
 
     def display(self, with_js=True):
         assert in_ipython_context, "Display only works in an IPython notebook"
