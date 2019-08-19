@@ -4,7 +4,11 @@ import symbtools as st
 from ipywidgets import FloatSlider, interact
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from IPython.display import HTML, display
+try:
+    from IPython.display import HTML, display
+    in_ipython_context = True
+except:
+    in_ipython_context = False
 
 
 def merge_options(custom_options, **default_options):
@@ -84,8 +88,8 @@ class Visualiser:
 
         self.plot_init(variables_values, axes)
         self.plot_update(variables_values, axes)
-        if fig is not None:
-            display(fig)  # TODO: Don't just call display, we might not be in an IPython context
+        if fig is not None and in_ipython_context:
+            display(fig)
 
     def plot_init(self, variables_values, axes):
         """
@@ -123,6 +127,8 @@ class Visualiser:
         :param axes: matplotlib axes to draw on, can be omitted if axes should be created automatically
         :param kwargs: ipywidgets specifications using the SymPy symbol string representations as keys
         """
+        assert in_ipython_context, "Interactive mode only works in an IPython notebook"
+
         widget_dict = dict()
 
         for var in self.variables:
@@ -260,6 +266,7 @@ class SimAnimation:
             plt.close()
         self.fig = fig
         self.axes = []
+        self._drawables = []
 
     def add_visualiser(self, vis, subplot_pos=111, ax=None):
         if ax is None:
@@ -312,25 +319,22 @@ class SimAnimation:
 
         return ax
 
-    def display(self):
-        init_drawables = []
+    def _get_animation_callables(self):
         graph_lines = {}
 
         def anim_init():
             # If anim_init gets called multiple times (as is the case when blit=True), we need to remove
             # all remaining drawables before instantiating new ones
-            while init_drawables:
-                drawable = init_drawables.pop()
-                drawable.remove()
+            self.clear_figure()
 
             for (ax, content, content_args) in self.axes:
                 if isinstance(content, Visualiser):
                     new_drawables = content.plot_init(np.zeros(len(content.variables)), ax)
-                    init_drawables.extend(new_drawables)
+                    self._drawables.extend(new_drawables)
                 elif isinstance(content, np.ndarray):
                     new_drawables = ax.plot(self.t, content, **content_args)
                     graph_lines[ax] = new_drawables
-                    init_drawables.extend(new_drawables)
+                    self._drawables.extend(new_drawables)
 
                     handles, labels = ax.get_legend_handles_labels()
 
@@ -338,7 +342,7 @@ class SimAnimation:
                     if handles:
                         ax.legend(handles, labels)
 
-            return init_drawables
+            return self._drawables
 
         def anim_update(i):
             drawables = []
@@ -353,15 +357,55 @@ class SimAnimation:
                     lines = graph_lines[ax]
 
                     for line_i, line in enumerate(lines):
-                        line.set_data(self.t[:i+1], content[:i+1, line_i])
+                        line.set_data(self.t[:i + 1], content[:i + 1, line_i])
 
                     drawables += lines
 
             return drawables
 
-        anim = animation.FuncAnimation(self.fig, anim_update, init_func=anim_init, frames=len(self.t),
+        return anim_init, anim_update
+
+    def plot_frame(self, frame_number=None):
+        if frame_number is None:  # Default to the last frame
+            frame_number = len(self.t) - 1
+
+        assert 0 <= frame_number < len(self.t), f"Frame number needs to be in the supplied data range [0, {len(self.t)-1}]"
+
+        anim_init, anim_update = self._get_animation_callables()
+        anim_init()
+        anim_update(frame_number)
+
+        return self.fig
+
+    def display_frame(self, frame_number=None):
+        assert in_ipython_context, "Display only works in an IPython notebook"
+        fig = self.plot_frame(frame_number)
+        display(fig)
+
+    def to_animation(self):
+        anim_init, anim_update = self._get_animation_callables()
+
+        return animation.FuncAnimation(self.fig, anim_update, init_func=anim_init, frames=len(self.t),
                                        interval=1000 * (self.t[-1] - self.t[0]) / (len(self.t) - 1))
-        display(HTML(anim.to_jshtml()))
+
+    def display(self, with_js=True):
+        assert in_ipython_context, "Display only works in an IPython notebook"
+
+        if with_js:
+            html_source = self.to_animation().to_jshtml()
+        else:
+            html_source = self.to_animation().to_html5_video()
+
+        display(HTML(html_source))
+
+    def clear_figure(self, reset_color_cycle=True):
+        while self._drawables:
+            drawable = self._drawables.pop()
+            drawable.remove()
+
+        if reset_color_cycle:
+            for (ax, _, _) in self.axes:
+                ax.set_prop_cycle(None)
 
     def _find_variable_indices(self, variables):
         assert all([var in self.x_symb for var in variables])
