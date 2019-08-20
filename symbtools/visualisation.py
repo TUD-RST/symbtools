@@ -1,11 +1,11 @@
 import numpy as np
 import sympy as sp
 import symbtools as st
-from ipywidgets import FloatSlider, interact
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 try:
     from IPython.display import HTML, display
+    from ipywidgets import FloatSlider, interact
     in_ipython_context = True
 except:
     in_ipython_context = False
