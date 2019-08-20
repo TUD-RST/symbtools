@@ -4,6 +4,7 @@ import symbtools as st
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 try:
+    # TODO: the whole way we handle different usage contexts is very not great right now. For example plots get automatically closed, making it very hard to see them outside of Jupyter
     from IPython.display import HTML, display
     from ipywidgets import FloatSlider, interact
     in_ipython_context = True
@@ -84,6 +85,7 @@ class Visualiser:
         fig = None
         if axes is None:
             fig, axes = self.create_default_axes()
+            # TODO: Probably should not do that, but it prevents an empty plot from popping up in IPython
             plt.close(fig)
 
         self.plot_init(variables_values, axes)
