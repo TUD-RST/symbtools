@@ -257,37 +257,104 @@ def update_disk(ax, drawables, points, kwargs):
 
 
 class SimAnimation:
+    """
+    An animation showing the results of some numeric simulation. May consist of multiple kinematic visualisations and
+    graphs that get automatically animated based on a sequence of system variable vectors.
+    """
     def __init__(self, x_symb, t, x_sim, start_pause=1.0, end_pause=1.0, fig=None, **fig_kwargs):
+        """
+        Create a new animation, define the system variables, their trajectories and customize the plot figure.
+        :param x_symb: symbolic vector of all system variables, matching the columns of x_sim
+        :param t: 1D numpy array of equidistant sample times
+        :param x_sim: 2D numpy array with the simulation data, rows are time samples, columns are system variables
+        :param start_pause: pause in seconds to insert before start of simulation
+        :param end_pause: pause in seconds to insert after end of simulation
+        :param fig: optional, figure object to be used for the plot, if omitted one will be created
+        :param fig_kwargs: keyword arguments to pass to automatically created figure if necessary
+        """
         self.x_symb = x_symb
         self.t = t
         self.x_sim = x_sim
-        if fig is None:
-            fig = plt.figure(**fig_kwargs)
-            plt.close()
+
         self.n_sim_frames = len(self.t)
-        self.dt = (self.t[-1] - self.t[0]) / (self.n_sim_frames - 1)
+        self.dt = (self.t[-1] - self.t[0]) / (self.n_sim_frames - 1)  # assumes equidistant sampling
         self.start_pause_frames = int(start_pause / self.dt)
         self.end_pause_frames = int(end_pause / self.dt)
+
+        # create figure ourselves if none is given
+        if fig is None:
+            fig = plt.figure(**fig_kwargs)
+            plt.close()  # we don't want the empty figure to pop up right now
         self.fig = fig
+
+        # List of tuples, each describing a subplot (either a kinematic visulisation or a graph) in the animation.
+        # Each tuple has three entries (matplotlib axes, content, content arguments). If 'content' is a 'Visualiser'
+        # object, then 'content arguments' will be a list of column indices in x_sim that correspond to the free
+        # variables defined in the 'Visualiser'. If 'content' is a numpy array then the data in that array will be
+        # plotted in an animated graph and 'content arguments' contains a dictionary of keyword arguments to be passed
+        # to the matplotlib Axes.plot function.
         self.axes = []
+
+        # List of matplotlib drawables that we instantiated in the figure, needed to clear it again.
         self._drawables = []
 
+        # keys are matplotlib Axes objects of the subplots containing graphs, values are lists of Line2D objects of the
+        # plot lines; required because they must be updated during animation
+        self._graph_lines = {}
+
+        # The last matplotlib animation object we created, gets reset to None when a subplot gets added. On subsequent
+        # calls to display() or something we can return the same animation object which might have the rendered
+        # animation already cached, speeding up execution.
+        self._cached_anim = None
+
     def add_visualiser(self, vis, subplot_pos=111, ax=None):
+        """
+        Add a subplot containing a kinematic visualisation.
+        :param vis: Visualiser object
+        :param subplot_pos: subplot position, this simply gets passed on to matplotlib's Figure.add_subplot() so every
+        valid type of specification should work.
+        :param ax: optional, existing Axes object to be used for plotting, if omitted one will be created according to
+        the configuration of the Visualiser
+        :return: Axes object of the subplot
+        """
+        assert isinstance(vis, Visualiser)
+
         if ax is None:
+            # use the visualisers configuration for creating a new Axes
             _, ax = vis.create_default_axes(self.fig, subplot_pos)
 
-        assert isinstance(vis, Visualiser)
+        # in which columns of x_sim can we find the free variables that the visualiser knows about?
         vis_var_indices = self._find_variable_indices(vis.variables)
         self.axes.append((ax, vis, vis_var_indices))
+
+        # adding a new subplot invalidates any cached animation we might have
+        self._cached_anim = None
 
         return ax
 
     def add_graph(self, content, subplot_pos=111, ax_kwargs=None, plot_kwargs=None, ax=None):
+        """
+        Add a subplot containing an animated graph of some system variables.
+        :param content: Can be
+            - symbolic: SymPy expression, list of SymPy expressions or SymPy matrix, of some system variables or a
+                        combination of them
+            - numeric: NumPy array of values to be plotted over time, rows are sample times, columns are separate plot
+                       lines. The number of rows must match the length of the time vector.
+        :param subplot_pos: subplot position, this simply gets passed on to matplotlib's Figure.add_subplot() so every
+        valid type of specification should work.
+        :param ax_kwargs: keyword arguments to be passed on when creating Axes object
+        :param plot_kwargs: keyword arguments to be passed on when calling Axes.plot function
+        :param ax: optional, existing Axes object to be used for plotting, if omitted one will be created
+        :return: Axes object of the subplot
+        """
+
+        # create Axes if necessary
         if ax is None:
             if ax_kwargs is None:
-                ax_kwargs = dict()
+                ax_kwargs = {}
             ax = self.fig.add_subplot(subplot_pos, **ax_kwargs)
             ax.grid()
+
         assert isinstance(content, np.ndarray) or isinstance(content, sp.Expr) or isinstance(content, sp.Matrix)\
             or isinstance(content, list)
 
@@ -310,93 +377,137 @@ class SimAnimation:
                 data = content
         else:
             # content is still symbolic, we need to generate the data vector ourselves
+            # instantiate a function that takes one row of x_sim and returns the values to plot at one time instance
             expr_fun = st.expr_to_func(self.x_symb, content, keep_shape=True)
+
+            # allocate memory for the data to plot
             data = np.zeros((self.n_sim_frames, len(content)))
 
+            # use the prepared function to fill the plotting data
             for i in range(data.shape[0]):
-                data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()
+                data[i, :] = expr_fun(*self.x_sim[i, :]).flatten()  # expr_fun returns a 2D column vector --> flatten
 
         if plot_kwargs is None:
-            plot_kwargs = dict()
+            plot_kwargs = {}
 
         self.axes.append((ax, data, plot_kwargs))
 
+        # adding a new subplot invalidates any cached animation we might have
+        self._cached_anim = None
+
         return ax
 
-    def _get_animation_callables(self):
-        graph_lines = {}
+    def _anim_init(self):
+        """
+        Clear the figure and instantiate all drawables that will be updated during animation.
+        :return: list of instantiated drawables
+        """
 
-        def anim_init():
-            # If anim_init gets called multiple times (as is the case when blit=True), we need to remove
-            # all remaining drawables before instantiating new ones
-            self.clear_figure()
+        # If anim_init gets called multiple times (as is the case when blit=True), we need to remove
+        # all remaining drawables before instantiating new ones
+        self.clear_figure()
 
-            for (ax, content, content_args) in self.axes:
-                if isinstance(content, Visualiser):
-                    new_drawables = content.plot_init(np.zeros(len(content.variables)), ax)
-                    self._drawables.extend(new_drawables)
-                elif isinstance(content, np.ndarray):
-                    new_drawables = ax.plot(self.t, content, **content_args)
-                    graph_lines[ax] = new_drawables
-                    self._drawables.extend(new_drawables)
+        for (ax, content, content_args) in self.axes:
+            if isinstance(content, Visualiser):
+                new_drawables = content.plot_init(np.zeros(len(content.variables)), ax)  # use 0 for all free vars
+                self._drawables.extend(new_drawables)
+            elif isinstance(content, np.ndarray):
+                new_drawables = ax.plot(self.t, content, **content_args)
+                self._graph_lines[ax] = new_drawables
+                self._drawables.extend(new_drawables)
 
-                    handles, labels = ax.get_legend_handles_labels()
+                handles, labels = ax.get_legend_handles_labels()
 
-                    # Create an auto-legend if any plot has defined line labels
-                    if handles:
-                        ax.legend(handles, labels)
+                # Create an auto-legend if any plot has defined line labels
+                if handles:
+                    ax.legend(handles, labels)
 
-            return self._drawables
+        return self._drawables
 
-        def anim_update(i):
-            drawables = []
+    def _anim_update(self, i):
+        """
+        Update the figure elements with the data in frame with index i
+        :param i: frame index in t and x_sim vector
+        :return: list of updated drawables
+        """
+        drawables = []
 
-            for (ax, content, content_args) in self.axes:
-                if isinstance(content, Visualiser):
-                    vis_var_indices = content_args
-                    vis_var_values = self.x_sim[i, vis_var_indices]
+        for (ax, content, content_args) in self.axes:
+            if isinstance(content, Visualiser):
+                vis_var_indices = content_args
+                # extract the free variable values in the right order (the one the Visualiser expects)
+                vis_var_values = self.x_sim[i, vis_var_indices]
 
-                    drawables += content.plot_update(vis_var_values, ax)
-                elif isinstance(content, np.ndarray):
-                    lines = graph_lines[ax]
+                drawables.extend(content.plot_update(vis_var_values, ax))
+            elif isinstance(content, np.ndarray):
+                # the line objects in this subplot that we created earlier
+                lines = self._graph_lines[ax]
 
-                    for line_i, line in enumerate(lines):
-                        line.set_data(self.t[:i + 1], content[:i + 1, line_i])
+                for line_i, line in enumerate(lines):
+                    # update each line with the data up to (and including) the current time
+                    line.set_data(self.t[:i + 1], content[:i + 1, line_i])
 
-                    drawables += lines
+                drawables.extend(lines)
 
-            return drawables
-
-        return anim_init, anim_update
+        return drawables
 
     def plot_frame(self, frame_number=None):
+        """
+        Plot a single frame onto the figure.
+        :param frame_number: optional, index of frame to plot, defaults to the last frame
+        :return: the figure object that was plotted onto
+        """
         if frame_number is None:  # Default to the last frame
             frame_number = self.n_sim_frames - 1
 
         assert 0 <= frame_number < self.n_sim_frames,\
             f"Frame number needs to be in the supplied data range [0, {self.n_sim_frames-1}]"
 
-        anim_init, anim_update = self._get_animation_callables()
-        anim_init()
-        anim_update(frame_number)
+        self._anim_init()
+        self._anim_update(frame_number)
 
         return self.fig
 
     def display_frame(self, frame_number=None):
+        """
+        Display the plot of a single frame.
+        :param frame_number: optional, index of frame to plot, defaults to the last frame
+        :return:
+        """
         assert in_ipython_context, "Display only works in an IPython notebook"
         fig = self.plot_frame(frame_number)
         display(fig)
 
     def to_animation(self):
-        anim_init, anim_update = self._get_animation_callables()
+        """
+        Convert to a matplotlib Animation object.
+        :return: matplotlib Animation object
+        """
 
-        anim_update_with_pause = lambda i: anim_update(max(min(i - self.start_pause_frames, self.n_sim_frames - 1), 0))
+        # if we have something cached, we don't need to create a new one
+        if self._cached_anim:
+            return self._cached_anim
 
-        return animation.FuncAnimation(self.fig, anim_update_with_pause, init_func=anim_init,
+        # Transform frame index before calling anim_update. All indices < start_pause_frames will result in anim_update
+        # being called with i=0, all indices > start_pause_frames + n_sim_frames will result in anim_update being called
+        # with i=n_sim_frames-1. This effectively creates pauses of start_pause_frames and end_pause_frames length
+        # respectively.
+        def anim_update_with_pause(i):
+            self._anim_update(max(min(i - self.start_pause_frames, self.n_sim_frames - 1), 0))
+
+        anim = animation.FuncAnimation(self.fig, anim_update_with_pause, init_func=self._anim_init,
                                        frames=self.n_sim_frames + self.start_pause_frames + self.end_pause_frames,
                                        interval=1000 * self.dt)
 
+        self._cached_anim = anim
+
+        return anim
+
     def display(self, with_js=True):
+        """
+        Display the animation.
+        :param with_js: should the displayed element have fancy playback controls
+        """
         assert in_ipython_context, "Display only works in an IPython notebook"
 
         if with_js:
@@ -406,7 +517,20 @@ class SimAnimation:
 
         display(HTML(html_source))
 
+    def save(self, file_name, **kwargs):
+        """
+        Save the animation.
+        :param file_name: path of destination file
+        :param kwargs: keyword arguments to passed to matplotlib's Animation.save() function
+        """
+        anim = self.to_animation()
+        anim.save(file_name, **merge_options(kwargs, writer='imagemagick' if file_name.endswith('gif') else None))
+
     def clear_figure(self, reset_color_cycle=True):
+        """
+        Remove all drawables we created from the figure.
+        :param reset_color_cycle: should the cycle of automatic plot colors also be reset
+        """
         while self._drawables:
             drawable = self._drawables.pop()
             drawable.remove()
