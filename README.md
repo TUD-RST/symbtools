@@ -7,9 +7,9 @@
 
 Allgemeines
 ===========
-Das Paket symbtools enthält eine Sammlung von Funktionen für
+Das Paket `symbtools` enthält eine Sammlung von Funktionen für
 symbolischen Rechnungen, die bei der Untersuchung nichtlineare dynamischer
-Systeme im Rahmen der Regelungs- und Steuerungstheorie auftreten.
+Systeme im Rahmen der Regelungs- und Steuerungstheorie auftreten. Speziell ist im Modul `modeltools` Funktionalität gebündelt, die zur Herleitung, Analyse und Simulation von Modellgleichungen mit Hilfe der Lagrange-Gleichungen 1. bzw. 2. Art dient. Dieses Modul unterliegt aktuell (August 2019) einer Restrukturierung. Eine separate Dokumentation ist in Vorbereitung. Vorerst wird auf die [unittests](https://github.com/TUD-RST/symbtools/blob/master/symbtools/test/test_modeltools.py) und auf das Repositorium <https://github.com/cknoll/beispiele> verwiesen.
 
 Der Programmcode hat den Status von "Forschungscode",
 d.h. das Paket befindet sich im Entwicklungszustand.
