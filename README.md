@@ -13,7 +13,7 @@ Systeme im Rahmen der Regelungs- und Steuerungstheorie auftreten. Speziell ist i
 
 Der Programmcode hat den Status von "Forschungscode",
 d.h. das Paket befindet sich im Entwicklungszustand.
-Trotz, dass wesentliche Teile durch Unittests abgedeckt sind, enthält der Code
+Obwohl wesentliche Teile durch Unittests abgedeckt sind, enthält der Code
 mit einer gewissen Wahrscheinlichkeit Fehler.
 
 
@@ -24,8 +24,8 @@ The package symbtools contains collection of functions for symbolic
 calculations, which occur along with the investigation of nonlinear
 dynamical systems in the field of control theory.
 
-Note that, the package is in development state. Despite that a substatitial
-part is covered by unittest, the code will contain bugs with some probability.
+Note that the package is in development state. Despite that a substantial
+part is covered by unit test, the code will contain bugs with some probability.
 
 
 Installation
