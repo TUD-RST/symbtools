@@ -715,7 +715,7 @@ class DAE_System(object):
 
         self.acc_of_lmd_func = acc_of_lmd_func
 
-    def calc_constistent_conf_vel(self, **kwargs):
+    def calc_consistent_conf_vel(self, **kwargs):
         """
         Example call: calc_consistent_conf(p1=0.5, pdot1=-1.2, p2_estimate=-2, _ftol=1e-12)
 
@@ -885,7 +885,7 @@ class DAE_System(object):
                             see calc_constistent_conf_vel
         """
 
-        ttheta, ttheta_d = self.calc_constistent_conf_vel(**kwargs)
+        ttheta, ttheta_d = self.calc_consistent_conf_vel(**kwargs)
 
         # noinspection PyTypeChecker
         acc, llmd = self.calc_consistent_accel_lmd((ttheta, ttheta_d), t=t)

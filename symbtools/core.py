@@ -4554,7 +4554,7 @@ class SimulationModel(object):
 
     def create_simfunction(self, **kwargs):
         """
-        Creates the right-hand-side function of xdot = f(x) + G(x)u
+        Creates the right-hand-side function of xdot = f(x) + G(x)u(t)
 
         signature is adapted to scipy odeint: rhs(state, time)
         exception: see `free_input_args` below
@@ -4578,6 +4578,9 @@ class SimulationModel(object):
         :param use_sp2c: boolean flag whether to use sympy to c bridge (default: False)
 
         Note: input_function and controller_function mutually exclude each other
+
+
+        :returns rhs(state, time): (see also notes above)
         """
 
         time_direction = kwargs.get("time_direction", 1)

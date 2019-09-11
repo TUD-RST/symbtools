@@ -70,12 +70,12 @@ class ModelToolsTest(unittest.TestCase):
 
         dae = mod.calc_dae_eq(parameter_values=[(m, 1)])
 
-        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q1=0.123, _disp=False)
+        ttheta_1, ttheta_d_1 = dae.calc_consistent_conf_vel(q1=0.123, _disp=False)
 
         self.assertTrue(npy.allclose(ttheta_1, npy.array([0.123, 0.123])))
         self.assertTrue(npy.allclose(ttheta_d_1, npy.array([0.0, 0.0])))
 
-        ttheta_2, ttheta_d_2 = dae.calc_constistent_conf_vel(q2=567, qdot2=-100, _disp=False)
+        ttheta_2, ttheta_d_2 = dae.calc_consistent_conf_vel(q2=567, qdot2=-100, _disp=False)
 
         self.assertTrue(npy.allclose(ttheta_2, npy.array([567., 567.])))
         self.assertTrue(npy.allclose(ttheta_d_2, npy.array([-100.0, -100.0])))
@@ -83,12 +83,12 @@ class ModelToolsTest(unittest.TestCase):
         # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # wrong argument
-            dae.calc_constistent_conf_vel(q2=567, q2d=-100, _disp=False)
+            dae.calc_consistent_conf_vel(q2=567, q2d=-100, _disp=False)
 
         # noinspection PyUnusedLocal
         with self.assertRaises(ValueError) as cm:
             # unexpected argument
-            dae.calc_constistent_conf_vel(q2=567, qdot2=-100, foobar="fnord", _disp=False)
+            dae.calc_consistent_conf_vel(q2=567, qdot2=-100, foobar="fnord", _disp=False)
 
         dae.gen_leqs_for_acc_llmd()
         A, b = dae.leqs_acc_lmd_func(*npy.r_[ttheta_1, ttheta_1, 1])
@@ -189,7 +189,7 @@ class ModelToolsTest(unittest.TestCase):
         self.assertEqual(dae.eqns[-nc:, :], mod.constraints)
 
         # qdot1 = 0
-        ttheta_1, ttheta_d_1 = dae.calc_constistent_conf_vel(q1=npy.pi/4, _disp=False)
+        ttheta_1, ttheta_d_1 = dae.calc_consistent_conf_vel(q1=npy.pi/4, _disp=False)
 
         eres_c = npy.array([-0.2285526,  1.58379902,  0.78539816])
         eres_v = npy.array([0, 0, 0])
@@ -204,7 +204,7 @@ class ModelToolsTest(unittest.TestCase):
         self.assertTrue(npy.allclose(llmd_1, [-0.99339947,  0.58291489]))
 
         # qdot1 ≠ 0
-        ttheta_2, ttheta_d_2 = dae.calc_constistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
+        ttheta_2, ttheta_d_2 = dae.calc_consistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
 
         eres_c = npy.array([-0.85754267,  0.89969149,  0.875])*npy.pi
         eres_v = npy.array([-3.42862311,  2.39360715,  3.])
