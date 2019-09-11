@@ -222,7 +222,7 @@ class SymbolicModel(object):
     # affine regarding self.tau
     def calc_state_eq(self, simplify=True, force_recalculation=False):
         """
-        reformulate the second order model to a first order statespace model
+        reformulate the second order model to a first order state space model
         xd = f(x)+g(x)*u
         """
 

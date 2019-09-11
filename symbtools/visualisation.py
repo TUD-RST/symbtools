@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 try:
     # TODO: the whole way we handle different usage contexts is very not great right now. For example plots get automatically closed, making it very hard to see them outside of Jupyter
-    from IPython.display import HTML, display
+    from IPython.display import HTML, display as ip_display
     from ipywidgets import FloatSlider, interact
     in_ipython_context = True
 except:
@@ -91,7 +91,7 @@ class Visualiser:
         self.plot_init(variables_values, axes)
         self.plot_update(variables_values, axes)
         if fig is not None and in_ipython_context:
-            display(fig)
+            ip_display(fig)
 
     def plot_init(self, variables_values, axes):
         """
@@ -155,7 +155,7 @@ class Visualiser:
                 is_initialized = True
 
             self.plot_update(variables_values, axes)
-            display(fig)
+            ip_display(fig)
 
         # TODO: Maybe return the control elements or something, so that they can be customized
         interact(interact_fun, **widget_dict)
@@ -305,6 +305,7 @@ class SimAnimation:
         # plot lines; required because they must be updated during animation
         self._graph_lines = {}
 
+        # TODO: clarify this comment
         # The last matplotlib animation object we created, gets reset to None when a subplot gets added. On subsequent
         # calls to display() or something we can return the same animation object which might have the rendered
         # animation already cached, speeding up execution.
@@ -479,7 +480,7 @@ class SimAnimation:
         """
         assert in_ipython_context, "Display only works in an IPython notebook"
         fig = self.plot_frame(frame_number)
-        display(fig)
+        ip_display(fig)
 
     def to_animation(self):
         """
@@ -510,6 +511,8 @@ class SimAnimation:
         """
         Display the animation.
         :param with_js: should the displayed element have fancy playback controls
+
+        See also: display_video_file (function)
         """
         assert in_ipython_context, "Display only works in an IPython notebook"
 
@@ -518,7 +521,8 @@ class SimAnimation:
         else:
             html_source = self.to_animation().to_html5_video()
 
-        display(HTML(html_source))
+        # noinspection PyTypeChecker
+        ip_display(HTML(html_source))
 
     def save(self, file_name, **kwargs):
         """
@@ -553,3 +557,30 @@ class SimAnimation:
                     break
 
         return indices
+
+
+def display_video_file(fname, width=None, height=None):
+    """
+    Display a video file
+    :param fname: filename
+    """
+    assert in_ipython_context, "Display only works in an IPython notebook"
+
+    if isinstance(width, int):
+        width_str = "width={}".format(width)
+    else:
+        width_str=""
+
+    if isinstance(height, int):
+        height_str = "height={}".format(height)
+    else:
+        height_str=""
+
+    html_source = """
+    <video {} {} controls loop="loop">
+        <source src="{}" type="video/mp4">
+    </video>
+    """.format(width_str, height_str, fname)
+
+    # noinspection PyTypeChecker
+    ip_display(HTML(html_source))
