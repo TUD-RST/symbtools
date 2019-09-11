@@ -248,7 +248,8 @@ def update_disk(ax, drawables, points, kwargs):
     border_point = points[:, 1]
 
     circle = drawables[0]
-    circle.set_center(center_point)
+    # circle.set_center(center_point)
+    circle.center = center_point
     radius = np.sqrt(np.sum((border_point - center_point) ** 2))
     circle.set_radius(radius)
 
