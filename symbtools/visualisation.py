@@ -11,6 +11,9 @@ try:
 except:
     in_ipython_context = False
 
+from scipy.optimize import fmin
+from .core import expr_to_func
+
 
 def merge_options(custom_options, **default_options):
     """
@@ -122,16 +125,56 @@ class Visualiser:
 
         return drawables
 
-    def interact(self, fig=None, axes=None, **kwargs):
+    def interact(self, fig=None, axes=None, constraints=None, free_vars=None, **kwargs):
         """
         Display an interactive plot where all free variables can be manipulated, with the plot updating accordingly
         :param fig: matplotlib figure to update, can be omitted if axes should be created automatically
         :param axes: matplotlib axes to draw on, can be omitted if axes should be created automatically
+        :param constraints: optional sympy (nx1)-matrix of eqns which should be fullfilled (will be "solved" via fmin)
+        :param free_vars: optional sympy (rx1)-matrix of symbols which are treated as independent for the constraints
         :param kwargs: ipywidgets specifications using the SymPy symbol string representations as keys
         """
         assert in_ipython_context, "Interactive mode only works in an IPython notebook"
 
         widget_dict = dict()
+
+        if constraints is not None:
+            assert isinstance(constraints, sp.MatrixBase)
+
+            solve_constraints = True
+            if free_vars is None:
+                free_vars = []
+            if isinstance(free_vars, sp.Basic):
+                free_vars = [free_vars]
+
+            # distinguish between free and dependet variables
+            var_list = list(self.variables)
+            free_var_indices = [var_list.index(v) for v in free_vars]
+            dependent_var_indices = [var_list.index(v) for v in self.variables if v not in free_vars]
+            dependent_vars = [v for v in self.variables if v not in free_vars]
+
+            n_vars = len(self.variables)
+
+            min_expr = constraints.T*constraints
+            assert min_expr.shape == (1, 1)
+
+            constraint_norm_func = expr_to_func(self.variables, min_expr[0])
+
+            all_vars = np.zeros((n_vars,))
+
+            def min_target_func(dep_var_vals, free_var_vals):
+                """
+                Target function for minimization,
+                second argument is considered as a parameter
+                """
+
+                all_vars[dependent_var_indices] = dep_var_vals
+                all_vars[free_var_indices] = free_var_vals
+
+                return constraint_norm_func(*all_vars)
+
+        else:
+            solve_constraints = False
 
         for var in self.variables:
             var_str = repr(var)
@@ -146,9 +189,38 @@ class Visualiser:
 
         is_initialized = False
 
+        # last result for the dependet vars
+        last_fmin_result = None
+
         def interact_fun(**kwargs):
             nonlocal is_initialized
-            variables_values = [kwargs[repr(var_symbol)] for var_symbol in self.variables]
+            nonlocal last_fmin_result
+            widget_var_values = np.array([kwargs[repr(var_symbol)] for var_symbol in self.variables])
+
+            if solve_constraints:
+
+                free_var_values = [kwargs[repr(var_symbol)] for var_symbol in free_vars]
+                if not is_initialized:
+                    dep_var_values = widget_var_values[dependent_var_indices]
+                    x0_dep_vars = dep_var_values
+                else:
+                    x0_dep_vars = last_fmin_result
+
+                dep_var_values_result = fmin(min_target_func, x0=x0_dep_vars, args=(free_var_values,))
+                last_fmin_result = dep_var_values_result
+
+                all_vars[free_var_indices] = free_var_values
+                all_vars[dependent_var_indices] = dep_var_values_result
+
+                variables_values = all_vars * 1.0
+
+                # calculate result of objective function for printing
+                # obj_func = min_target_func(dep_var_values_result, free_var_values)
+                print("constraints: fmin-result = ", dep_var_values_result)
+            else:
+                # just use the values from the widgets
+                variables_values = widget_var_values
+                pass
 
             if not is_initialized:
                 self.plot_init(variables_values, axes)
