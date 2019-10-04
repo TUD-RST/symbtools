@@ -1,15 +1,25 @@
 import numpy as np
 import sympy as sp
 import symbtools as st
+
+# The following packages are only necessary for visualization. The respective requirements are listed in
+# visualization_requirements.txt
+
+# noinspection PyPackageRequirements
 import matplotlib.pyplot as plt
+# noinspection PyPackageRequirements
 import matplotlib.animation as animation
 try:
-    # TODO: the whole way we handle different usage contexts is very not great right now. For example plots get automatically closed, making it very hard to see them outside of Jupyter
+    # TODO: the whole way we handle different usage contexts is very not great right now.
+    #  For example plots get automatically closed, making it very hard to see them outside of Jupyter
+    # noinspection PyPackageRequirements
     from IPython.display import HTML, display as ip_display
-    from ipywidgets import FloatSlider, interact
+    # noinspection PyPackageRequirements
+    from ipywidgets import FloatSlider, Checkbox, interact
     in_ipython_context = True
-except:
+except ImportError:
     in_ipython_context = False
+    HTML, ip_display, FloatSlider, interact = (ImportError("__object_not_imported__"),)*4
 
 from scipy.optimize import fmin
 from .core import expr_to_func
@@ -83,7 +93,8 @@ class Visualiser:
         :param axes: the matplotlib axes to plot on, one will be created if none is given
         """
         assert len(self.variables) == len(variables_values), \
-            f"You need to pass as many variable values as this visualiser has variables. Required: {len(self.variables)}, Given: {len(variables_values)}"
+            f"You need to pass as many variable values as this visualiser has variables. Required:" \
+            f"{len(self.variables)}, Given: {len(variables_values)}"
 
         fig = None
         if axes is None:
@@ -125,13 +136,16 @@ class Visualiser:
 
         return drawables
 
-    def interact(self, fig=None, axes=None, constraints=None, free_vars=None, **kwargs):
+    def interact(self, fig=None, axes=None, constraints=None, free_vars=None, caching=True, **kwargs):
         """
-        Display an interactive plot where all free variables can be manipulated, with the plot updating accordingly
+        Display an interactive plot where all free variables can be manipulated, with the plot updating accordingly.
+        The rest of the variables is considered as dependent.
+
         :param fig: matplotlib figure to update, can be omitted if axes should be created automatically
         :param axes: matplotlib axes to draw on, can be omitted if axes should be created automatically
         :param constraints: optional sympy (nx1)-matrix of eqns which should be fullfilled (will be "solved" via fmin)
         :param free_vars: optional sympy (rx1)-matrix of symbols which are treated as independent for the constraints
+        :param caching: True (default) or False. Determines whether fmin results are cached in a dictionary
         :param kwargs: ipywidgets specifications using the SymPy symbol string representations as keys
         """
         assert in_ipython_context, "Interactive mode only works in an IPython notebook"
@@ -144,17 +158,20 @@ class Visualiser:
             solve_constraints = True
             if free_vars is None:
                 free_vars = []
+
+            # allow for scalar free var (convenience)
             if isinstance(free_vars, sp.Basic):
                 free_vars = [free_vars]
 
-            # distinguish between free and dependet variables
+            # distinguish between free and dependent variables
             var_list = list(self.variables)
             free_var_indices = [var_list.index(v) for v in free_vars]
             dependent_var_indices = [var_list.index(v) for v in self.variables if v not in free_vars]
-            dependent_vars = [v for v in self.variables if v not in free_vars]
+            # dependent_vars = [v for v in self.variables if v not in free_vars]
 
             n_vars = len(self.variables)
 
+            # expression which will be minimized
             min_expr = constraints.T*constraints
             assert min_expr.shape == (1, 1)
 
@@ -173,6 +190,10 @@ class Visualiser:
 
                 return constraint_norm_func(*all_vars)
 
+            cbox = Checkbox(value=False, description='solve constraints (fmin)', icon='check',
+                            tooltip='solve constraints numerically via fmin')
+            widget_dict["chk_solve_constraints"] = cbox
+
         else:
             solve_constraints = False
 
@@ -188,25 +209,54 @@ class Visualiser:
             plt.close()
 
         is_initialized = False
+        last_cbox_value = False
+        fmin_cache = {}
 
         # last result for the dependet vars
         last_fmin_result = None
 
+        # noinspection PyShadowingNames
         def interact_fun(**kwargs):
             nonlocal is_initialized
+            nonlocal last_cbox_value
             nonlocal last_fmin_result
             widget_var_values = np.array([kwargs[repr(var_symbol)] for var_symbol in self.variables])
 
-            if solve_constraints:
+            cbox_solve_constraints = kwargs.get("chk_solve_constraints", False)
+
+            print("widget_var_values:", widget_var_values, "cbox:", cbox_solve_constraints)
+
+            if solve_constraints and cbox_solve_constraints:
 
                 free_var_values = [kwargs[repr(var_symbol)] for var_symbol in free_vars]
-                if not is_initialized:
+
+                # initialize the dep_var_values form widgets if we have no result yet or if the checkbox was unchecked
+                if last_fmin_result is None:
                     dep_var_values = widget_var_values[dependent_var_indices]
                     x0_dep_vars = dep_var_values
                 else:
                     x0_dep_vars = last_fmin_result
 
-                dep_var_values_result = fmin(min_target_func, x0=x0_dep_vars, args=(free_var_values,))
+                # dict lookup with the arguments of min_target
+
+                # does not work because we never come to see this key again
+                # key_tuple = (tuple(np.round(x0_dep_vars, decimals=5)), tuple(free_var_values))
+
+                key_tuple = tuple(free_var_values)
+                cache_content = fmin_cache.get(key_tuple)
+                print("cache:", key_tuple, cache_content)
+                if caching and cache_content is not None:
+                    dep_var_values_result = cache_content
+                else:
+
+                    print("calling fmin with x0=", x0_dep_vars, "args=", free_var_values)
+                    res = fmin(min_target_func, x0=x0_dep_vars, args=(free_var_values,), full_output=True)
+                    dep_var_values_result, fopt, n_it, fcalls, warnflag = res
+
+                    # fill the cache if we had these arguments for the first time (and no error occurred)
+                    if caching and warnflag == 0:
+                        fmin_cache[key_tuple] = dep_var_values_result
+
                 last_fmin_result = dep_var_values_result
 
                 all_vars[free_var_indices] = free_var_values
@@ -220,11 +270,16 @@ class Visualiser:
             else:
                 # just use the values from the widgets
                 variables_values = widget_var_values
-                pass
+
+                # reset the cache if checkbox is deactivated
+                fmin_cache.clear()
+                last_fmin_result = None
 
             if not is_initialized:
                 self.plot_init(variables_values, axes)
                 is_initialized = True
+
+            last_cbox_value = cbox_solve_constraints
 
             self.plot_update(variables_values, axes)
             ip_display(fig)
