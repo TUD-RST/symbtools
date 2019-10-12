@@ -80,6 +80,23 @@ class MPCToolsTest(unittest.TestCase):
         self.assertEqual(len(l_ppxxy), 16)
 
     @uth.optional_dependency
+    def test_casadify(self):
+
+        x1, x2, x3 = xx = st.symb_vector("x1:4")
+        u1, u2 = uu = st.symb_vector("u1:3")
+        lmd1, lmd2 = llmd = st.symb_vector("lmd1:3")
+
+        xxuullmd_sp = list(xx) + list(uu) + list(llmd)
+
+        expr1_sp = sp.Matrix([x1 + x2 + x3,  sp.sin(x1)*x2**x3, 1.23, 0, u1*sp.exp(u2), x1*lmd1 + lmd2 ** 4])
+        expr2_sp = sp.Matrix([x1**2 - x3**2, sp.cos(x1)*x2**x1, -0.123, 0, u2*sp.exp(-u2), x2*lmd1 + lmd2 ** -4])
+
+        expr1_cs, cs_symbols1 = mpc.casidify(expr1_sp, xxuullmd_sp)
+        expr2_cs, cs_symbols2 = mpc.casidify(expr2_sp, xxuullmd_sp, cs_vars=cs_symbols1)
+
+        self.assertTrue(mpc.cs.is_equal(cs_symbols1, cs_symbols2))
+
+    @uth.optional_dependency
     def test_conversion_all_funcs(self):
         x1, x2, x3 = xx = st.symb_vector("x1:4")
         u1, u2 = uu = st.symb_vector("u1:3")

@@ -6,6 +6,7 @@ from casadi.casadi import SX
 import os
 import warnings
 import numpy as np
+from typing import Sequence
 import symbtools as st
 
 from sympy.printing.lambdarepr import lambdarepr, LambdaPrinter
@@ -79,20 +80,48 @@ class CassadiPrinter(LambdaPrinter):
             return ""
 
 
-def casidify(expr, state_vect, input_vect):
+def casidify(expr, state_vect, input_vect=None, cs_vars=None):
     # source: https://gist.github.com/cklb/60362e1f49ef65f5212fb5eb5904b3fd
     """
     Convert a sympy-expression into a casadi expression. This is used by create_casadi_func(...).
 
     :param expr:        symbolic expression which is to convert to casadi
     :param state_vect:  symbolic state vector
-    :param input_vect:  symbolic input vector
+    :param input_vect:  symbolic input vector (optional)
+    :param cs_vars:     casadi variables which should be used instead of creating new ones (optional)
     """
 
+    if input_vect is None:
+        handle_input_vars = False
+        input_vect = []
+        # TODO: test this
+    else:
+        handle_input_vars = True
+
     syms = []
-    res = ["rhs = vertcat("]
+    res = ["expr = vertcat("]
     state_str = ["x = vertcat("]
     input_str = ["u = vertcat("]
+
+    if cs_vars is None:
+        cs_vars = []
+    elif isinstance(cs_vars, cs.SX):
+        cs_vars = unpack(cs_vars)
+    else:
+        if not st.aux.test_type(cs_vars, Sequence[cs.SX]):
+            msg = "Unknown Type: {}".format(cs_vars)
+            raise TypeError(msg)
+
+        cs_vars = unpack(*cs_vars)
+
+    # we now have a flat sequence of SX-objects.
+
+    cs_var_dict = dict((var.name(), var) for var in cs_vars)
+
+    """
+        , unten dann subsitutieren
+        -> unittest
+    """
 
     # extract symbols
     for _s in state_vect:
@@ -107,6 +136,7 @@ def casidify(expr, state_vect, input_vect):
     input_str.append(")")
 
     # convert expression
+    # noinspection PyPep8Naming
     CP = CassadiPrinter()
     for entry in expr:
         # handle expr
@@ -115,15 +145,35 @@ def casidify(expr, state_vect, input_vect):
 
     res.append(")")
 
-    ode_str = os.linesep.join(syms
+    expr_str = os.linesep.join(syms
                               + res
                               + state_str
                               + input_str)
 
     scope = dict(SX=cs.SX, MX=cs.MX, vertcat=cs.vertcat, **CP.cs_funcs)
-    exec(ode_str, scope)
+    exec(expr_str, scope)
 
-    return scope["rhs"], scope["x"], scope["u"]
+    new_x = unpack(scope.get("x"))
+    nx = len(new_x)
+    new_u = unpack(scope.get("u", []))
+    new_vars = new_x + new_u
+
+    return_vars = new_vars*1  # make an independent copy of that list
+
+    expr_cs = scope["expr"]
+
+    # replace new variables with old ones
+    for i, var in enumerate(new_vars):
+        old_var = cs_var_dict.get(var.name())
+        if old_var is not None:
+            expr_cs = cs.substitute(expr_cs, var, old_var)
+            return_vars[i] = old_var
+
+    return_vars = seq_to_SX_matrix(return_vars)
+    if handle_input_vars:
+        return expr_cs, return_vars[:nx], return_vars[nx:]
+    else:
+        return expr_cs, return_vars[:nx]
 
 
 def create_casadi_func(sp_expr, sp_vars, sp_uu=None, name="cs_from_sp"):
@@ -197,6 +247,14 @@ def unpack(sx_matrix, *args):
     """
     convert one or more SX objects to list. A reshape to a column-vector is performed before.
     """
+
+    if isinstance(sx_matrix, (tuple, list)):
+        # assume that nothing has to be done
+        return sx_matrix
+
+    if isinstance(sx_matrix, cs.Sparsity):
+        sx_matrix = cs.SX(sx_matrix)
+
     sx_matrix = sx_matrix.reshape((-1, 1))
     n1, n2 = sx_matrix.shape
 
