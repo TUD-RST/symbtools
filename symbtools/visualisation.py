@@ -1,6 +1,7 @@
 import numpy as np
 import sympy as sp
 import symbtools as st
+import warnings
 
 # The following packages are only necessary for visualization. The respective requirements are listed in
 # visualization_requirements.txt
@@ -147,6 +148,10 @@ class Visualiser:
         :param free_vars: optional sympy (rx1)-matrix of symbols which are treated as independent for the constraints
         :param caching: True (default) or False. Determines whether fmin results are cached in a dictionary
         :param kwargs: ipywidgets specifications using the SymPy symbol string representations as keys
+                       there are different syntax possibilities:
+                       vis_object.interact(x=(xmin, xmax))
+                       vis_object.interact(x=(xmin, xmax, step))
+                       vis_object.interact(x=(xmin, xmax, step, inistial_value))
         """
         assert in_ipython_context, "Interactive mode only works in an IPython notebook"
 
@@ -199,10 +204,8 @@ class Visualiser:
 
         for var in self.variables:
             var_str = repr(var)
-            if var_str in kwargs:
-                widget_dict[var_str] = kwargs[var_str]
-            else:
-                widget_dict[var_str] = FloatSlider(min=-5.0, max=5.0, step=0.1, value=0.0)
+
+            widget_dict[var_str] = self.make_slider_from_kwarg(var_str, kwargs)
 
         if fig is None or axes is None:
             fig, axes = self.create_default_axes()
@@ -264,9 +267,8 @@ class Visualiser:
 
                 variables_values = all_vars * 1.0
 
-                # calculate result of objective function for printing
-                # obj_func = min_target_func(dep_var_values_result, free_var_values)
-                print("constraints: fmin-result = ", dep_var_values_result)
+                # print all coordinates, convert to list for easy copy-pasting (commas)
+                print("all coordinates:", list(variables_values))
             else:
                 # just use the values from the widgets
                 variables_values = widget_var_values
@@ -331,6 +333,47 @@ class Visualiser:
         :param kwargs: keyword arguments passed to matplotlib
         """
         self.add_element(points, init_disk, update_disk, **kwargs)
+
+    @staticmethod
+    def make_slider_from_kwarg(key, kwarg_dict):
+        """
+        Return either a slider or a suitable tuple (from which a slider will be created later).
+
+        :param key:         variable name like "x1"
+        :param kwarg_dict:  the whole dictionary which may or may not contain information for the slider widget
+
+
+        See also: `interact`-method
+
+        :return:
+        """
+
+        def fall_back_slider():
+            return FloatSlider(min=-5.0, max=5.0, step=0.1, value=0.0)
+
+        if key in kwarg_dict:
+
+            # get the value for that key
+            value = kwarg_dict[key]
+            warn_msg = "Unkonwn value for kwarg: '{}': {}. See docstring for more information".format(key, value)
+
+            try:
+                length = len(value)
+            except TypeError:
+                warnings.warn(warn_msg, UserWarning)
+                return fall_back_slider()
+
+            if length in (2, 3):
+                return value
+            elif length == 4:
+                # this option allows to specify a custom inital value
+                return FloatSlider(min=value[0], max=value[1], step=value[2], value=value[3])
+            else:
+                warnings.warn(warn_msg, UserWarning)
+                return fall_back_slider()
+
+        # key was not given. just use the default slider
+        return fall_back_slider()
 
 
 def init_linkage(ax, points, kwargs):
