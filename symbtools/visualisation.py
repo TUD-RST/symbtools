@@ -732,7 +732,9 @@ class SimAnimation:
 def display_video_file(fname, width=None, height=None):
     """
     Display a video file
-    :param fname: filename
+    :param fname:   filename
+    :param width:   desired width of the video (optional)
+    :param height:  desired height of the video (optional)
     """
     assert in_ipython_context, "Display only works in an IPython notebook"
 
