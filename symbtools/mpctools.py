@@ -193,13 +193,20 @@ def SX_diag_matrix(seq):
     return res
 
 
-def unpack(sx_matrix):
+def unpack(sx_matrix, *args):
     """
-    convert SX matrix (vector) to list
+    convert one or more SX objects to list. A reshape to a column-vector is performed before.
     """
+    sx_matrix = sx_matrix.reshape((-1, 1))
     n1, n2 = sx_matrix.shape
+
     assert n2 == 1
+
     res = [sx_matrix[i, 0] for i in range(n1)]
+
+    for arg in args:
+        res.extend(unpack(arg))
+
     return res
 
 

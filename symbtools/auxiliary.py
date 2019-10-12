@@ -4,6 +4,7 @@ This module contains some basic helper functions.
 
 import sympy as sp
 from functools import wraps
+import collections
 
 t = sp.Symbol("t")
 
@@ -89,3 +90,40 @@ def kwarg_wrapper(func, args=None):
     inner.info = "This is a wrapper of `this.func`"
 
     return inner
+
+
+def test_type(var, type_spec):
+    """
+    This function is like `isinstance()` but also handles complex types like `Sequence[str]` from the typing module.
+    Currently only sequences are supported.
+
+    :param var:
+    :param type_spec:
+    :return:
+    """
+
+    # prevent unnecessary compatibility break
+    import typing as ty
+
+    # noinspection PyUnresolvedReferences, PyProtectedMember
+    if isinstance(type_spec, ty._GenericAlias):
+        main_type = type_spec.__origin__
+
+        if main_type is collections.abc.Sequence:
+            sub_type = type_spec.__args__[0]
+
+            if not isinstance(var, main_type):
+                # not a sequence
+                return False
+
+            for elt in var:
+                if not isinstance(elt, sub_type):
+                    return False
+
+            return True
+
+        else:
+            raise NotImplementedError()
+
+    else:
+        return isinstance(var, type_spec)

@@ -9,6 +9,8 @@ from symbtools.test import unittesthelper as uth
 import unittest
 import sys
 import sympy as sp
+from typing import Sequence
+
 import symbtools as st
 import symbtools.mpctools as mpc
 import numpy as np
@@ -60,6 +62,22 @@ class MPCToolsTest(unittest.TestCase):
         # pass the whole array for casadi function
         res_cs = func_cs(argvals).full().squeeze()
         self.assertTrue(np.allclose(res_np, res_cs))
+
+    @uth.optional_dependency
+    def test_unpack(self):
+
+        pp = mpc.SX.sym('p', 2, 5)
+        xx = mpc.SX.sym('x', 5, 1)
+        y = mpc.SX.sym('y')
+
+        l_pp = mpc.unpack(pp)
+        self.assertTrue(st.aux.test_type(l_pp, Sequence[mpc.SX]))
+        self.assertEqual(len(l_pp), 10)
+
+        l_ppxxy = mpc.unpack(pp, xx, y)
+
+        self.assertTrue(st.aux.test_type(l_ppxxy, Sequence[mpc.SX]))
+        self.assertEqual(len(l_ppxxy), 16)
 
     @uth.optional_dependency
     def test_conversion_all_funcs(self):
