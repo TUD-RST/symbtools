@@ -111,7 +111,7 @@ class Node(object):
 
     def __init__(self, coords, idcs, parent=None, level=0, node_class="main"):
         self.coords = coords
-        self.idcs = idcs
+        self.idcs = tuple(idcs)
         self.axes = tuple(range(len(coords)))
         self.parent = parent
         self.level = level
@@ -189,11 +189,18 @@ class Node(object):
 
         new_idcs = list(N1.idcs)  # make a copy
         new_idcs[dim] = (N1.idcs[dim] + N2.idcs[dim])/2
+        new_idcs = tuple(new_idcs)
 
         new_coords = list(N1.coords)
         new_coords[dim] = (N1.coords[dim] + N2.coords[dim])/2
 
-        new_node = Node(new_coords, new_idcs, node_class="main", level=self.level+1)
+        # at the desired location there might already exist an aux-node
+
+        if new_idcs in node_dict:
+            new_node = node_dict[new_idcs]
+            new_node.convert_to_main()
+        else:
+            new_node = Node(new_coords, new_idcs, node_class="main", level=self.level+1)
 
         if dir == 0:
             # N2 < new_node < N1
@@ -239,12 +246,15 @@ class Node(object):
                 new_idcs0[dim] -= di0
                 new_idcs1[dim] += di1
 
-                # the neighbours get the same level
-                N0 = Node(new_coords0, new_idcs0, level=self.level, node_class="aux")
-                N1 = Node(new_coords1, new_idcs1, level=self.level, node_class="aux")
+                new_idcs0 = tuple(new_idcs0)
+                new_idcs1 = tuple(new_idcs1)
 
-                node_dict[tuple(new_idcs0)] = N0
-                node_dict[tuple(new_idcs1)] = N1
+                # the neighbours get the same level
+                N0 = get_or_create_node(new_coords0, new_idcs0, level=self.level, node_class="aux")
+                N1 = get_or_create_node(new_coords1, new_idcs1, level=self.level, node_class="aux")
+
+                node_dict[new_idcs0] = N0
+                node_dict[new_idcs1] = N1
 
                 self.set_neigbours(dim, N0, N1)
 
@@ -267,9 +277,19 @@ class Node(object):
                 res.extend((a, b))
         return res
 
+    def convert_to_main(self):
+        """
+        convert this node to main node
+        :return:
+        """
+
+        assert self.node_class != "main"
+
+        self.node_class = "main"
+
     def __repr__(self):
 
-        return "<N {} ({})|({})>".format(self.node_class, self.idcs, self.coords)
+        return "<N {} {}|{}>".format(self.node_class, self.idcs, self.coords)
 
 
 def get_index_difference(idcs1, idcs2):
@@ -312,14 +332,27 @@ def get_coords_from_meshgrid(mg, idcs):
     return coords
 
 
-def get_node_for_idcs(mg, idcs):
+def get_node_for_idcs(mg, idcs, coords=None):
 
     if idcs in node_dict:
         the_node = node_dict[idcs]
     else:
-        coords = get_coords_from_meshgrid(mg, idcs)
+        if coords is None:
+            coords = get_coords_from_meshgrid(mg, idcs)
+
+        assert len(coords) == len(idcs)
+
         the_node = Node(coords, idcs)
         node_dict[idcs] = the_node
+
+    return the_node
+
+
+def get_or_create_node(coords, idcs, **kwargs):
+    if idcs in node_dict:
+        the_node = node_dict[idcs]
+    else:
+        the_node = Node(coords, idcs, **kwargs)
 
     return the_node
 
@@ -451,12 +484,26 @@ nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
 plt.plot(*nl1_main, "m.")
 plt.plot(*nl1_aux, "gx", ms=3)
 
-plt.title("Remaining Bug: some auxiliary nodes are placed at the (almost) same coordinates like the main nodes")
+plt.title("levels 0 and 1")
+
+
 
 plt.show()
 
 
 
+"""
+General procedure:
+
+1. generate initial nodes
+2. evaluate function on new nodes
+3. determine boundary status (outer boundary -1, no boundary 0, inner boundary 1)
+4. insert new main nodes where necessary
+    implicitly add auxiliary nodes such that every main node has well defined neighbours
+    thereby node_class can be upgraded from aux to main
+6.  go to 2.
+
+"""
 
 
 
