@@ -24,6 +24,8 @@ class NodeDataBase(object):
         # which are new since the last func-application
         self.new_nodes = []
 
+        self.recently_evaluated_nodes = []
+
     def add(self, node):
         """
         add a node to the appriate level-list and to the list of all nodes
@@ -34,9 +36,12 @@ class NodeDataBase(object):
         self.all_nodes.append(node)
         self.new_nodes.append(node)
 
+
     def apply_func(self, func):
         for node in self.new_nodes:
             node.apply(func)
+
+        self.recently_evaluated_nodes = self.new_nodes
 
         # empty that list
         self.new_nodes = []
@@ -55,6 +60,27 @@ class NodeDataBase(object):
     def get_outer(self, idcs=None):
         return node_list_to_array(self.all_nodes, idcs, cond_func=self.is_outer)
 
+    def get_outer_boundary(self, idcs=None):
+        return node_list_to_array(self.all_nodes, idcs, cond_func=lambda node: node.boundary_flag==-1)
+
+    def get_inner_boundary(self, idcs=None):
+        return node_list_to_array(self.all_nodes, idcs, cond_func=lambda node: node.boundary_flag==1)
+
+    def set_boundary_flags(self):
+        for node in self.recently_evaluated_nodes:
+            fv = node.func_val
+            assert fv in (True, False)
+
+            boundary_flag = (-1, 1)[int(fv)]
+
+            for nb in node.all_neighbours(omit_none=True):
+                if nb.func_val != fv:
+                    # at least one neigbour has a different value
+                    node.boundary_flag = boundary_flag
+                    break
+            else:
+                # there was no break
+                node.boundary_flag = 0
 
 ndb = NodeDataBase()
 
@@ -213,10 +239,17 @@ class Node(object):
                 assert isinstance(n0, Node)
                 assert isinstance(n1, Node)
 
-    def all_neighbours(self):
+    def all_neighbours(self, omit_none=False):
         res = []
         for a, b in self.neighbours:
-            res.extend((a, b))
+            if omit_none:
+                if a is not None:
+                    res.append(a)
+
+                if b is not None:
+                    res.append(b)
+            else:
+                res.extend((a, b))
         return res
 
     def __repr__(self):
@@ -313,7 +346,7 @@ def node_list_to_array(nl, selected_idcs=None, cond_func=None):
 
 
 xx = np.linspace(-3, 3, 10)
-yy = np.linspace(-3, 3, 5)
+yy = np.linspace(-3, 3, 18)
 
 XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
 
@@ -336,8 +369,6 @@ def test1():
     nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
     nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
 
-
-
     plt.plot(*nl0, "k.")
     plt.plot(*nl1_main, "b.")
     plt.plot(*nl1_aux, "g.")
@@ -349,19 +380,23 @@ def func_circle(xx):
     return xx[0]**2 + xx[1]**2 <= 1.3
 
 ndb.apply_func(func_circle)
+ndb.set_boundary_flags()
 
 
 a_in0 = ndb.get_inner()
 a_out0 = ndb.get_outer()
 
-plt.plot(*a_out0, "bo")
-plt.plot(*a_in0, "ro", alpha=0.5)
+b_in0 = ndb.get_inner_boundary()
+b_out0 = ndb.get_outer_boundary()
+
+plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
+plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+
+if 1:
+    plt.plot(*b_out0, "ko", ms=2)
+    plt.plot(*b_in0, "mo", ms=2)
 
 plt.show()
-
-
-
-root_node = nd[2, 2]
 
 
 
