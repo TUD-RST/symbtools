@@ -25,6 +25,7 @@ class NodeDataBase(object):
         self.new_nodes = []
 
         self.recently_evaluated_nodes = []
+        self.inner_boundary_nodes = []
 
     def add(self, node):
         """
@@ -35,7 +36,6 @@ class NodeDataBase(object):
         self.levels[node.level].append(node)
         self.all_nodes.append(node)
         self.new_nodes.append(node)
-
 
     def apply_func(self, func):
         for node in self.new_nodes:
@@ -77,10 +77,28 @@ class NodeDataBase(object):
                 if nb.func_val != fv:
                     # at least one neigbour has a different value
                     node.boundary_flag = boundary_flag
+                    if fv:
+                        self.inner_boundary_nodes.append(node)
                     break
             else:
                 # there was no break
                 node.boundary_flag = 0
+
+    def insert_new_nodes(self):
+
+        for node in self.inner_boundary_nodes:
+
+            # find all neighbours with different function values
+            different_neighbours = []
+            for nb in node.all_neighbours(omit_none=True):
+                if nb.func_val != node.func_val:
+                    assert nb.boundary_flag != 0
+                    different_neighbours.append(nb)
+
+            for nb in different_neighbours:
+                dim, dir = get_index_difference(node.idcs, nb.idcs)
+                node.new_node(dim, dir)
+
 
 ndb = NodeDataBase()
 
@@ -111,9 +129,6 @@ class Node(object):
         self.idx_distances = [list([None, None]) for i in range(len(coords))]
 
         ndb.add(self)
-
-        if self.level > 0:
-            print("->", self)
 
     def apply(self, func):
         """
@@ -257,6 +272,34 @@ class Node(object):
         return "<N {} ({})|({})>".format(self.node_class, self.idcs, self.coords)
 
 
+def get_index_difference(idcs1, idcs2):
+    """
+    Assume that the index tuples differ by exactly one index. Find out which dimension-index that is and the difference
+    (i.e. direction: 0 or 1)
+
+    :param idcs1:
+    :param idcs2:
+
+    :return: dim, dir
+    """
+
+    assert len(idcs1) == len(idcs2)
+
+    for dim, (i1, i2) in enumerate(zip(idcs1, idcs2)):
+        if i1 != i2:
+            diff = i2 - i1
+            assert -1 <= diff <= 1 and diff != 0
+            break
+    else:
+        # there was no break-reason
+        msg = "No difference between {} and {} was found which is against the assumption".format(idcs1, idcs2)
+        raise ValueError(msg)
+
+    dir = int(diff > 0)
+
+    return dim, dir
+
+
 def get_coords_from_meshgrid(mg, idcs):
     """
 
@@ -389,14 +432,31 @@ a_out0 = ndb.get_outer()
 b_in0 = ndb.get_inner_boundary()
 b_out0 = ndb.get_outer_boundary()
 
+ndb.insert_new_nodes()
+
+# plot inner and outer points (level 0)
 plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
 plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
 
-if 1:
-    plt.plot(*b_out0, "ko", ms=2)
-    plt.plot(*b_in0, "mo", ms=2)
+
+# plot inner and outer boundary points (level 0)
+plt.plot(*b_out0, "bo", ms=3)
+plt.plot(*b_in0, "ro", ms=3)
+
+
+# get and plot level 1 points (main and aux)
+nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
+nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
+
+plt.plot(*nl1_main, "m.")
+plt.plot(*nl1_aux, "gx", ms=3)
+
+plt.title("Remaining Bug: some auxiliary nodes are placed at the (almost) same coordinates like the main nodes")
 
 plt.show()
+
+
+
 
 
 
