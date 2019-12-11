@@ -80,7 +80,13 @@ class CassadiPrinter(LambdaPrinter):
             return ""
 
 
-def casidify(expr, state_vect, input_vect=None, cs_vars=None):
+def casidify(*args, **kwargs):
+    """backward compatibility for a typo in function name"""
+    # todo: print deprecation warning
+    return casadify(*args, **kwargs)
+
+
+def casadify(expr, state_vect, input_vect=None, cs_vars=None):
     # source: https://gist.github.com/cklb/60362e1f49ef65f5212fb5eb5904b3fd
     """
     Convert a sympy-expression into a casadi expression. This is used by create_casadi_func(...).
@@ -266,6 +272,15 @@ def unpack(sx_matrix, *args):
         res.extend(unpack(arg))
 
     return res
+
+
+def SX_to_np(sx_matrix, dtype=np.float):
+    """
+    convert sx_matrix in a numpy array of the same shape
+    """
+    # there is probably a better (direct) way to do that.
+
+    return np.array(unpack(sx_matrix), dtype=np.float).reshape(sx_matrix.shape)
 
 
 def distribute(in_data, *shapes):
