@@ -201,147 +201,6 @@ class Node(object):
             if reciprocity:
                 n1.set_neighbours(dim, self, None, reciprocity=False)
 
-    def new_node(self, dim, dir):
-        """
-        create a new main-node between self and the respective neighbor (0 (left) or 1 (right))
-        :param dim:
-        :param dir:
-        :return:
-        """
-
-        assert dim in self.axes
-        assert dir in (0, 1)
-
-        N1 = self
-        N2 = self.neighbours[dim][dir]
-
-        new_idcs = list(N1.idcs)  # make a copy
-        new_idcs[dim] = (N1.idcs[dim] + N2.idcs[dim])/2
-        new_idcs = tuple(new_idcs)
-
-        new_coords = list(N1.coords)
-        new_coords[dim] = (N1.coords[dim] + N2.coords[dim])/2
-
-        # at the desired location there might already exist an aux-node
-
-        if new_idcs in ndb.node_dict:
-            new_node = ndb.node_dict[new_idcs]
-            new_node.convert_to_main()
-        else:
-            new_node = Node(new_coords, new_idcs, node_class="main", level=self.level+1)
-
-        if dir == 0:
-            # N2 < new_node < N1
-            new_node.set_neighbours(dim, N2, N1, reciprocity=True)
-        else:
-            # N1 < new_node < N2
-            new_node.set_neighbours(dim, N1, N2, reciprocity=True)
-
-        ndb.node_dict[tuple(new_idcs)] = new_node
-
-        # new_node.create_aux_neighbours_old(dim)
-
-    # noinspection PyShadowingBuiltins,PyPep8Naming
-    def _set_neighbours_by_ref_nodes(self, NN, R0, R1, dim, ref_dim, dir):
-        """
-        Consider the following situation:
-
-        (B0)        (NN)        (B1)
-        (R0)       (self)       (R1)        dim ↑  ref_dim →
-
-        The main-node self was created between R0 and R1 and has these two as reference neigbours.
-        It further needed to create the aux-node NN (new_node). Now we need to inform B0 and B1 that they
-        are not direct neigbours anymore but instead are (left/right) neigbours to AN.
-
-        :param NN:
-        :param R0:
-        :param R1:
-        :param dim:         dimension from self to NN
-        :param ref_dim:     dimension from R0 to self to R1
-        :param dir:
-
-        :return:            None
-        """
-
-        assert dim in self.axes
-        assert dir == 0 or dir == 1
-
-        B0 = R0.neighbours[dim][dir]
-        B1 = R1.neighbours[dim][dir]
-
-        assert B0.neighbours[ref_dim][1] == B1
-        assert B1.neighbours[ref_dim][0] == B0
-
-        NN.set_neighbours(ref_dim, B0, B1, reciprocity=True)
-
-    # noinspection PyShadowingBuiltins,PyPep8Naming
-    def _create_aux_neigbour(self, R0, R1, dim, ref_dim, dir):
-        """
-
-        :param R0:          "left" reference node
-        :param R1:          "right" reference node
-        :param dim:
-        :param ref_dim:      see _set_neigbours_by_ref_nodes
-        :param dir:
-        :return:
-        """
-
-        dir_sign = (-1, 1)[dir]
-
-        new_idcs = list(self.idcs)
-        new_coords = list(self.coords)
-
-        dist = nmax(R0.distances[dim][dir], R1.distances[dim][dir])
-
-        new_coords[dim] += dist*dir_sign
-
-        di = nmax(R0.idx_distances[dim][dir], R1.idx_distances[dim][dir])
-
-        new_idcs[dim] += di*dir_sign
-        new_idcs = tuple(new_idcs)
-
-        # the neighbour gets the same level
-        ngbr = get_or_create_node(new_coords, new_idcs, level=self.level, node_class="aux")
-
-        # !!
-        self._set_neighbours_by_ref_nodes(ngbr, R0, R1, dim, ref_dim, dir)
-
-        ndb.node_dict[new_idcs] = ngbr
-
-        return ngbr
-
-    def create_aux_neighbours(self, ref_dim, R0, R1):
-        pass
-
-    def create_aux_neighbours_old(self, ref_dim):
-        """
-
-        :param ref_dim:     reference dim (here we already have neighbours)
-        :return:
-        """
-
-        assert ref_dim in self.axes
-        assert self.node_class == "main"
-
-        # reference nodes for the creation of new auxiliary nodes
-        R0, R1 = self.neighbours[ref_dim]
-
-        for dim, (n0, n1) in enumerate(self.neighbours):
-            print(dim, self,  "[", n0, n1, "]")
-
-            if n0 is None:
-                ngbr = self._create_aux_neigbour(R0, R1, dim, ref_dim, dir=0)
-                self.set_neighbours(dim, ngbr, None, reciprocity=True)
-
-            if n1 is None:
-                ngbr = self._create_aux_neigbour(R0, R1, dim, ref_dim, dir=1)
-                self.set_neighbours(dim, None, ngbr, reciprocity=True)
-
-            if n0 is not None and n1 is not None:
-                assert dim == ref_dim
-                assert isinstance(n0, Node)
-                assert isinstance(n1, Node)
-
     def all_neighbours(self, omit_none=False):
         res = []
         for a, b in self.neighbours:
@@ -354,16 +213,6 @@ class Node(object):
             else:
                 res.extend((a, b))
         return res
-
-    def convert_to_main(self):
-        """
-        convert this node to main node
-        :return:
-        """
-
-        assert self.node_class != "main"
-
-        self.node_class = "main"
 
     def __repr__(self):
 
@@ -395,25 +244,6 @@ def modify_tuple(tup, idx, diff):
     tmp = list(tup)
     tmp[idx] += diff
     return tuple(tmp)
-
-
-def nmax(a1, a2):
-    """
-    max-func which is tolerant to `None`-values
-
-    :param a1:
-    :param a2:
-    :return:
-    """
-
-    if a1 is None:
-        return a2
-
-    elif a2 is None:
-        return a1
-
-    else:
-        return max(a1, a2)
 
 
 def get_index_difference(idcs1, idcs2):
@@ -692,7 +522,6 @@ def node_list_to_array(nl, selected_idcs=None, cond_func=None):
     return np.array(res)
 
 
-
 def is_main_node(node):
     return node.node_class == "main"
 
@@ -704,7 +533,6 @@ def is_aux_node(node):
 def test1():
 
     root_node = nd[2, 2]
-    root_node.new_node(0, 0)
     nl0 = node_list_to_array(ndb.levels[0])
     nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
     nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
@@ -758,9 +586,7 @@ if __name__ == "__main__":
 
     plt.figure()
 
-
-    # - - - -
-
+    # - - - - - - - -
 
     ndb.apply_func(func_circle)
     ndb.set_boundary_flags()
