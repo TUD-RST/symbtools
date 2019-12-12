@@ -9,10 +9,6 @@ from matplotlib import pyplot as plt
 from ipydex import IPS, activate_ips_on_exception
 activate_ips_on_exception()
 
-node_list = []
-
-node_dict = {}  # save all nodes which we allready created
-
 
 class NodeDataBase(object):
     def __init__(self):
@@ -20,6 +16,7 @@ class NodeDataBase(object):
         depth = 10
         self.levels = [list() for i in range(depth)]
         self.all_nodes = []
+        self.node_dict = {}
 
         # which are new since the last func-application
         self.new_nodes = []
@@ -84,7 +81,9 @@ class NodeDataBase(object):
                 # there was no break
                 node.boundary_flag = 0
 
-    def insert_new_nodes(self):
+    def insert_new_nodes(self, insert_aux_nodes=True):
+
+        new_nodes = []
 
         for node in self.inner_boundary_nodes:
 
@@ -96,8 +95,29 @@ class NodeDataBase(object):
                     different_neighbours.append(nb)
 
             for nb in different_neighbours:
-                dim, dir = get_index_difference(node.idcs, nb.idcs)
-                node.new_node(dim, dir)
+                dim, dir, diff = get_index_difference(node.idcs, nb.idcs)
+
+                new_node = halfway_node(node, nb, level=node.level+1)
+
+                new_nodes.append(new_node)
+
+        # auxnodes are inserted after main nodes becaus sometimes main nodes are "accidentally" placed at the
+        # correct location
+
+        if insert_aux_nodes:
+            for new_node in new_nodes:
+
+                for dim, osn_tuple in enumerate(new_node.osn_list):
+                    if osn_tuple is None:
+                        continue
+
+                    (a0, a1), (b0, b1) = osn_tuple
+
+                    aux0 = halfway_node(a0, a1, level=new_node.level, node_class="aux")
+                    aux1 = halfway_node(b0, b1, level=new_node.level, node_class="aux")
+
+                    new_node.set_neighbours(dim, aux0, aux1)
+
 
 
 ndb = NodeDataBase()
@@ -118,6 +138,8 @@ class Node(object):
         self.func_val = None
         self.boundary_flag = None
 
+        self.osn_list = None  # orthogonal semin_neighbours
+
         # one of "main", "aux"
         self.node_class = node_class
 
@@ -137,7 +159,7 @@ class Node(object):
 
         self.func_val = func(self.coords)
 
-    def set_neigbours(self, dim, n0, n1):
+    def set_neighbours(self, dim, n0, n1, reciprocity=True):
         """
 
         :param dim:     axis (dimension)
@@ -161,6 +183,9 @@ class Node(object):
             assert idx_dist > 0
             self.idx_distances[dim][0] = idx_dist
 
+            if reciprocity:
+                n0.set_neighbours(dim, None, self, reciprocity=False)
+
         if n1 is not None:
             assert isinstance(n1, Node)
             self.neighbours[dim][1] = n1
@@ -173,9 +198,12 @@ class Node(object):
             assert idx_dist < 0
             self.idx_distances[dim][1] = -idx_dist
 
+            if reciprocity:
+                n1.set_neighbours(dim, self, None, reciprocity=False)
+
     def new_node(self, dim, dir):
         """
-        create a new main-node between self and the respective neighbor (0 or 1)
+        create a new main-node between self and the respective neighbor (0 (left) or 1 (right))
         :param dim:
         :param dir:
         :return:
@@ -196,23 +224,96 @@ class Node(object):
 
         # at the desired location there might already exist an aux-node
 
-        if new_idcs in node_dict:
-            new_node = node_dict[new_idcs]
+        if new_idcs in ndb.node_dict:
+            new_node = ndb.node_dict[new_idcs]
             new_node.convert_to_main()
         else:
             new_node = Node(new_coords, new_idcs, node_class="main", level=self.level+1)
 
         if dir == 0:
             # N2 < new_node < N1
-            new_node.set_neigbours(dim, N2, N1)
+            new_node.set_neighbours(dim, N2, N1, reciprocity=True)
         else:
             # N1 < new_node < N2
-            new_node.set_neigbours(dim, N1, N2)
+            new_node.set_neighbours(dim, N1, N2, reciprocity=True)
 
-        node_dict[tuple(new_idcs)] = new_node
-        new_node.create_aux_neighbours(dim)
+        ndb.node_dict[tuple(new_idcs)] = new_node
 
-    def create_aux_neighbours(self, ref_dim):
+        # new_node.create_aux_neighbours_old(dim)
+
+    # noinspection PyShadowingBuiltins,PyPep8Naming
+    def _set_neighbours_by_ref_nodes(self, NN, R0, R1, dim, ref_dim, dir):
+        """
+        Consider the following situation:
+
+        (B0)        (NN)        (B1)
+        (R0)       (self)       (R1)        dim ↑  ref_dim →
+
+        The main-node self was created between R0 and R1 and has these two as reference neigbours.
+        It further needed to create the aux-node NN (new_node). Now we need to inform B0 and B1 that they
+        are not direct neigbours anymore but instead are (left/right) neigbours to AN.
+
+        :param NN:
+        :param R0:
+        :param R1:
+        :param dim:         dimension from self to NN
+        :param ref_dim:     dimension from R0 to self to R1
+        :param dir:
+
+        :return:            None
+        """
+
+        assert dim in self.axes
+        assert dir == 0 or dir == 1
+
+        B0 = R0.neighbours[dim][dir]
+        B1 = R1.neighbours[dim][dir]
+
+        assert B0.neighbours[ref_dim][1] == B1
+        assert B1.neighbours[ref_dim][0] == B0
+
+        NN.set_neighbours(ref_dim, B0, B1, reciprocity=True)
+
+    # noinspection PyShadowingBuiltins,PyPep8Naming
+    def _create_aux_neigbour(self, R0, R1, dim, ref_dim, dir):
+        """
+
+        :param R0:          "left" reference node
+        :param R1:          "right" reference node
+        :param dim:
+        :param ref_dim:      see _set_neigbours_by_ref_nodes
+        :param dir:
+        :return:
+        """
+
+        dir_sign = (-1, 1)[dir]
+
+        new_idcs = list(self.idcs)
+        new_coords = list(self.coords)
+
+        dist = nmax(R0.distances[dim][dir], R1.distances[dim][dir])
+
+        new_coords[dim] += dist*dir_sign
+
+        di = nmax(R0.idx_distances[dim][dir], R1.idx_distances[dim][dir])
+
+        new_idcs[dim] += di*dir_sign
+        new_idcs = tuple(new_idcs)
+
+        # the neighbour gets the same level
+        ngbr = get_or_create_node(new_coords, new_idcs, level=self.level, node_class="aux")
+
+        # !!
+        self._set_neighbours_by_ref_nodes(ngbr, R0, R1, dim, ref_dim, dir)
+
+        ndb.node_dict[new_idcs] = ngbr
+
+        return ngbr
+
+    def create_aux_neighbours(self, ref_dim, R0, R1):
+        pass
+
+    def create_aux_neighbours_old(self, ref_dim):
         """
 
         :param ref_dim:     reference dim (here we already have neighbours)
@@ -226,40 +327,17 @@ class Node(object):
         R0, R1 = self.neighbours[ref_dim]
 
         for dim, (n0, n1) in enumerate(self.neighbours):
-            if (n0, n1) == (None, None):
-                # this is a dimension where new aux nodes need to be created
+            print(dim, self,  "[", n0, n1, "]")
 
-                new_idcs0 = list(self.idcs)
-                new_idcs1 = list(self.idcs)
-                new_coords0 = list(self.coords)
-                new_coords1 = list(self.coords)
+            if n0 is None:
+                ngbr = self._create_aux_neigbour(R0, R1, dim, ref_dim, dir=0)
+                self.set_neighbours(dim, ngbr, None, reciprocity=True)
 
-                dist0 = max(R0.distances[dim][0], R1.distances[dim][0])
-                dist1 = max(R0.distances[dim][1], R1.distances[dim][1])
+            if n1 is None:
+                ngbr = self._create_aux_neigbour(R0, R1, dim, ref_dim, dir=1)
+                self.set_neighbours(dim, None, ngbr, reciprocity=True)
 
-                new_coords0[dim] -= dist0
-                new_coords1[dim] += dist1
-
-                di0 = max(R0.idx_distances[dim][0], R1.idx_distances[dim][0])
-                di1 = max(R0.idx_distances[dim][1], R1.idx_distances[dim][1])
-
-                new_idcs0[dim] -= di0
-                new_idcs1[dim] += di1
-
-                new_idcs0 = tuple(new_idcs0)
-                new_idcs1 = tuple(new_idcs1)
-
-                # the neighbours get the same level
-                N0 = get_or_create_node(new_coords0, new_idcs0, level=self.level, node_class="aux")
-                N1 = get_or_create_node(new_coords1, new_idcs1, level=self.level, node_class="aux")
-
-                node_dict[new_idcs0] = N0
-                node_dict[new_idcs1] = N1
-
-                self.set_neigbours(dim, N0, N1)
-
-                pass
-            else:
+            if n0 is not None and n1 is not None:
                 assert dim == ref_dim
                 assert isinstance(n0, Node)
                 assert isinstance(n1, Node)
@@ -292,6 +370,52 @@ class Node(object):
         return "<N {} {}|{}>".format(self.node_class, self.idcs, self.coords)
 
 
+def absmax(*args):
+    """
+    return the argument which has the maximum absolute value
+
+    :param args:
+    :return:
+    """
+
+    abs_values = np.abs(np.array(args))
+    # noinspection PyTypeChecker
+    return args[np.argmax(abs_values)]
+
+
+def modify_tuple(tup, idx, diff):
+    """
+    takes a tuple, changes the value at index `idx` by diff and returns the new tuple
+    :param tup:
+    :param idx:
+    :param diff:
+
+    :return:        changed tuple
+    """
+    tmp = list(tup)
+    tmp[idx] += diff
+    return tuple(tmp)
+
+
+def nmax(a1, a2):
+    """
+    max-func which is tolerant to `None`-values
+
+    :param a1:
+    :param a2:
+    :return:
+    """
+
+    if a1 is None:
+        return a2
+
+    elif a2 is None:
+        return a1
+
+    else:
+        return max(a1, a2)
+
+
 def get_index_difference(idcs1, idcs2):
     """
     Assume that the index tuples differ by exactly one index. Find out which dimension-index that is and the difference
@@ -317,7 +441,118 @@ def get_index_difference(idcs1, idcs2):
 
     dir = int(diff > 0)
 
-    return dim, dir
+    return dim, dir, diff
+
+
+def halfway_node(n0, n1, level, node_class="main"):
+    """
+    Takes two nodes which are "level-neighbours" and find/create a new node in between
+
+    :param n0:
+    :param n1:
+    :param level:
+    :return:
+    """
+
+    dim, dir, diff = get_index_difference(n0.idcs, n1.idcs)
+
+    if diff < 0:
+        dir = 1 - dir
+        diff*=-1
+        n0, n1 = n1, n0
+
+    new_idcs = modify_tuple(n0.idcs, dim, diff/2)
+
+    # TODO: why are coords not arrays?
+    new_coords = tuple((np.array(n0.coords) + np.array(n1.coords)) / 2)
+
+    new_node = get_or_create_node(new_coords, new_idcs, level=level, node_class=node_class)
+    new_node.set_neighbours(dim, n0, n1)
+
+    if node_class == "main" and new_node.osn_list is None:
+        new_node.osn_list = get_all_othogonal_semi_neighbours(n0, n1, dim)
+
+    return new_node
+
+
+def get_orthognal_semi_neighbours(r0, r1, dim, dir):
+
+    """
+    Consider the following situation:
+
+    (b0)                   (b1)
+
+    (x?)
+
+    (r0)        (bn)       (r1)        dim ↑  ref_dim →
+
+    The base-node bn was created between r0 and r1 and has these two as reference neighbours.
+    We are interested in b0 and b1 (to find/create an aux-node in between). Maybe on one side there is
+    an additional node x in between r0 an b0. We omit that asymmetry.
+
+    :param base_node:
+    :param r0:
+    :param r1:
+    :param dim:
+    :return:
+    """
+
+    # candidates:
+
+    b0c = r0.neighbours[dim][dir]
+    b1c = r1.neighbours[dim][dir]
+
+    diff0 = get_index_difference(r0.idcs, b0c.idcs)[2]
+    diff1 = get_index_difference(r1.idcs, b1c.idcs)[2]
+
+    # this ensures to omit x (asymmetric resolution)
+    diff = absmax(diff0, diff1)
+
+    b0_idcs = modify_tuple(r0.idcs, dim, diff)
+    b1_idcs = modify_tuple(r1.idcs, dim, diff)
+
+    b0 = ndb.node_dict[b0_idcs]
+    b1 = ndb.node_dict[b1_idcs]
+
+    return b0, b1
+
+
+def get_all_othogonal_semi_neighbours(r0, r1, ref_dim):
+    """
+
+    Consider the following situation:
+
+    (b0)                   (b1)
+
+    (x?)
+
+    (r0)        (bn)       (r1)        dim ↑  ref_dim →
+
+
+    (a0)                   (a1)
+
+    Apply get_get_orthognal_semi_neighbours in all dimensions (but ref_dim) and all directions
+
+
+    :param r0:
+    :param r1:
+    :param ref_dim:
+    :return:
+    """
+
+    osn = []
+
+    for dim in r0.axes:
+        if dim == ref_dim:
+            osn.append(None)
+            continue
+
+        a0, a1 = get_orthognal_semi_neighbours(r0, r1, dim, dir=0)
+        b0, b1 = get_orthognal_semi_neighbours(r0, r1, dim, dir=1)
+
+        osn.append(((a0, a1), (b0, b1)))
+
+    return osn
 
 
 def get_coords_from_meshgrid(mg, idcs):
@@ -333,9 +568,18 @@ def get_coords_from_meshgrid(mg, idcs):
 
 
 def get_node_for_idcs(mg, idcs, coords=None):
+    """
+    If `idcs` is a valid key of node_dict return the corresponding node, else create a new one.
+    Only integer indices are possible here. coords are taken from the meshgrid.
 
-    if idcs in node_dict:
-        the_node = node_dict[idcs]
+    :param mg:
+    :param idcs:
+    :param coords:
+    :return:
+    """
+
+    if idcs in ndb.node_dict:
+        the_node = ndb.node_dict[idcs]
     else:
         if coords is None:
             coords = get_coords_from_meshgrid(mg, idcs)
@@ -343,14 +587,22 @@ def get_node_for_idcs(mg, idcs, coords=None):
         assert len(coords) == len(idcs)
 
         the_node = Node(coords, idcs)
-        node_dict[idcs] = the_node
+        ndb.node_dict[idcs] = the_node
 
     return the_node
 
 
 def get_or_create_node(coords, idcs, **kwargs):
-    if idcs in node_dict:
-        the_node = node_dict[idcs]
+    """
+    If `idcs` is a valid key of node_dict return the corresponding node, else create a new one.
+
+    :param coords:
+    :param idcs:
+    :param kwargs:
+    :return:
+    """
+    if idcs in ndb.node_dict:
+        the_node = ndb.node_dict[idcs]
     else:
         the_node = Node(coords, idcs, **kwargs)
 
@@ -389,16 +641,26 @@ def create_nodes_from_mg(mg):
             neighbour1 = get_node_for_idcs(mg, idcs1)
             neighbour2 = get_node_for_idcs(mg, idcs2)
 
-            the_node.set_neigbours(dim_idx, neighbour1, neighbour2)
+            the_node.set_neighbours(dim_idx, neighbour1, neighbour2)
 
-            neighbour1.set_neigbours(dim_idx, None, the_node)
-            neighbour2.set_neigbours(dim_idx, the_node, None)
+            neighbour1.set_neighbours(dim_idx, None, the_node)
+            neighbour2.set_neighbours(dim_idx, the_node, None)
 
-    return node_dict
+    return ndb.node_dict
 
 
 def node_list_to_array(nl, selected_idcs=None, cond_func=None):
     """
+    Convert a list (length n) of m-dimensional nodes to an r x p array, where r <= n is the number of nodes
+    for which all condition functions return True and p <= m is the number of indices (axes) which are selected by
+    `selected_indices`.
+
+    :param nl:              node list
+    :param selected_idcs:   coord-axes which should be part of the result (for plotting two or or three make sense)
+
+    :param cond_func:       function or sequence of functions mapping a Node-object to either True or False
+    :return:
+
     """
     if isinstance(nl, Node):
         nl = [nl]
@@ -407,8 +669,17 @@ def node_list_to_array(nl, selected_idcs=None, cond_func=None):
         selected_idcs = (0, 1)
 
     if cond_func is None:
-        def cond_func(n):
+        # noinspection PyShadowingNames
+        def cond_func(node):
             return True
+
+    if isinstance(cond_func, (tuple, list)):
+        cond_func_sequence = cond_func
+
+        # noinspection PyShadowingNames
+        def cond_func(node):
+            r = [f(node) for f in cond_func_sequence]
+            return all(r)
 
     res = [list() for i in range(len(selected_idcs))]
     # plot the first two dimensions
@@ -420,13 +691,6 @@ def node_list_to_array(nl, selected_idcs=None, cond_func=None):
 
     return np.array(res)
 
-
-xx = np.linspace(-3, 3, 10)
-yy = np.linspace(-3, 3, 18)
-
-XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
-
-nd = create_nodes_from_mg(mg)
 
 
 def is_main_node(node):
@@ -455,58 +719,85 @@ def test1():
 def func_circle(xx):
     return xx[0]**2 + xx[1]**2 <= 1.3
 
-ndb.apply_func(func_circle)
-ndb.set_boundary_flags()
+
+if __name__ == "__main__":
+    xx = np.linspace(-4, 4, 9)
+    yy = np.linspace(-4, 4, 9)
+
+    XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
+
+    nd = create_nodes_from_mg(mg)
+
+    ndb.apply_func(func_circle)
+    ndb.set_boundary_flags()
+
+    a_in0 = ndb.get_inner()
+    a_out0 = ndb.get_outer()
+
+    b_in0 = ndb.get_inner_boundary()
+    b_out0 = ndb.get_outer_boundary()
+
+    ndb.insert_new_nodes()
+
+    # plot inner and outer points (level 0)
+    plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
+    plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+
+    # plot inner and outer boundary points (level 0)
+    plt.plot(*b_out0, "bo", ms=3)
+    plt.plot(*b_in0, "ro", ms=3)
+
+    # get and plot level 1 points (main and aux)
+    nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
+    nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
+
+    plt.plot(*nl1_main, "m.")
+    plt.plot(*nl1_aux, "gx", ms=3)
+
+    plt.title("levels 0 and 1")
+
+    plt.figure()
 
 
-a_in0 = ndb.get_inner()
-a_out0 = ndb.get_outer()
-
-b_in0 = ndb.get_inner_boundary()
-b_out0 = ndb.get_outer_boundary()
-
-ndb.insert_new_nodes()
-
-# plot inner and outer points (level 0)
-plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
-plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+    # - - - -
 
 
-# plot inner and outer boundary points (level 0)
-plt.plot(*b_out0, "bo", ms=3)
-plt.plot(*b_in0, "ro", ms=3)
+    ndb.apply_func(func_circle)
+    ndb.set_boundary_flags()
 
 
-# get and plot level 1 points (main and aux)
-nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
-nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
+    a_in0 = ndb.get_inner()
+    a_out0 = ndb.get_outer()
 
-plt.plot(*nl1_main, "m.")
-plt.plot(*nl1_aux, "gx", ms=3)
+    b_in0 = ndb.get_inner_boundary()
+    b_out0 = ndb.get_outer_boundary()
 
-plt.title("levels 0 and 1")
+    # plot inner and outer points (level 0)
+    plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
+    plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+    plt.title("levels 0, 1 evaluated")
+
+
+    plt.show()
 
 
 
-plt.show()
-
-
-
-"""
-General procedure:
-
-1. generate initial nodes
-2. evaluate function on new nodes
-3. determine boundary status (outer boundary -1, no boundary 0, inner boundary 1)
-4. insert new main nodes where necessary
-    implicitly add auxiliary nodes such that every main node has well defined neighbours
-    thereby node_class can be upgraded from aux to main
-6.  go to 2.
-
-"""
+    """
+    General procedure:
+    
+    1. generate initial nodes
+    2. evaluate function on new nodes
+    3. determine boundary status (outer boundary -1, no boundary 0, inner boundary 1)
+    4. insert new main nodes where necessary
+        implicitly add auxiliary nodes such that every main node has well defined neighbours
+        thereby node_class can be upgraded from aux to main
+    5.  update neighbour-relations    
+    6.  go to 2.
+    
+    """
 
 
 
 
-IPS()
+    IPS()
 
