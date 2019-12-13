@@ -575,6 +575,9 @@ if __name__ == "__main__":
     plt.plot(*b_out0, "bo", ms=3)
     plt.plot(*b_in0, "ro", ms=3)
 
+    plt.title("levels 0")
+    plt.savefig("level0.png")
+
     # get and plot level 1 points (main and aux)
     nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
     nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
@@ -582,7 +585,9 @@ if __name__ == "__main__":
     plt.plot(*nl1_main, "m.")
     plt.plot(*nl1_aux, "gx", ms=3)
 
-    plt.title("levels 0 and 1")
+    plt.title("levels 0 and 1 (not evaluated)")
+
+    plt.savefig("level1a.png")
 
     plt.figure()
 
@@ -591,17 +596,23 @@ if __name__ == "__main__":
     ndb.apply_func(func_circle)
     ndb.set_boundary_flags()
 
-
     a_in0 = ndb.get_inner()
     a_out0 = ndb.get_outer()
 
     b_in0 = ndb.get_inner_boundary()
     b_out0 = ndb.get_outer_boundary()
 
-    # plot inner and outer points (level 0)
+    # plot inner and outer points (level 0+1)
     plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
     plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
-    plt.title("levels 0, 1 evaluated")
+
+    # plot inner and outer boundary points (level 0+1)
+    plt.plot(*b_out0, "bo", ms=3)
+    plt.plot(*b_in0, "ro", ms=3)
+
+    plt.title("levels 0 and 1")
+
+    plt.savefig("level1b.png")
 
 
     plt.show()
