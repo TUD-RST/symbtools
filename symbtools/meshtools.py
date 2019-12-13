@@ -64,6 +64,8 @@ class NodeDataBase(object):
         return node_list_to_array(self.all_nodes, idcs, cond_func=lambda node: node.boundary_flag==1)
 
     def set_boundary_flags(self):
+
+        # !! boundary status might have changed (check all former boundary nodes)
         for node in self.recently_evaluated_nodes:
             fv = node.func_val
             assert fv in (True, False)
@@ -434,7 +436,11 @@ def get_or_create_node(coords, idcs, **kwargs):
     if idcs in ndb.node_dict:
         the_node = ndb.node_dict[idcs]
     else:
+        # node for the provided indices does not yet exist -> create new node
         the_node = Node(coords, idcs, **kwargs)
+
+        # add new node to node_dict
+        ndb.node_dict[idcs] = the_node
 
     return the_node
 
@@ -565,8 +571,6 @@ if __name__ == "__main__":
     b_in0 = ndb.get_inner_boundary()
     b_out0 = ndb.get_outer_boundary()
 
-    ndb.insert_new_nodes()
-
     # plot inner and outer points (level 0)
     plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
     plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
@@ -577,6 +581,11 @@ if __name__ == "__main__":
 
     plt.title("levels 0")
     plt.savefig("level0.png")
+
+    # - - - - - - - -
+
+    # insert level 1 nodes
+    ndb.insert_new_nodes()
 
     # get and plot level 1 points (main and aux)
     nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
@@ -590,8 +599,6 @@ if __name__ == "__main__":
     plt.savefig("level1a.png")
 
     plt.figure()
-
-    # - - - - - - - -
 
     ndb.apply_func(func_circle)
     ndb.set_boundary_flags()
@@ -614,9 +621,23 @@ if __name__ == "__main__":
 
     plt.savefig("level1b.png")
 
+    # - - - - - - - -
 
+    # insert level 2 nodes
+
+    ndb.insert_new_nodes()
+
+    nl2_main = node_list_to_array(ndb.levels[2], cond_func=is_main_node)
+    nl2_aux = node_list_to_array(ndb.levels[2], cond_func=is_aux_node)
+
+    plt.plot(*nl2_main, "m.")
+    plt.plot(*nl2_aux, "gx", ms=3)
+
+    plt.title("levels 0, 1 and 2 (not evaluated)")
+
+    plt.savefig("level2a.png")
+    
     plt.show()
-
 
 
     """
