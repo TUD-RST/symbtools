@@ -66,7 +66,8 @@ class NodeDataBase(object):
     def set_boundary_flags(self):
 
         # !! boundary status might have changed (check all former boundary nodes)
-        for node in self.recently_evaluated_nodes:
+        # for node in self.recently_evaluated_nodes:
+        for node in self.all_nodes:
             fv = node.func_val
             assert fv in (True, False)
 
@@ -131,11 +132,11 @@ class Node(object):
     boundary-properties etc.
     """
 
-    def __init__(self, coords, idcs, parent=None, level=0, node_class="main"):
+    def __init__(self, coords, idcs, level=0, node_class="main"):
         self.coords = coords
         self.idcs = tuple(idcs)
         self.axes = tuple(range(len(coords)))
-        self.parent = parent
+        self.parents = list()
         self.level = level
         self.func_val = None
         self.boundary_flag = None
@@ -300,6 +301,9 @@ def halfway_node(n0, n1, level, node_class="main"):
 
     new_node = get_or_create_node(new_coords, new_idcs, level=level, node_class=node_class)
     new_node.set_neighbours(dim, n0, n1)
+
+    # this is used currently only for debugging
+    new_node.parents.append((n0, n1))
 
     if node_class == "main" and new_node.osn_list is None:
         new_node.osn_list = get_all_othogonal_semi_neighbours(n0, n1, dim)
@@ -636,7 +640,48 @@ if __name__ == "__main__":
     plt.title("levels 0, 1 and 2 (not evaluated)")
 
     plt.savefig("level2a.png")
-    
+
+    plt.show()
+    exit()
+
+    ndb.apply_func(func_circle)
+    ndb.set_boundary_flags()
+
+    a_in0 = ndb.get_inner()
+    a_out0 = ndb.get_outer()
+
+    b_in0 = ndb.get_inner_boundary()
+    b_out0 = ndb.get_outer_boundary()
+
+    # plot inner and outer points (level 0+1)
+    plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
+    plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+
+    # plot inner and outer boundary points (level 0+1)
+    plt.plot(*b_out0, "bo", ms=3)
+    plt.plot(*b_in0, "ro", ms=3)
+
+    plt.title("levels 0, 1 and 2")
+
+    plt.savefig("level2b.png")
+
+
+    # - - - - - - - -
+
+    # insert level 3 nodes
+
+    ndb.insert_new_nodes()
+
+    nl_main = node_list_to_array(ndb.levels[2], cond_func=is_main_node)
+    nl_aux = node_list_to_array(ndb.levels[2], cond_func=is_aux_node)
+
+    plt.plot(*nl_main, "m.")
+    plt.plot(*nl_aux, "gx", ms=3)
+
+    plt.title("levels 0, 1, 2 and 3 (not evaluated)")
+
+    plt.savefig("level3a.png")
+
     plt.show()
 
 
