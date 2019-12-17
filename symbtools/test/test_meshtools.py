@@ -48,7 +48,7 @@ class TestNode(unittest.TestCase):
         met.create_nodes_from_mg(mg)
 
 
-class TestGrid(unittest.TestCase):
+class TestGrid2d(unittest.TestCase):
     def setUp(self):
         xx = np.linspace(-4, 4, 9)
         yy = np.linspace(-4, 4, 9)
@@ -70,9 +70,28 @@ class TestGrid(unittest.TestCase):
         # met.create_nodes_from_mg(self.mg)
         grid = met.Grid(self.mg)
 
+        self.assertEqual(grid.idx_edge_pairs, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
         gc = met.GridCell(grid.ndb.all_nodes[:4], grid)
 
+    def test_plot(self):
+        # met.create_nodes_from_mg(self.mg)
+        grid = met.Grid(self.mg)
+
+        import matplotlib.pyplot as plt
+
+        all_points = np.array([arr.flat[:] for arr in grid.mg])
+
+        plt.plot(*all_points, '.')
+        plt.savefig("tmp_0.png")
+        for i, cell in enumerate(grid.cells):
+            edges = np.array(cell.get_edge_coords())
+            plt.plot(*edges.T)
+            plt.savefig("tmp_{:03d}.png".format(i))
+
         ipd.IPS()
+
+
 
 
 

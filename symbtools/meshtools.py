@@ -247,6 +247,7 @@ class Grid(object):
         # they will be filled by methods below
         self.vertex_local_idcs = None  # e.g.: [(0, 0), (0, 1), (1, 0), (1, 1)]
         self.edge_pair_local_idcs = None  # e.g.: [((0, 0), (0, 1)), ((0, 0), (1, 0)), ((0, 1), (1, 1)), ...]
+        self.idx_edge_pairs = None  # [(0, 1), (0, 2), (1, 3), ...] third edge consists of node1 and node3
         self.new_cell_idcs = None  # e.g: [[(0.0, 0.0), (0.0, 0.5), (0.5, 0.0), (0.5, 0.5)], [...]]
 
         self._find_vertex_local_idcs()
@@ -283,6 +284,19 @@ class Grid(object):
         edge_pairs = list(filter(is_edge, all_pairs))
 
         self.edge_pair_local_idcs = edge_pairs
+
+        # we also might need the index-numbers of the nodes, i.e. (0, 0) -> 0, (0, 1) -> 1, (1, 0) -> 2
+
+        idx_nbr_dict = {}
+
+        for idx_nbr, vertex in enumerate(self.vertex_local_idcs):
+            idx_nbr_dict[vertex] = idx_nbr
+
+        idx_edge_pairs = []
+        for n1, n2 in edge_pairs:
+            idx_edge_pairs.append((idx_nbr_dict[n1], idx_nbr_dict[n2]))
+
+        self.idx_edge_pairs = idx_edge_pairs
 
     def _find_child_idcs(self):
         """
@@ -393,8 +407,6 @@ class GridCell(object):
 
         self.grid.cells.append(self)
 
-
-
     def check_homogenity(self):
 
         cell_res = np.array([node.func_val for node in self.vertex_nodes])
@@ -421,6 +433,14 @@ class GridCell(object):
             new_cells.append(new_cell)
 
         return new_cells
+
+    def get_edge_coords(self):
+
+        edges = []
+        for n1, n2 in self.grid.idx_edge_pairs:
+            edges.append((self.vertex_nodes[n1].coords, self.vertex_nodes[n2].coords))
+
+        return edges
 
 
 ###
