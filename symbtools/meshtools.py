@@ -13,10 +13,9 @@ activate_ips_on_exception()
 
 
 class NodeDataBase(object):
-    def __init__(self):
-        # !! quick and dirty
-        depth = 10
-        self.levels = [list() for i in range(depth)]
+    def __init__(self, grid):
+        self.grid = grid
+        self.levels = collections.defaultdict(list)
         self.all_nodes = []
         self.node_dict = {}
 
@@ -59,13 +58,23 @@ class NodeDataBase(object):
     def get_outer(self, idcs=None):
         return node_list_to_array(self.all_nodes, idcs, cond_func=self.is_outer)
 
-    def get_outer_boundary(self, idcs=None):
-        return node_list_to_array(self.all_nodes, idcs, cond_func=lambda node: node.boundary_flag==-1)
+    def get_outer_boundary(self, idcs=None, only_max_level=True):
+        if only_max_level:
+            target_nodes = self.levels[self.grid.max_level]
+        else:
+            target_nodes = self.all_nodes
+        return node_list_to_array(target_nodes, idcs, cond_func=lambda node: node.boundary_flag==-1)
 
-    def get_inner_boundary(self, idcs=None):
-        return node_list_to_array(self.all_nodes, idcs, cond_func=lambda node: node.boundary_flag==1)
+    def get_inner_boundary(self, idcs=None, only_max_level=True):
+        if only_max_level:
+            target_nodes = self.levels[self.grid.max_level]
+        else:
+            target_nodes = self.all_nodes
+        return node_list_to_array(target_nodes, idcs, cond_func=lambda node: node.boundary_flag==1)
 
     def set_boundary_flags(self):
+        assert False, "this should be handled by cells"
+
 
         # !! boundary status might have changed (check all former boundary nodes)
         # for node in self.recently_evaluated_nodes:
@@ -99,8 +108,8 @@ class Node(object):
         self.axes = tuple(range(len(coords)))
         self.parents = list()
         self.level = level
-        self.func_val = None
-        self.boundary_flag = None
+        self.func_val = None  # will be in {0, 1}
+        self.boundary_flag = None  # will be in {-1, 0, 1}  i.e. outer_bound, no bound or inner bound
 
         self.osn_list = None  # orthogonal semin_neighbours
 
@@ -190,8 +199,19 @@ class Grid(object):
         self.mg = mg
         self.all_mg_points = np.array([arr.flat[:] for arr in self.mg])
         self.ndim = len(mg)
+
+        # save all cells in a list
         self.cells = []
-        self.ndb = NodeDataBase()
+
+        # cells are organized in (child-) levels, beginning from 0
+        # in this dict we store lists of the respective cells. Keys are 0, 1, ...
+        self.levels = collections.defaultdict(list)
+        self.max_level = 0
+
+        self.homogeneous_cells = collections.defaultdict(list)
+        self.inhomogeneous_cells = collections.defaultdict(list)
+
+        self.ndb = NodeDataBase(grid=self)
 
         minima = np.array([np.min(arr) for arr in self.mg])
         maxima = np.array([np.max(arr) for arr in self.mg])
@@ -343,6 +363,11 @@ class Grid(object):
         return cells
 
     def create_basic_cell_from_mg_node(self, node_idcs):
+        """
+
+        :param node_idcs:
+        :return:
+        """
 
         idcs_arr = np.array(node_idcs)
 
@@ -357,6 +382,20 @@ class Grid(object):
 
         return cell
 
+    def classify_cells_by_homogenity(self):
+        """
+        Iterate over the cells of the current max_level and find those which are not homogenous
+        :return:
+        """
+
+        for cell in self.levels[self.max_level]:
+            if cell.is_homogeneous():
+                self.homogeneous_cells[self.max_level].append(cell)
+                cell.set_boundary_status(False)
+            else:
+                self.inhomogeneous_cells[self.max_level].append(cell)
+                cell.set_boundary_status(True)
+
 
 class GridCell(object):
 
@@ -369,17 +408,21 @@ class GridCell(object):
         self.level = level
         self.parent_cell = None
         self.child_cells = None
-        self.is_homogeneous = None
+        self._is_homogeneous = None
 
         self.grid.cells.append(self)
+        self.grid.levels[self.level].append(self)
+        if self.grid.max_level != self.level:
+            assert self.grid.max_level == self.level - 1
+            self.grid.max_level +=1
 
-    def check_homogenity(self):
+    def is_homogeneous(self):
 
         cell_res = np.array([node.func_val for node in self.vertex_nodes])
 
-        self.is_homogeneous = np.alltrue(cell_res) or np.alltrue(np.logical_not(cell_res))
+        self._is_homogeneous = np.alltrue(cell_res) or np.alltrue(np.logical_not(cell_res))
 
-        return self.is_homogeneous
+        return self._is_homogeneous
 
     def make_childs(self):
 
@@ -420,6 +463,17 @@ class GridCell(object):
             vertices.append(v.coords)
 
         return np.array(vertices)
+
+    def set_boundary_status(self, flag):
+        for node in self.vertex_nodes:
+            if flag:
+                func_val_idx = int(node.func_val)
+                assert func_val_idx in (0, 1)
+                node.boundary_flag = (-1, 1)[func_val_idx]
+
+            elif node.boundary_flag is None:
+                # only set to 0 if the node was not already flagged as boundary
+                node.boundary_flag = 0
 
 
 ###
@@ -531,13 +585,12 @@ if __name__ == "__main__":
 
     XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
 
-    nd = create_nodes_from_mg(mg)
+    grid = Grid(mg)
 
-    self = Grid(mg)
-    ndb = self.ndb
+    ndb = grid.ndb
 
     ndb.apply_func(func_circle)
-    ndb.set_boundary_flags()
+    grid.classify_cells_by_homogenity()
 
     a_in0 = ndb.get_inner()
     a_out0 = ndb.get_outer()

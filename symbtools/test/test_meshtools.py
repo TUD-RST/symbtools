@@ -28,11 +28,11 @@ class TestGrid2d(unittest.TestCase):
         # met.create_nodes_from_mg(self.mg)
         grid = met.Grid(self.mg)
 
+        l1 = len(grid.cells)
+
         self.assertEqual(grid.idx_edge_pairs, [(0, 1), (0, 2), (1, 3), (2, 3)])
 
-        gc = met.GridCell(grid.ndb.all_nodes[:4], grid)
-
-        childs1 = gc.make_childs()
+        childs1 = grid.cells[0].make_childs()
 
         self.assertEqual(len(childs1), 4)
         expected_vertices = np.array([[-4., -4.], [-4., -3.5], [-3.5, -4.],  [-3.5, -3.5]])
@@ -42,6 +42,10 @@ class TestGrid2d(unittest.TestCase):
 
         self.assertEqual(childs1[0].child_cells, childs2)
         self.assertEqual(childs2[0].parent_cell, childs1[0])
+
+        self.assertEqual(len(grid.levels[0]), l1)
+        self.assertEqual(len(grid.levels[1]), len(childs1))
+        self.assertEqual(len(grid.levels[2]), len(childs2))
 
         if 0:
             plt.plot(*grid.all_mg_points, '.')
@@ -110,6 +114,52 @@ class TestGrid3d(unittest.TestCase):
             plot_cells = grid.cells[:1] + [grid.cells[-16]] + grid.cells[-8:]
 
             plot_cells3d(plot_cells, imax=None, show=True, all_points=grid.all_mg_points)
+
+
+class MeshRefinement2d(unittest.TestCase):
+
+    def setUp(self):
+        xx = np.linspace(-4, 4, 9)
+        yy = np.linspace(-4, 4, 9)
+
+        mg = np.meshgrid(xx, yy, indexing="ij")
+
+        self.mg = mg
+
+    def test_refinement(self):
+
+        grid = met.Grid(self.mg)
+
+        ndb = grid.ndb
+
+        ndb.apply_func(met.func_circle)
+        grid.classify_cells_by_homogenity()
+
+        ic = grid.inhomogeneous_cells[0]
+
+        # there are 12 inhomogeneous cells (manually verified)
+        self.assertEqual(len(ic), 12)
+
+        a_in0 = ndb.get_inner()
+        a_out0 = ndb.get_outer()
+
+        b_in0 = ndb.get_inner_boundary()
+        self.assertEqual(b_in0.shape, (2, 5))
+
+        b_out0 = ndb.get_outer_boundary()
+        self.assertEqual(b_out0.shape, (2, 16))
+
+        # plot inner and outer points (level 0)
+        plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
+        plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+
+        plt.plot(*b_out0, "bo", ms=3)
+        plt.plot(*b_in0, "ro", ms=3)
+
+        plt.title("levels 0")
+        plt.savefig("level0.png")
+        plt.show()
+        ipd.IPS()
 
 
 def plot_cells2d(cells, fname=None, show=False):
