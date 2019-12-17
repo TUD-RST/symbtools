@@ -62,9 +62,7 @@ class TestGrid(unittest.TestCase):
         met.create_nodes_from_mg(self.mg)
         grid = met.Grid(self.mg)
 
-        gc = met.GridCell(met.ndb.all_nodes[:4], grid)
-
-        self.assertEqual(len(met.new_cell_idcs[2]), 4)
+        self.assertEqual(len(grid.new_cell_idcs[2]), 4)
 
         met.create_grid_from_mg(grid)
 
@@ -72,7 +70,7 @@ class TestGrid(unittest.TestCase):
         # met.create_nodes_from_mg(self.mg)
         grid = met.Grid(self.mg)
 
-        gc = met.GridCell(met.ndb.all_nodes[:4], grid)
+        gc = met.GridCell(grid.ndb.all_nodes[:4], grid)
 
         ipd.IPS()
 
