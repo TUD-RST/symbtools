@@ -41,7 +41,7 @@ class NodeDataBase(object):
 
         self.recently_evaluated_nodes = self.new_nodes
 
-        # empty that list
+        # empty that list (prepare for next evaluation)
         self.new_nodes = []
 
     @staticmethod
@@ -52,17 +52,24 @@ class NodeDataBase(object):
     def is_outer(node):
         return not bool(node.func_val)
 
-    def get_inner(self, idcs=None):
-        return node_list_to_array(self.all_nodes, idcs, cond_func=self.is_inner)
-
-    def get_outer(self, idcs=None):
-        return node_list_to_array(self.all_nodes, idcs, cond_func=self.is_outer)
-
-    def get_outer_boundary(self, idcs=None, only_max_level=True):
+    def get_all_or_max_level_nodes(self, only_max_level):
         if only_max_level:
             target_nodes = self.levels[self.grid.max_level]
         else:
             target_nodes = self.all_nodes
+
+        return target_nodes
+
+    def get_inner(self, idcs=None, only_max_level=True):
+        target_nodes = self.get_all_or_max_level_nodes(only_max_level)
+        return node_list_to_array(target_nodes, idcs, cond_func=self.is_inner)
+
+    def get_outer(self, idcs=None, only_max_level=True):
+        target_nodes = self.get_all_or_max_level_nodes(only_max_level)
+        return node_list_to_array(target_nodes, idcs, cond_func=self.is_outer)
+
+    def get_outer_boundary(self, idcs=None, only_max_level=True):
+        target_nodes = self.get_all_or_max_level_nodes(only_max_level)
         return node_list_to_array(target_nodes, idcs, cond_func=lambda node: node.boundary_flag==-1)
 
     def get_inner_boundary(self, idcs=None, only_max_level=True):
@@ -71,29 +78,6 @@ class NodeDataBase(object):
         else:
             target_nodes = self.all_nodes
         return node_list_to_array(target_nodes, idcs, cond_func=lambda node: node.boundary_flag==1)
-
-    def set_boundary_flags(self):
-        assert False, "this should be handled by cells"
-
-
-        # !! boundary status might have changed (check all former boundary nodes)
-        # for node in self.recently_evaluated_nodes:
-        for node in self.all_nodes:
-            fv = node.func_val
-            assert fv in (True, False)
-
-            boundary_flag = (-1, 1)[int(fv)]
-
-            for nb in node.all_neighbours(omit_none=True):
-                if nb.func_val != fv:
-                    # at least one neigbour has a different value
-                    node.boundary_flag = boundary_flag
-                    if fv:
-                        self.inner_boundary_nodes.append(node)
-                    break
-            else:
-                # there was no break
-                node.boundary_flag = 0
 
 
 class Node(object):
@@ -211,6 +195,8 @@ class Grid(object):
         self.homogeneous_cells = collections.defaultdict(list)
         self.inhomogeneous_cells = collections.defaultdict(list)
 
+        self.boundary_cells = collections.defaultdict(list)
+
         self.ndb = NodeDataBase(grid=self)
 
         minima = np.array([np.min(arr) for arr in self.mg])
@@ -313,7 +299,7 @@ class Grid(object):
 
         return self.coords_of_index_origin + np.array(idcs)*self.coord_stepwidth
 
-    def get_node_for_idcs(self, idcs, coords=None):
+    def get_node_for_idcs(self, idcs, coords=None, level=0):
         """
         If `idcs` is a valid key of node_dict return the corresponding node, else create a new one.
         Only integer indices are possible here. coords are taken from the meshgrid.
@@ -321,6 +307,7 @@ class Grid(object):
         :param mg:
         :param idcs:
         :param coords:
+        :param level:
         :return:
         """
 
@@ -335,7 +322,7 @@ class Grid(object):
 
             assert len(coords) == len(idcs)
 
-            the_node = Node(coords, idcs, grid=self)
+            the_node = Node(coords, idcs, grid=self, level=level)
             self.ndb.node_dict[idcs] = the_node
 
         return the_node
@@ -395,6 +382,13 @@ class Grid(object):
             else:
                 self.inhomogeneous_cells[self.max_level].append(cell)
                 cell.set_boundary_status(True)
+                self.boundary_cells[self.max_level].append(cell)
+
+    def divide_boundary_cells(self):
+        max_level = self.max_level
+
+        for cell in self.boundary_cells[max_level]:
+            cell.make_childs()
 
 
 class GridCell(object):
@@ -436,7 +430,7 @@ class GridCell(object):
 
                 new_idcs = tuple(np.array(self.vertex_nodes[0].idcs) + index_diff)
 
-                node = self.grid.get_node_for_idcs(idcs=new_idcs)
+                node = self.grid.get_node_for_idcs(idcs=new_idcs, level=self.level+1)
                 # node = get_or_create_node(coords=None, idcs=new_idcs, grid=self.grid)
                 nodes.append(node)
 
@@ -561,152 +555,14 @@ def is_aux_node(node):
     return node.node_class == "aux"
 
 
-def test1():
-
-    root_node = nd[2, 2]
-    nl0 = node_list_to_array(ndb.levels[0])
-    nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
-    nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
-
-    plt.plot(*nl0, "k.")
-    plt.plot(*nl1_main, "b.")
-    plt.plot(*nl1_aux, "g.")
-
-    plt.show()
-
-
 def func_circle(xx):
     return xx[0]**2 + xx[1]**2 <= 1.3
 
 
 if __name__ == "__main__":
-    xx = np.linspace(-4, 4, 9)
-    yy = np.linspace(-4, 4, 9)
+    pass
 
-    XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
-
-    grid = Grid(mg)
-
-    ndb = grid.ndb
-
-    ndb.apply_func(func_circle)
-    grid.classify_cells_by_homogenity()
-
-    a_in0 = ndb.get_inner()
-    a_out0 = ndb.get_outer()
-
-    b_in0 = ndb.get_inner_boundary()
-    b_out0 = ndb.get_outer_boundary()
-
-    # plot inner and outer points (level 0)
-    plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
-    plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
-
-    # plot inner and outer boundary points (level 0)
-    plt.plot(*b_out0, "bo", ms=3)
-    plt.plot(*b_in0, "ro", ms=3)
-
-    plt.title("levels 0")
-    plt.savefig("level0.png")
-
-    # - - - - - - - -
-
-    # insert level 1 nodes
-    ndb.insert_new_nodes()
-
-    # get and plot level 1 points (main and aux)
-    nl1_main = node_list_to_array(ndb.levels[1], cond_func=is_main_node)
-    nl1_aux = node_list_to_array(ndb.levels[1], cond_func=is_aux_node)
-
-    plt.plot(*nl1_main, "m.")
-    plt.plot(*nl1_aux, "gx", ms=3)
-
-    plt.title("levels 0 and 1 (not evaluated)")
-
-    plt.savefig("level1a.png")
-
-    plt.figure()
-
-    ndb.apply_func(func_circle)
-    ndb.set_boundary_flags()
-
-    a_in0 = ndb.get_inner()
-    a_out0 = ndb.get_outer()
-
-    b_in0 = ndb.get_inner_boundary()
-    b_out0 = ndb.get_outer_boundary()
-
-    # plot inner and outer points (level 0+1)
-    plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
-    plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
-
-    # plot inner and outer boundary points (level 0+1)
-    plt.plot(*b_out0, "bo", ms=3)
-    plt.plot(*b_in0, "ro", ms=3)
-
-    plt.title("levels 0 and 1")
-
-    plt.savefig("level1b.png")
-
-    # - - - - - - - -
-
-    # insert level 2 nodes
-
-    ndb.insert_new_nodes()
-
-    nl2_main = node_list_to_array(ndb.levels[2], cond_func=is_main_node)
-    nl2_aux = node_list_to_array(ndb.levels[2], cond_func=is_aux_node)
-
-    plt.plot(*nl2_main, "m.")
-    plt.plot(*nl2_aux, "gx", ms=3)
-
-    plt.title("levels 0, 1 and 2 (not evaluated)")
-
-    plt.savefig("level2a.png")
-
-    plt.show()
-    exit()
-
-    ndb.apply_func(func_circle)
-    ndb.set_boundary_flags()
-
-    a_in0 = ndb.get_inner()
-    a_out0 = ndb.get_outer()
-
-    b_in0 = ndb.get_inner_boundary()
-    b_out0 = ndb.get_outer_boundary()
-
-    # plot inner and outer points (level 0+1)
-    plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
-    plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
-
-    # plot inner and outer boundary points (level 0+1)
-    plt.plot(*b_out0, "bo", ms=3)
-    plt.plot(*b_in0, "ro", ms=3)
-
-    plt.title("levels 0, 1 and 2")
-
-    plt.savefig("level2b.png")
-
-
-    # - - - - - - - -
-
-    # insert level 3 nodes
-
-    ndb.insert_new_nodes()
-
-    nl_main = node_list_to_array(ndb.levels[2], cond_func=is_main_node)
-    nl_aux = node_list_to_array(ndb.levels[2], cond_func=is_aux_node)
-
-    plt.plot(*nl_main, "m.")
-    plt.plot(*nl_aux, "gx", ms=3)
-
-    plt.title("levels 0, 1, 2 and 3 (not evaluated)")
-
-    plt.savefig("level3a.png")
-
-    plt.show()
-
+    # the testing code from here was moved to unittests (MeshRefinement2d)
 
     """
     General procedure:

@@ -29,6 +29,7 @@ class TestGrid2d(unittest.TestCase):
         grid = met.Grid(self.mg)
 
         l1 = len(grid.cells)
+        self.assertEqual(len(grid.ndb.levels[0]), 81)
 
         self.assertEqual(grid.idx_edge_pairs, [(0, 1), (0, 2), (1, 3), (2, 3)])
 
@@ -38,7 +39,11 @@ class TestGrid2d(unittest.TestCase):
         expected_vertices = np.array([[-4., -4.], [-4., -3.5], [-3.5, -4.],  [-3.5, -3.5]])
         self.assertTrue(np.all(childs1[0].get_vertex_coords() == expected_vertices))
 
+        # five nodes had to be inserted
+        self.assertEqual(len(grid.ndb.levels[1]), 5)
+
         childs2 = childs1[0].make_childs()
+        self.assertEqual(len(grid.ndb.levels[2]), 5)
 
         self.assertEqual(childs1[0].child_cells, childs2)
         self.assertEqual(childs2[0].parent_cell, childs1[0])
@@ -89,6 +94,8 @@ class TestGrid3d(unittest.TestCase):
 
         childs1 = grid.cells[0].make_childs()
 
+        self.assertEqual(len(grid.ndb.levels[1]), 19)
+
         l2 = len(grid.cells)
         self.assertEqual(len(childs1), 8)
         self.assertEqual(l2, l1 + len(childs1))
@@ -104,6 +111,7 @@ class TestGrid3d(unittest.TestCase):
         self.assertTrue(np.all(childs1[0].get_vertex_coords() == expected_vertices))
 
         childs2 = childs1[0].make_childs()
+        self.assertEqual(len(grid.ndb.levels[2]), 19)
 
         self.assertEqual(childs1[0].child_cells, childs2)
         self.assertEqual(childs2[0].parent_cell, childs1[0])
@@ -158,6 +166,34 @@ class MeshRefinement2d(unittest.TestCase):
 
         plt.title("levels 0")
         plt.savefig("level0.png")
+
+        # -----
+        self.assertEqual(grid.max_level, 0)
+        grid.divide_boundary_cells()
+        self.assertEqual(grid.max_level, 1)
+        ndb.apply_func(met.func_circle)
+        grid.classify_cells_by_homogenity()
+
+        a_in1 = ndb.get_inner()
+        a_out1 = ndb.get_outer()
+
+        b_in1 = ndb.get_inner_boundary()
+        self.assertEqual(b_in1.shape, (2, 12))
+
+        b_out1 = ndb.get_outer_boundary()
+        self.assertEqual(b_out1.shape, (2, 20))
+
+        # plot inner and outer points (level 1)
+        plt.cla()
+
+        plt.plot(*a_out1, "go", alpha=0.2, ms=5)
+        plt.plot(*a_in1, "mo", alpha=0.2, ms=5)
+
+        plt.plot(*b_out1, "go", ms=3)
+        plt.plot(*b_in1, "mo", ms=3)
+
+        plt.title("levels 0, 1")
+        plt.savefig("level1.png")
         plt.show()
         ipd.IPS()
 
