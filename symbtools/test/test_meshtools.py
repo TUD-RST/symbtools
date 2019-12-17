@@ -46,3 +46,37 @@ class TestNode(unittest.TestCase):
         XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
 
         met.create_nodes_from_mg(mg)
+
+
+class TestGrid(unittest.TestCase):
+    def setUp(self):
+        xx = np.linspace(-4, 4, 9)
+        yy = np.linspace(-4, 4, 9)
+
+        XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
+
+        self.mg = mg
+
+    def test1(self):
+
+        met.create_nodes_from_mg(self.mg)
+        grid = met.Grid(self.mg)
+
+        gc = met.GridCell(met.ndb.all_nodes[:4], grid)
+
+        self.assertEqual(len(met.new_cell_idcs[2]), 4)
+
+        met.create_grid_from_mg(grid)
+
+    def test_create_cell(self):
+        # met.create_nodes_from_mg(self.mg)
+        grid = met.Grid(self.mg)
+
+        gc = met.GridCell(met.ndb.all_nodes[:4], grid)
+
+        ipd.IPS()
+
+
+
+
+

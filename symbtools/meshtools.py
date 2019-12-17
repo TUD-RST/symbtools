@@ -3,11 +3,20 @@ This module contains algorithms to investigate the region off attraction of a dy
 """
 
 import itertools
+import collections
 import numpy as np
 from matplotlib import pyplot as plt
+from scipy.spatial.distance import hamming
 
 from ipydex import IPS, activate_ips_on_exception
 activate_ips_on_exception()
+
+
+# these dicts store index-coordinates which only depend on the dimension
+# we just need to compute them once (see 2d examples)
+vertex_local_idcs = {}  # e.g.: [(0, 0), (0, 1), (1, 0), (1, 1)]
+edge_pair_local_idcs = {}  # e.g.: [((0, 0), (0, 1)), ((0, 0), (1, 0)), ((0, 1), (1, 1)), ((1, 0), (1, 1))]
+new_cell_idcs = {}  # e.g: [[(0.0, 0.0), (0.0, 0.5), (0.5, 0.0), (0.5, 0.5)], [...]]
 
 
 class NodeDataBase(object):
@@ -122,7 +131,6 @@ class NodeDataBase(object):
                     new_node.set_neighbours(dim, aux0, aux1)
 
 
-
 ndb = NodeDataBase()
 
 
@@ -220,6 +228,135 @@ class Node(object):
     def __repr__(self):
 
         return "<N {} {}|{}>".format(self.node_class, self.idcs, self.coords)
+
+
+class Grid(object):
+    def __init__(self, mg):
+
+        # original meshgrid as returned by numpy.meshgrid
+        self.mg = mg
+        self.cells = collections.defaultdict(list)
+
+        minima = np.array([np.min(arr) for arr in self.mg])
+        maxima = np.array([np.max(arr) for arr in self.mg])
+
+        # note: all arrays in mg have the same shape
+        shapes = np.array(mg[0].shape)
+        assert np.all(shapes > 1)
+
+        self.coord_extention = maxima - minima
+        self.coord_stepwidth = self.coord_extention/(shapes - 1)
+
+        self.coords_of_index_origin = minima
+
+    def indices_to_coords(self, idcs):
+
+        return self.coords_of_index_origin + np.array(idcs)*self.coord_stepwidth
+
+
+class GridCell(object):
+
+    def __init__(self, nodes, grid, level=0):
+        self.ndim = len(nodes[0].coords)
+        assert len(nodes) == 2**self.ndim
+
+        self.grid = grid
+        self.vertex_nodes = nodes
+        self.level = level
+        self.parent_cell = None
+        self.child_cells = None
+        self.is_homogeneous = None
+
+        if self.ndim not in vertex_local_idcs:
+
+            vertex_local_idcs[self.ndim] = list(itertools.product([0.0, 1.0], repeat=self.ndim))
+
+        self._find_edge_pairs()
+        self._find_child_idcs()
+
+        self.grid.cells[self.ndim].append(self)
+
+    def _find_edge_pairs(self):
+        """
+        For a generic n-dim cell find all index pairs which together define an edge of this cell (no diagonals).
+        We use hamming distance here (see docs of scipy.spatial.distance.hamming): An endge is a pair of nodes which
+        differ in exactly one component
+
+        :return:
+        """
+
+        if self.ndim in edge_pair_local_idcs:
+            return
+
+        all_pairs = list(itertools.combinations(vertex_local_idcs[self.ndim], 2))
+
+        def is_edge(pair):
+            return hamming(pair[0], pair[1])*self.ndim == 1
+
+        edge_pairs = list(filter(is_edge, all_pairs))
+
+        edge_pair_local_idcs[self.ndim] = edge_pairs
+
+    def _find_child_idcs(self):
+        """
+        For a generic n-dim cell find all 2**ndim subcells. A subcell here is a tuples of fractional indices,
+        which describe the vertex nodes of the new smaller cell.
+
+        Example in 2d case: Original nodes:  [(0, 0), (0, 1), (1, 0), (1, 1)]
+        First subcell: [(0.0, 0.0), (0.0, 0.5), (0.5, 0.0), (0.5, 0.5)] (remaining/reference vertex: (0, 0))
+
+        :return:
+        """
+
+        if self.ndim in new_cell_idcs:
+            return
+
+        new_cell_idcs[self.ndim] = []
+
+        step_array = np.array(vertex_local_idcs[self.ndim]) *.5
+
+        for local_node_idx in vertex_local_idcs[self.ndim]:
+            local_node_idx = np.array(local_node_idx)
+
+            # produce an array which has a -1 where local_node_idx == 1 and 1 elswhere
+            signs = (local_node_idx*0 - 1)**local_node_idx
+
+            # make use of broadcasting here
+            tmp = local_node_idx + signs*step_array
+            new_cell_idcs[self.ndim].append(tmp)
+
+    def check_homogenity(self):
+
+        cell_res = np.array([node.func_val for node in self.vertex_nodes])
+
+        self.is_homogeneous = np.alltrue(cell_res) or np.alltrue(np.logical_not(cell_res))
+
+        return self.is_homogeneous
+
+    def make_childs(self):
+
+        new_level = self.level + 1
+        new_cells = []
+        for nci in new_cell_idcs[self.self.ndim]:
+
+            index_diffs = nci*0.5**self.level
+            nodes = []
+            for index_diff in index_diffs:
+
+                new_idcs = tuple(np.array(self.idcs) + index_diff)
+                node = get_or_create_node(coords=None, idcs=new_idcs, grid=self.grid)
+                nodes.append(node)
+
+            new_cell = GridCell(nodes, self.grid, level=new_level)
+            new_cells.append(new_cell)
+
+        return new_cells
+
+
+###
+
+
+###
 
 
 def absmax(*args):
@@ -394,10 +531,12 @@ def get_all_othogonal_semi_neighbours(r0, r1, ref_dim):
 def get_coords_from_meshgrid(mg, idcs):
     """
 
-    :param mg:      list (len N) of equal shaped arrays (like returned by np.meshgrid)
+    :param mg:      sequence (len N) of equal shaped arrays (like returned by np.meshgrid)
     :param idcs:    N-tuple of ints (indices)
     :return:
     """
+
+    idcs = tuple(int(idx) for idx in idcs)
 
     coords = [arr[idcs] for arr in mg]
     return coords
@@ -414,6 +553,7 @@ def get_node_for_idcs(mg, idcs, coords=None):
     :return:
     """
 
+    idcs = tuple(idcs)
     if idcs in ndb.node_dict:
         the_node = ndb.node_dict[idcs]
     else:
@@ -441,12 +581,63 @@ def get_or_create_node(coords, idcs, **kwargs):
         the_node = ndb.node_dict[idcs]
     else:
         # node for the provided indices does not yet exist -> create new node
+
+        grid = kwargs.get("grid")
+
+        if coords is None:
+            coords = grid.indices_to_coords(idcs)
+
         the_node = Node(coords, idcs, **kwargs)
 
         # add new node to node_dict
         ndb.node_dict[idcs] = the_node
 
     return the_node
+
+
+def create_basic_cell_from_mg_node(grid, node_idcs):
+
+    idcs_arr = np.array(node_idcs)
+
+    ndim = len(idcs_arr)
+
+    all_idcs = idcs_arr + np.array(vertex_local_idcs[ndim])
+
+    nodes = []
+    for idcs in all_idcs:
+        node = get_node_for_idcs(grid.mg, idcs)
+        nodes.append(node)
+
+    cell = GridCell(nodes, grid, level=0)
+
+    return cell
+
+
+def create_grid_from_mg(grid):
+    """
+
+    :param grid:
+    :return:
+    """
+    ndim = len(grid.mg)
+    lengths = grid.mg[0].shape
+
+    assert ndim == len(lengths)
+    index_sequences = []
+    for L in lengths:
+        assert L > 2
+        index_sequences.append(range(0, L - 1))
+
+    inner_index_tuples = itertools.product(*index_sequences)
+
+    cells = []
+    for idcs in inner_index_tuples:
+
+        cell = create_basic_cell_from_mg_node(grid, idcs)
+
+        cells.append(cell)
+
+    return cells
 
 
 def create_nodes_from_mg(mg):
@@ -467,6 +658,8 @@ def create_nodes_from_mg(mg):
     inner_index_tuples = itertools.product(*index_sequences)
 
     for idcs in inner_index_tuples:
+
+        print(idcs)
 
         the_node = get_node_for_idcs(mg, idcs)
 
