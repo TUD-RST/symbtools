@@ -225,6 +225,7 @@ class Grid(object):
 
         # original meshgrid as returned by numpy.meshgrid
         self.mg = mg
+        self.all_mg_points = np.array([arr.flat[:] for arr in self.mg])
         self.ndim = len(mg)
         self.cells = []
         self.ndb = NodeDataBase()
@@ -345,7 +346,9 @@ class Grid(object):
             the_node = self.ndb.node_dict[idcs]
         else:
             if coords is None:
-                coords = get_coords_from_meshgrid(self.mg, idcs)
+                # !!! wont work with fractional indices
+                # coords = get_coords_from_meshgrid(self.mg, idcs)
+                coords = self.indices_to_coords(idcs)
 
             assert len(coords) == len(idcs)
 
@@ -425,12 +428,17 @@ class GridCell(object):
             nodes = []
             for index_diff in index_diffs:
 
-                new_idcs = tuple(np.array(self.idcs) + index_diff)
-                node = get_or_create_node(coords=None, idcs=new_idcs, grid=self.grid)
+                new_idcs = tuple(np.array(self.vertex_nodes[0].idcs) + index_diff)
+
+                node = self.grid.get_node_for_idcs(idcs=new_idcs)
+                # node = get_or_create_node(coords=None, idcs=new_idcs, grid=self.grid)
                 nodes.append(node)
 
             new_cell = GridCell(nodes, self.grid, level=new_level)
+            new_cell.parent_cell = self
+
             new_cells.append(new_cell)
+        self.child_cells = new_cells
 
         return new_cells
 
@@ -441,6 +449,14 @@ class GridCell(object):
             edges.append((self.vertex_nodes[n1].coords, self.vertex_nodes[n2].coords))
 
         return edges
+
+    def get_vertex_coords(self):
+
+        vertices = []
+        for v in self.vertex_nodes:
+            vertices.append(v.coords)
+
+        return np.array(vertices)
 
 
 ###
@@ -504,120 +520,6 @@ def get_index_difference(idcs1, idcs2):
     return dim, dir, diff
 
 
-def halfway_node(n0, n1, level, node_class="main"):
-    """
-    Takes two nodes which are "level-neighbours" and find/create a new node in between
-
-    :param n0:
-    :param n1:
-    :param level:
-    :return:
-    """
-
-    dim, dir, diff = get_index_difference(n0.idcs, n1.idcs)
-
-    if diff < 0:
-        dir = 1 - dir
-        diff*=-1
-        n0, n1 = n1, n0
-
-    new_idcs = modify_tuple(n0.idcs, dim, diff/2)
-
-    # TODO: why are coords not arrays?
-    new_coords = tuple((np.array(n0.coords) + np.array(n1.coords)) / 2)
-
-    new_node = get_or_create_node(new_coords, new_idcs, level=level, node_class=node_class)
-    new_node.set_neighbours(dim, n0, n1)
-
-    # this is used currently only for debugging
-    new_node.parents.append((n0, n1))
-
-    if node_class == "main" and new_node.osn_list is None:
-        new_node.osn_list = get_all_othogonal_semi_neighbours(n0, n1, dim)
-
-    return new_node
-
-
-def get_orthognal_semi_neighbours(r0, r1, dim, dir):
-
-    """
-    Consider the following situation:
-
-    (b0)                   (b1)
-
-    (x?)
-
-    (r0)        (bn)       (r1)        dim ↑  ref_dim →
-
-    The base-node bn was created between r0 and r1 and has these two as reference neighbours.
-    We are interested in b0 and b1 (to find/create an aux-node in between). Maybe on one side there is
-    an additional node x in between r0 an b0. We omit that asymmetry.
-
-    :param base_node:
-    :param r0:
-    :param r1:
-    :param dim:
-    :return:
-    """
-
-    # candidates:
-
-    b0c = r0.neighbours[dim][dir]
-    b1c = r1.neighbours[dim][dir]
-
-    diff0 = get_index_difference(r0.idcs, b0c.idcs)[2]
-    diff1 = get_index_difference(r1.idcs, b1c.idcs)[2]
-
-    # this ensures to omit x (asymmetric resolution)
-    diff = absmax(diff0, diff1)
-
-    b0_idcs = modify_tuple(r0.idcs, dim, diff)
-    b1_idcs = modify_tuple(r1.idcs, dim, diff)
-
-    b0 = ndb.node_dict[b0_idcs]
-    b1 = ndb.node_dict[b1_idcs]
-
-    return b0, b1
-
-
-def get_all_othogonal_semi_neighbours(r0, r1, ref_dim):
-    """
-
-    Consider the following situation:
-
-    (b0)                   (b1)
-
-    (x?)
-
-    (r0)        (bn)       (r1)        dim ↑  ref_dim →
-
-
-    (a0)                   (a1)
-
-    Apply get_get_orthognal_semi_neighbours in all dimensions (but ref_dim) and all directions
-
-
-    :param r0:
-    :param r1:
-    :param ref_dim:
-    :return:
-    """
-
-    osn = []
-
-    for dim in r0.axes:
-        if dim == ref_dim:
-            osn.append(None)
-            continue
-
-        a0, a1 = get_orthognal_semi_neighbours(r0, r1, dim, dir=0)
-        b0, b1 = get_orthognal_semi_neighbours(r0, r1, dim, dir=1)
-
-        osn.append(((a0, a1), (b0, b1)))
-
-    return osn
-
-
 def get_coords_from_meshgrid(mg, idcs):
     """
 
@@ -631,33 +533,6 @@ def get_coords_from_meshgrid(mg, idcs):
     coords = [arr[idcs] for arr in mg]
     return coords
 
-
-def get_node_for_idcs(mg, idcs, coords=None):
-    """
-    If `idcs` is a valid key of node_dict return the corresponding node, else create a new one.
-    Only integer indices are possible here. coords are taken from the meshgrid.
-
-    :param mg:
-    :param idcs:
-    :param coords:
-    :return:
-    """
-
-    assert False, "Use grid.get_node_for_idcs instead"
-
-    idcs = tuple(idcs)
-    if idcs in ndb.node_dict:
-        the_node = ndb.node_dict[idcs]
-    else:
-        if coords is None:
-            coords = get_coords_from_meshgrid(mg, idcs)
-
-        assert len(coords) == len(idcs)
-
-        the_node = Node(coords, idcs)
-        ndb.node_dict[idcs] = the_node
-
-    return the_node
 
 
 def get_or_create_node(coords, idcs, **kwargs):

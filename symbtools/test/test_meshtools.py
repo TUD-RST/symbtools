@@ -6,10 +6,11 @@ Created on 2019-12-12 00:14:14
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+import mpl_toolkits.mplot3d as a3
 
 import symbtools.meshtools as met
 import ipydex as ipd
-
 
 import unittest
 
@@ -57,15 +58,6 @@ class TestGrid2d(unittest.TestCase):
 
         self.mg = mg
 
-    def test1(self):
-
-        met.create_nodes_from_mg(self.mg)
-        grid = met.Grid(self.mg)
-
-        self.assertEqual(len(grid.new_cell_idcs[2]), 4)
-
-        met.create_grid_from_mg(grid)
-
     def test_create_cell(self):
         # met.create_nodes_from_mg(self.mg)
         grid = met.Grid(self.mg)
@@ -74,15 +66,26 @@ class TestGrid2d(unittest.TestCase):
 
         gc = met.GridCell(grid.ndb.all_nodes[:4], grid)
 
+        childs1 = gc.make_childs()
+
+        self.assertEqual(len(childs1), 4)
+        expected_vertices = np.array([[-4., -4.], [-4., -3.5], [-3.5, -4.],  [-3.5, -3.5]])
+        self.assertTrue(np.all(childs1[0].get_vertex_coords() == expected_vertices))
+
+        childs2 = childs1[0].make_childs()
+
+        self.assertEqual(childs1[0].child_cells, childs2)
+        self.assertEqual(childs2[0].parent_cell, childs1[0])
+
+        if 0:
+            plt.plot(*grid.all_mg_points, '.')
+            plot_cells2d([gc]+childs1+childs2, show=True)
+
     def _test_plot(self):
         # create images where each new cell is shown
         grid = met.Grid(self.mg)
 
-        import matplotlib.pyplot as plt
-
-        all_points = np.array([arr.flat[:] for arr in grid.mg])
-
-        plt.plot(*all_points, '.')
+        plt.plot(*grid.all_mg_points, '.')
         plt.savefig("tmp_0.png")
         for i, cell in enumerate(grid.cells):
             edges = np.array(cell.get_edge_coords())
@@ -113,8 +116,6 @@ class TestGrid3d(unittest.TestCase):
         # create images where each new cell is shown
         grid = met.Grid(self.mg)
 
-        import matplotlib.pyplot as plt
-        import mpl_toolkits.mplot3d as a3
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1, projection='3d')
 
@@ -139,7 +140,16 @@ class TestGrid3d(unittest.TestCase):
         plt.show()
 
 
+def plot_cells2d(cells, fname=None, show=False):
+    for i, cell in enumerate(cells):
+        edges = np.array(cell.get_edge_coords())
+        plt.plot(*edges.T)
+        if fname is not None:
+            # expect something like "tmp_{:03d}.png"
+            plt.savefig(fname.format(i))
 
+    if show:
+        plt.show()
 
 
 
