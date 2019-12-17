@@ -109,35 +109,40 @@ class TestGrid3d(unittest.TestCase):
     def test_create_cells(self):
         grid = met.Grid(self.mg)
 
-        self.assertEqual(grid.cells[0].vertex_nodes[0].coords, [-4.0, -4.0, -4.0])
-        self.assertEqual(grid.cells[0].vertex_nodes[3].coords, [-4.0, -3.0, -3.0])
+        self.assertEqual(list(grid.cells[0].vertex_nodes[0].coords), [-4.0, -4.0, -4.0])
+        self.assertEqual(list(grid.cells[0].vertex_nodes[3].coords), [-4.0, -3.0, -3.0])
 
     def test_plot(self):
         # create images where each new cell is shown
         grid = met.Grid(self.mg)
+        l1 = len(grid.cells)
 
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1, projection='3d')
+        childs1 = grid.cells[0].make_childs()
 
-        all_points = np.array([arr.flat[:] for arr in grid.mg])
-        ax.plot(*all_points, '.', ms=1, color="k")
+        l2 = len(grid.cells)
+        self.assertEqual(len(childs1), 8)
+        self.assertEqual(l2, l1 + len(childs1))
 
-        for i, cell in enumerate(grid.cells):
-            edges = np.array(cell.get_edge_coords())
+        expected_vertices = np.array([[-4.0, -4.0, -4.0],
+                                      [-4.0, -4.0, -3.5],
+                                      [-4.0, -3.5, -4.0],
+                                      [-4.0, -3.5, -3.5],
+                                      [-3.5, -4.0, -4. ],
+                                      [-3.5, -4.0, -3.5],
+                                      [-3.5, -3.5, -4.0],
+                                      [-3.5, -3.5, -3.5]])
+        self.assertTrue(np.all(childs1[0].get_vertex_coords() == expected_vertices))
 
-            vn = np.array([n.coords for n in cell.vertex_nodes])
-            ax.scatter(*vn.T, "rs")
+        childs2 = childs1[0].make_childs()
 
-            for j, e in enumerate(edges):
-                ax.plot(*e.T)
-                # plt.savefig("tmp_{:03d}_{:02d}.png".format(i, j))
-            plt.savefig("tmp_{:03d}.png".format(i))
+        self.assertEqual(childs1[0].child_cells, childs2)
+        self.assertEqual(childs2[0].parent_cell, childs1[0])
 
-            if i >= 10:
-                break
+        self.assertEqual(len(grid.cells), l1 + len(childs1) + len(childs2))
 
-        ipd.IPS()
-        plt.show()
+        plot_cells = grid.cells[:1] + [grid.cells[-16]] + grid.cells[-8:]
+
+        plot_cells3d(plot_cells, imax=None, show=True, all_points=grid.all_mg_points)
 
 
 def plot_cells2d(cells, fname=None, show=False):
@@ -147,6 +152,31 @@ def plot_cells2d(cells, fname=None, show=False):
         if fname is not None:
             # expect something like "tmp_{:03d}.png"
             plt.savefig(fname.format(i))
+
+    if show:
+        plt.show()
+
+
+def plot_cells3d(cells, ax=None, fname=None, show=False, imax=None, all_points=None):
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+
+    if all_points is not None:
+        ax.plot(*all_points, '.', ms=1, color="k")
+
+    for i, cell in enumerate(cells):
+        edges = np.array(cell.get_edge_coords())
+
+        for j, e in enumerate(edges):
+            ax.plot(*e.T)
+
+        if fname is not None:
+            # expect something like "tmp_{:03d}.png"
+            plt.savefig(fname.format(i))
+
+        if imax is not None and i >= imax:
+            break
 
     if show:
         plt.show()
