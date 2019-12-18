@@ -151,10 +151,10 @@ class MeshRefinement2d(unittest.TestCase):
         a_in0 = ndb.get_inner()
         a_out0 = ndb.get_outer()
 
-        b_in0 = ndb.get_inner_boundary()
+        b_in0 = ndb.get_inner_boundary_nodes(level=0)
         self.assertEqual(b_in0.shape, (2, 5))
 
-        b_out0 = ndb.get_outer_boundary()
+        b_out0 = ndb.get_outer_boundary_nodes(level=0)
         self.assertEqual(b_out0.shape, (2, 16))
 
         # plot inner and outer points (level 0)
@@ -177,11 +177,10 @@ class MeshRefinement2d(unittest.TestCase):
         a_in1 = ndb.get_inner()
         a_out1 = ndb.get_outer()
 
-        b_in1 = ndb.get_inner_boundary()
-        self.assertEqual(b_in1.shape, (2, 12))
-
-        b_out1 = ndb.get_outer_boundary()
-        self.assertEqual(b_out1.shape, (2, 20))
+        b_in1 = ndb.get_inner_boundary_nodes(level=1)
+        b_out1 = ndb.get_outer_boundary_nodes(level=1)
+        self.assertEqual(b_in1.shape, (2, 16))
+        self.assertEqual(b_out1.shape, (2, 24))
 
         # plot inner and outer points (level 1)
         plt.cla()

@@ -19,11 +19,17 @@ class NodeDataBase(object):
         self.all_nodes = []
         self.node_dict = {}
 
+        # these dicts will hold a set (not a list to prevent duplicates) for each level with all nodes which are part
+        # of the boundaray when this level was reached.
+        # Thus a level-0 node can still be part of the level 1 (or level 2) boundary if it is part
+        # of an inhomogeneous level 1 (or level 2)  cell.
+        self.inner_boundary_nodes = collections.defaultdict(set)
+        self.outer_boundary_nodes = collections.defaultdict(set)
+
         # which are new since the last func-application
         self.new_nodes = []
 
         self.recently_evaluated_nodes = []
-        self.inner_boundary_nodes = []
 
     def add(self, node):
         """
@@ -68,16 +74,15 @@ class NodeDataBase(object):
         target_nodes = self.get_all_or_max_level_nodes(only_max_level)
         return node_list_to_array(target_nodes, idcs, cond_func=self.is_outer)
 
-    def get_outer_boundary(self, idcs=None, only_max_level=True):
-        target_nodes = self.get_all_or_max_level_nodes(only_max_level)
-        return node_list_to_array(target_nodes, idcs, cond_func=lambda node: node.boundary_flag==-1)
+    def get_inner_boundary_nodes(self, level):
 
-    def get_inner_boundary(self, idcs=None, only_max_level=True):
-        if only_max_level:
-            target_nodes = self.levels[self.grid.max_level]
-        else:
-            target_nodes = self.all_nodes
-        return node_list_to_array(target_nodes, idcs, cond_func=lambda node: node.boundary_flag==1)
+        target_nodes = self.inner_boundary_nodes[level]
+        return node_list_to_array(target_nodes)
+
+    def get_outer_boundary_nodes(self, level):
+
+        target_nodes = self.outer_boundary_nodes[level]
+        return node_list_to_array(target_nodes)
 
 
 class Node(object):
@@ -459,11 +464,22 @@ class GridCell(object):
         return np.array(vertices)
 
     def set_boundary_status(self, flag):
+        """
+        Notify each node about its boundary status.
+
+        :param flag:
+        :return:
+        """
         for node in self.vertex_nodes:
             if flag:
-                func_val_idx = int(node.func_val)
-                assert func_val_idx in (0, 1)
-                node.boundary_flag = (-1, 1)[func_val_idx]
+                func_val_int = int(node.func_val)
+                assert func_val_int in (0, 1)
+                if func_val_int == 0:
+                    self.grid.ndb.outer_boundary_nodes[self.grid.max_level].add(node)
+                    node.boundary_flag = -1
+                else:
+                    self.grid.ndb.inner_boundary_nodes[self.grid.max_level].add(node)
+                    node.boundary_flag = 1
 
             elif node.boundary_flag is None:
                 # only set to 0 if the node was not already flagged as boundary
