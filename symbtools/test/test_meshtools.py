@@ -223,20 +223,25 @@ class MeshRefinement3d(unittest.TestCase):
         a_in0 = ndb.get_inner_nodes()
         a_out0 = ndb.get_outer_nodes()
 
+        self.assertEqual(a_in0.shape, (3, 7))
+        self.assertEqual(a_out0.shape, (3, 722))
+
         b_in0 = ndb.get_inner_boundary_nodes(level=0)
         b_out0 = ndb.get_outer_boundary_nodes(level=0)
 
-        if 0:
-            self.assertEqual(b_in0.shape, (2, 5))
-            self.assertEqual(b_out0.shape, (2, 16))
+        self.assertEqual(b_in0.shape, (3, 7))
+        self.assertEqual(b_out0.shape, (2, 74))
 
         # plot inner and outer points (level 0)
         ax = plt.figure().add_subplot(1, 1, 1, projection='3d')
 
         ax.plot(*grid.all_mg_points, '.', ms=1, color="k", alpha=0.5)
 
-        ax.plot(*a_in0, 'o', ms=3, color="r", alpha=0.5)
-        ax.plot(*a_out0, 'o', ms=3, color="b", alpha=0.5)
+        ax.plot(*a_in0, 'o', ms=3, color="r", alpha=0.3)
+        ax.plot(*a_out0, 'o', ms=3, color="b", alpha=0.01)
+
+        ax.plot(*b_in0, 'o', ms=3, color="r", alpha=1)
+        ax.plot(*b_out0, 'o', ms=3, color="b", alpha=1)
 
         ipd.IPS()
 
