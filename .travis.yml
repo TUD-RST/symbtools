@@ -11,6 +11,8 @@ install:
 
 # command to run tests
 script:
+# matplotlib is only needed in some testing scripts (no real requirement)
+ - pip install matplotlib
  - python symbtools/test/test_all.py all
 #  install optional dependency
  - pip install control casadi

@@ -127,7 +127,6 @@ class InteractiveConvenienceTest(unittest.TestCase):
         st.random.seed(3319)
         tmp = x.srnr
         # debug travis specific fail
-        print("x.srnr:", tmp, "   diff:", tmp-8.59)
         self.assertAlmostEqual(tmp, 8.59)
 
         # test compatibility with sp.Matrix
