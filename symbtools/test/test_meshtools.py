@@ -138,63 +138,82 @@ class MeshRefinement2d(unittest.TestCase):
 
         grid = met.Grid(self.mg)
 
-        ndb = grid.ndb
+        pc0 = pc = grid.refinement_step(met.func_sphere_nd)
 
-        ndb.apply_func(met.func_circle)
-        grid.classify_cells_by_homogenity()
-
-        ic = grid.inhomogeneous_cells[0]
+        ic0 = grid.inhomogeneous_cells[0]
 
         # there are 12 inhomogeneous cells (manually verified)
-        self.assertEqual(len(ic), 12)
+        self.assertEqual(len(ic0), 12)
 
-        a_in0 = ndb.get_inner_nodes()
-        a_out0 = ndb.get_outer_nodes()
-
-        b_in0 = ndb.get_inner_boundary_nodes(level=0)
-        self.assertEqual(b_in0.shape, (2, 5))
-
-        b_out0 = ndb.get_outer_boundary_nodes(level=0)
-        self.assertEqual(b_out0.shape, (2, 16))
+        self.assertEqual(pc.ibp.shape, (2, 5))
+        self.assertEqual(pc.obp.shape, (2, 16))
 
         # plot inner and outer points (level 0)
-        plt.plot(*a_out0, "bo", alpha=0.2, ms=5)
-        plt.plot(*a_in0, "ro", alpha=0.2, ms=5)
+        plt.plot(*pc.op, "bo", alpha=0.2, ms=5)
+        plt.plot(*pc.ip, "ro", alpha=0.2, ms=5)
 
-        plt.plot(*b_out0, "bo", ms=3)
-        plt.plot(*b_in0, "ro", ms=3)
+        plt.plot(*pc.obp, "bo", ms=3)
+        plt.plot(*pc.ibp, "ro", ms=3)
 
         plt.title("levels 0")
         plt.savefig("level0.png")
 
         # -----
+
         self.assertEqual(grid.max_level, 0)
-        grid.divide_boundary_cells()
+        pc1 = pc = grid.refinement_step(met.func_sphere_nd)
         self.assertEqual(grid.max_level, 1)
-        ndb.apply_func(met.func_circle)
-        grid.classify_cells_by_homogenity()
 
-        a_in1 = ndb.get_inner_nodes()
-        a_out1 = ndb.get_outer_nodes()
-
-        b_in1 = ndb.get_inner_boundary_nodes(level=1)
-        b_out1 = ndb.get_outer_boundary_nodes(level=1)
-        self.assertEqual(b_in1.shape, (2, 16))
-        self.assertEqual(b_out1.shape, (2, 24))
+        self.assertEqual(pc.ibp.shape, (2, 16))
+        self.assertEqual(pc.obp.shape, (2, 24))
 
         # plot inner and outer points (level 1)
         plt.cla()
 
-        plt.plot(*a_out1, "go", alpha=0.2, ms=5)
-        plt.plot(*a_in1, "mo", alpha=0.2, ms=5)
+        plt.plot(*pc.op, "go", alpha=0.2, ms=5)
+        plt.plot(*pc.ip, "mo", alpha=0.2, ms=5)
 
-        plt.plot(*b_out1, "go", ms=3)
-        plt.plot(*b_in1, "mo", ms=3)
+        plt.plot(*pc.obp, "go", ms=3)
+        plt.plot(*pc.ibp, "mo", ms=3)
+
+        pc2 = pc = grid.refinement_step(met.func_sphere_nd)
+
+        ac = grid.levels[0]
+        ic0 = grid.inhomogeneous_cells[0]
+        ic1 = grid.inhomogeneous_cells[1]
+        ac2 = grid.levels[2]
+        ic2 = grid.inhomogeneous_cells[2]
+
+        plot_cells2d(ac, color="0.7", alpha=0.3)
+        plot_cells2d(ic0, color="red", alpha=0.5)
+        plot_cells2d(ic1, color="red", alpha=0.8)
+        plot_cells2d(ac2, color="green", alpha=0.8)
+        plot_cells2d(ic2, color="orange", alpha=0.8)
+
+        plt.gca().add_patch(plt.Circle([0, 0], 1.3))
 
         plt.title("levels 0, 1")
         plt.savefig("level1.png")
         plt.show()
         ipd.IPS()
+        return
+
+        # -----
+
+        pc2 = pc = grid.refinement_step(met.func_sphere_nd)
+        # plot inner and outer points (level 2)
+        plt.cla()
+
+        plt.plot(*pc.op, "go", alpha=0.2, ms=5)
+        plt.plot(*pc.ip, "mo", alpha=0.2, ms=5)
+
+        plt.plot(*pc.obp, "go", ms=3)
+        plt.plot(*pc.ibp, "mo", ms=3)
+
+        plt.title("levels 0, 1, 2")
+        plt.savefig("level2.png")
+        plt.show()
+        # ipd.IPS()
 
 
 class MeshRefinement3d(unittest.TestCase):
@@ -263,10 +282,10 @@ class MeshRefinement3d(unittest.TestCase):
         plt.show()
 
 
-def plot_cells2d(cells, fname=None, show=False):
+def plot_cells2d(cells, fname=None, show=False, **kwargs):
     for i, cell in enumerate(cells):
         edges = np.array(cell.get_edge_coords())
-        plt.plot(*edges.T)
+        plt.plot(*edges.T, **kwargs)
         if fname is not None:
             # expect something like "tmp_{:03d}.png"
             plt.savefig(fname.format(i))

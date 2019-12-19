@@ -391,6 +391,8 @@ class Grid(object):
     def divide_boundary_cells(self):
         max_level = self.max_level
 
+        assert self.boundary_cells == self.inhomogeneous_cells
+
         for cell in self.boundary_cells[max_level]:
             cell.make_childs()
 
@@ -405,8 +407,6 @@ class Grid(object):
         return PointCollection( self.ndb.get_inner_nodes(), self.ndb.get_outer_nodes(),
                                 self.ndb.get_inner_boundary_nodes(self.max_level),
                                 self.ndb.get_outer_boundary_nodes(self.max_level) )
-
-
 
 
 class GridCell(object):
@@ -497,6 +497,10 @@ class GridCell(object):
             elif node.boundary_flag is None:
                 # only set to 0 if the node was not already flagged as boundary
                 node.boundary_flag = 0
+
+    def __repr__(self):
+        return "<Cell: level:{}, rn:{}, rnc:{}>".format(self.level, self.vertex_nodes[0].idcs,
+                                                        self.vertex_nodes[0].coords)
 
 
 ###
