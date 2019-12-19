@@ -26,6 +26,10 @@ class NodeDataBase(object):
         self.inner_boundary_nodes = collections.defaultdict(set)
         self.outer_boundary_nodes = collections.defaultdict(set)
 
+        # same principle for all inner and outer nodes
+        self.inner_nodes = collections.defaultdict(set)
+        self.outer_nodes = collections.defaultdict(set)
+
         # which are new since the last func-application
         self.new_nodes = []
 
@@ -66,23 +70,65 @@ class NodeDataBase(object):
 
         return target_nodes
 
-    def get_inner(self, idcs=None, only_max_level=True):
+    def get_inner_nodes(self, idcs=None, only_max_level=True):
         target_nodes = self.get_all_or_max_level_nodes(only_max_level)
-        return node_list_to_array(target_nodes, idcs, cond_func=self.is_inner)
+        return self.node_list_to_array(target_nodes, idcs, cond_func=self.is_inner)
 
-    def get_outer(self, idcs=None, only_max_level=True):
+    def get_outer_nodes(self, idcs=None, only_max_level=True):
         target_nodes = self.get_all_or_max_level_nodes(only_max_level)
-        return node_list_to_array(target_nodes, idcs, cond_func=self.is_outer)
+        return self.node_list_to_array(target_nodes, idcs, cond_func=self.is_outer)
 
     def get_inner_boundary_nodes(self, level):
 
         target_nodes = self.inner_boundary_nodes[level]
-        return node_list_to_array(target_nodes)
+        return self.node_list_to_array(target_nodes)
 
     def get_outer_boundary_nodes(self, level):
 
         target_nodes = self.outer_boundary_nodes[level]
-        return node_list_to_array(target_nodes)
+        return self.node_list_to_array(target_nodes)
+
+    def node_list_to_array(self, nl, selected_idcs=None, cond_func=None):
+        """
+        Convert a list (length n) of m-dimensional nodes to an r x p array, where r <= n is the number of nodes
+        for which all condition functions return True and p <= m is the number of indices (axes) which are selected by
+        `selected_indices`.
+
+        :param nl:              node list
+        :param selected_idcs:   coord-axes which should be part of the result (for plotting two or or three make sense)
+
+        :param cond_func:       function or sequence of functions mapping a Node-object to either True or False
+        :return:
+
+        """
+        if isinstance(nl, Node):
+            nl = [nl]
+
+        if selected_idcs is None:
+            selected_idcs = list(range(self.grid.ndim))
+
+        if cond_func is None:
+            # noinspection PyShadowingNames
+            def cond_func(node):
+                return True
+
+        if isinstance(cond_func, (tuple, list)):
+            cond_func_sequence = cond_func
+
+            # noinspection PyShadowingNames
+            def cond_func(node):
+                r = [f(node) for f in cond_func_sequence]
+                return all(r)
+
+        res = [list() for i in range(len(selected_idcs))]
+        # plot the first two dimensions
+        for node in nl:
+            if not cond_func(node):
+                continue
+            for idx in selected_idcs:
+                res[idx].append(node.coords[idx])
+
+        return np.array(res)
 
 
 class Node(object):
@@ -96,6 +142,7 @@ class Node(object):
         self.idcs = tuple(idcs)
         self.axes = tuple(range(len(coords)))
         self.parents = list()
+        self.grid = grid
         self.level = level
         self.func_val = None  # will be in {0, 1}
         self.boundary_flag = None  # will be in {-1, 0, 1}  i.e. outer_bound, no bound or inner bound
@@ -112,7 +159,7 @@ class Node(object):
         self.distances = [list([None, None]) for i in range(len(coords))]
         self.idx_distances = [list([None, None]) for i in range(len(coords))]
 
-        grid.ndb.add(self)
+        self.grid.ndb.add(self)
 
     def apply(self, func):
         """
@@ -121,64 +168,14 @@ class Node(object):
 
         self.func_val = func(self.coords)
 
-    def set_neighbours(self, dim, n0, n1, reciprocity=True):
-        """
-
-        :param dim:     axis (dimension)
-        :param n0:      neighbour in negative direction
-        :param n1:      neighbour in positive direction
-
-        :return:        None
-        """
-
-        assert dim in self.axes
-
-        if n0 is not None:
-            assert isinstance(n0, Node)
-            self.neighbours[dim][0] = n0
-
-            dist = self.coords[dim] - n0.coords[dim]
-            assert dist > 0
-            self.distances[dim][0] = dist
-
-            idx_dist = self.idcs[dim] - n0.idcs[dim]
-            assert idx_dist > 0
-            self.idx_distances[dim][0] = idx_dist
-
-            if reciprocity:
-                n0.set_neighbours(dim, None, self, reciprocity=False)
-
-        if n1 is not None:
-            assert isinstance(n1, Node)
-            self.neighbours[dim][1] = n1
-
-            dist = self.coords[dim] - n1.coords[dim]
-            assert dist < 0
-            self.distances[dim][1] = -dist
-
-            idx_dist = self.idcs[dim] - n1.idcs[dim]
-            assert idx_dist < 0
-            self.idx_distances[dim][1] = -idx_dist
-
-            if reciprocity:
-                n1.set_neighbours(dim, self, None, reciprocity=False)
-
-    def all_neighbours(self, omit_none=False):
-        res = []
-        for a, b in self.neighbours:
-            if omit_none:
-                if a is not None:
-                    res.append(a)
-
-                if b is not None:
-                    res.append(b)
-            else:
-                res.extend((a, b))
-        return res
+        if self.func_val:
+            self.grid.ndb.inner_nodes[self.grid.max_level].add(self)
+        else:
+            self.grid.ndb.outer_nodes[self.grid.max_level].add(self)
 
     def __repr__(self):
 
-        return "<N {} {}|{}>".format(self.node_class, self.idcs, self.coords)
+        return "<N f:{} {}|{}>".format(self.func_val, self.idcs, self.coords)
 
 
 class Grid(object):
@@ -520,49 +517,6 @@ def get_index_difference(idcs1, idcs2):
     return dim, dir, diff
 
 
-def node_list_to_array(nl, selected_idcs=None, cond_func=None):
-    """
-    Convert a list (length n) of m-dimensional nodes to an r x p array, where r <= n is the number of nodes
-    for which all condition functions return True and p <= m is the number of indices (axes) which are selected by
-    `selected_indices`.
-
-    :param nl:              node list
-    :param selected_idcs:   coord-axes which should be part of the result (for plotting two or or three make sense)
-
-    :param cond_func:       function or sequence of functions mapping a Node-object to either True or False
-    :return:
-
-    """
-    if isinstance(nl, Node):
-        nl = [nl]
-
-    if selected_idcs is None:
-        selected_idcs = (0, 1)
-
-    if cond_func is None:
-        # noinspection PyShadowingNames
-        def cond_func(node):
-            return True
-
-    if isinstance(cond_func, (tuple, list)):
-        cond_func_sequence = cond_func
-
-        # noinspection PyShadowingNames
-        def cond_func(node):
-            r = [f(node) for f in cond_func_sequence]
-            return all(r)
-
-    res = [list() for i in range(len(selected_idcs))]
-    # plot the first two dimensions
-    for node in nl:
-        if not cond_func(node):
-            continue
-        for idx in selected_idcs:
-            res[idx].append(node.coords[idx])
-
-    return np.array(res)
-
-
 def is_main_node(node):
     return node.node_class == "main"
 
@@ -573,6 +527,16 @@ def is_aux_node(node):
 
 def func_circle(xx):
     return xx[0]**2 + xx[1]**2 <= 1.3
+
+
+def func_sphere_nd(xx):
+    """
+    Characteristic function of n-dimensional sphere
+
+    :param xx:
+    :return:
+    """
+    return np.sum(xx**2) <= 1.3
 
 
 if __name__ == "__main__":

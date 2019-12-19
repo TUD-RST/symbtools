@@ -148,8 +148,8 @@ class MeshRefinement2d(unittest.TestCase):
         # there are 12 inhomogeneous cells (manually verified)
         self.assertEqual(len(ic), 12)
 
-        a_in0 = ndb.get_inner()
-        a_out0 = ndb.get_outer()
+        a_in0 = ndb.get_inner_nodes()
+        a_out0 = ndb.get_outer_nodes()
 
         b_in0 = ndb.get_inner_boundary_nodes(level=0)
         self.assertEqual(b_in0.shape, (2, 5))
@@ -174,8 +174,8 @@ class MeshRefinement2d(unittest.TestCase):
         ndb.apply_func(met.func_circle)
         grid.classify_cells_by_homogenity()
 
-        a_in1 = ndb.get_inner()
-        a_out1 = ndb.get_outer()
+        a_in1 = ndb.get_inner_nodes()
+        a_out1 = ndb.get_outer_nodes()
 
         b_in1 = ndb.get_inner_boundary_nodes(level=1)
         b_out1 = ndb.get_outer_boundary_nodes(level=1)
@@ -195,6 +195,52 @@ class MeshRefinement2d(unittest.TestCase):
         plt.savefig("level1.png")
         plt.show()
         ipd.IPS()
+
+
+class MeshRefinement3d(unittest.TestCase):
+
+    def setUp(self):
+        xx = np.linspace(-4, 4, 9)
+        yy = np.linspace(-4, 4, 9)
+        zz = np.linspace(-4, 4, 9)
+
+        self.mg = np.meshgrid(xx, yy, zz, indexing="ij")
+
+    def test_refinement(self):
+
+        grid = met.Grid(self.mg)
+
+        ndb = grid.ndb
+
+        ndb.apply_func(met.func_sphere_nd)
+        grid.classify_cells_by_homogenity()
+
+        ic = grid.inhomogeneous_cells[0]
+
+        # there are 12 inhomogeneous cells (manually verified)
+        # self.assertEqual(len(ic), 12)
+
+        a_in0 = ndb.get_inner_nodes()
+        a_out0 = ndb.get_outer_nodes()
+
+        b_in0 = ndb.get_inner_boundary_nodes(level=0)
+        b_out0 = ndb.get_outer_boundary_nodes(level=0)
+
+        if 0:
+            self.assertEqual(b_in0.shape, (2, 5))
+            self.assertEqual(b_out0.shape, (2, 16))
+
+        # plot inner and outer points (level 0)
+        ax = plt.figure().add_subplot(1, 1, 1, projection='3d')
+
+        ax.plot(*grid.all_mg_points, '.', ms=1, color="k", alpha=0.5)
+
+        ax.plot(*a_in0, 'o', ms=3, color="r", alpha=0.5)
+        ax.plot(*a_out0, 'o', ms=3, color="b", alpha=0.5)
+
+        ipd.IPS()
+
+        plt.show()
 
 
 def plot_cells2d(cells, fname=None, show=False):
