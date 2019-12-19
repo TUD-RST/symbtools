@@ -210,38 +210,53 @@ class MeshRefinement3d(unittest.TestCase):
 
         grid = met.Grid(self.mg)
 
-        ndb = grid.ndb
+        # perform refinement and get a point_collection (pc)
+        pc0 = pc = grid.refinement_step(met.func_sphere_nd)
 
-        ndb.apply_func(met.func_sphere_nd)
-        grid.classify_cells_by_homogenity()
+        # check inner and outer points
+        self.assertEqual(pc.ip.shape, (3, 7))
+        self.assertEqual(pc.op.shape, (3, 722))
 
-        ic = grid.inhomogeneous_cells[0]
-
-        # there are 12 inhomogeneous cells (manually verified)
-        # self.assertEqual(len(ic), 12)
-
-        a_in0 = ndb.get_inner_nodes()
-        a_out0 = ndb.get_outer_nodes()
-
-        self.assertEqual(a_in0.shape, (3, 7))
-        self.assertEqual(a_out0.shape, (3, 722))
-
-        b_in0 = ndb.get_inner_boundary_nodes(level=0)
-        b_out0 = ndb.get_outer_boundary_nodes(level=0)
-
-        self.assertEqual(b_in0.shape, (3, 7))
-        self.assertEqual(b_out0.shape, (2, 74))
+        # check inner and outer boundary points
+        self.assertEqual(pc.ibp.shape, (3, 7))
+        self.assertEqual(pc.obp.shape, (3, 74))
 
         # plot inner and outer points (level 0)
         ax = plt.figure().add_subplot(1, 1, 1, projection='3d')
 
         ax.plot(*grid.all_mg_points, '.', ms=1, color="k", alpha=0.5)
 
-        ax.plot(*a_in0, 'o', ms=3, color="r", alpha=0.3)
-        ax.plot(*a_out0, 'o', ms=3, color="b", alpha=0.01)
+        ax.plot(*pc.ip, 'o', ms=3, color="r", alpha=0.3)
+        ax.plot(*pc.op, 'o', ms=3, color="b", alpha=0.01)
 
-        ax.plot(*b_in0, 'o', ms=3, color="r", alpha=1)
-        ax.plot(*b_out0, 'o', ms=3, color="b", alpha=1)
+        ax.plot(*pc.ibp, 'o', ms=3, color="r", alpha=1)
+        ax.plot(*pc.obp, 'o', ms=3, color="b", alpha=1)
+
+        # plot level 1
+
+        pc1 = pc = grid.refinement_step(met.func_sphere_nd)
+
+        ax.plot(*pc.ibp, 'o', ms=3, color="r", alpha=1)
+        ax.plot(*pc.obp, 'o', ms=3, color="b", alpha=1)
+
+        # advance to level 3
+
+        pc2 = grid.refinement_step(met.func_sphere_nd)
+        pc3 = grid.refinement_step(met.func_sphere_nd)
+
+        # new figure
+        ax = plt.figure().add_subplot(1, 1, 1, projection='3d')
+
+        # ax.plot(*grid.all_mg_points, '.', ms=1, color="k", alpha=0.5)
+
+        ax.plot(*pc0.ibp, 'o', ms=3, color="m", alpha=1)
+        ax.plot(*pc1.ibp, 'o', ms=3, color="r", alpha=1)
+        ax.plot(*pc2.ibp, 'o', ms=3, color="g", alpha=1)
+        # ax.plot(*pc3.ibp, 'o', ms=3, color="b", alpha=1)
+
+        # result still looks somehow strange (asymmetric, some low density areas)
+
+        # -> plot the involved cells for debugging
 
         ipd.IPS()
 

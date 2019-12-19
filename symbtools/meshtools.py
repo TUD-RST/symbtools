@@ -11,6 +11,8 @@ from scipy.spatial.distance import hamming
 from ipydex import IPS, activate_ips_on_exception
 activate_ips_on_exception()
 
+PointCollection = collections.namedtuple("PointCollection", ["ip", "op", "ibp", "obp"])
+
 
 class NodeDataBase(object):
     def __init__(self, grid):
@@ -391,6 +393,20 @@ class Grid(object):
 
         for cell in self.boundary_cells[max_level]:
             cell.make_childs()
+
+    def refinement_step(self, char_func):
+
+        # this will do nothing in the first call (because we have no boundary cells yet)
+        self.divide_boundary_cells()
+
+        self.ndb.apply_func(char_func)
+        self.classify_cells_by_homogenity()
+
+        return PointCollection( self.ndb.get_inner_nodes(), self.ndb.get_outer_nodes(),
+                                self.ndb.get_inner_boundary_nodes(self.max_level),
+                                self.ndb.get_outer_boundary_nodes(self.max_level) )
+
+
 
 
 class GridCell(object):
