@@ -289,14 +289,13 @@ class Grid(object):
 
         step_array = np.array(self.vertex_local_idcs)*.5
 
-        for local_node_idx in self.vertex_local_idcs:
-            local_node_idx = np.array(local_node_idx)
+        # the vertices of the first child cell (lower left child cell in 2d) are the reference nodes
+        # (lower left corner) of all child cells
+        new_reference_nodes = tuple(step_array)
 
-            # produce an array which has a -1 where local_node_idx == 1 and 1 elswhere
-            signs = (local_node_idx*0 - 1) ** local_node_idx
-
+        for new_reference_node in new_reference_nodes:
             # make use of broadcasting here
-            tmp = local_node_idx + signs*step_array
+            tmp = new_reference_node + step_array
             self.new_cell_idcs.append(tmp)
 
     def indices_to_coords(self, idcs):

@@ -56,6 +56,24 @@ class TestGrid2d(unittest.TestCase):
             plt.plot(*grid.all_mg_points, '.')
             plot_cells2d([gc]+childs1+childs2, show=True)
 
+    def test_make_childs_bug(self):
+
+        grid = met.Grid(self.mg)
+
+        childs1 = grid.cells[0].make_childs()
+
+        diff_arr = np.array(grid.vertex_local_idcs)*0.5
+
+        # ensure that the lower left is the first vertex (this is needed as reference for the next child generation)
+        for c in childs1:
+            node_coords = np.array([vn.coords for vn in c.vertex_nodes])
+
+            reference_node = node_coords[0, :]
+
+            # the other nodes must be reachable from the reference node via the vectors in diff_arr
+            node_coords2 = reference_node + diff_arr
+            self.assertTrue(np.allclose(node_coords, node_coords2))
+
     def _test_plot(self):
         # create images where each new cell is shown
         grid = met.Grid(self.mg)
