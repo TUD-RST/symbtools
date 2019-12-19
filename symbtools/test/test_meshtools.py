@@ -208,7 +208,7 @@ class MeshRefinement2d(unittest.TestCase):
         plot_cells2d(ac2, color="green", alpha=0.8)
         plot_cells2d(ic2, color="orange", alpha=0.8)
 
-        plt.gca().add_patch(plt.Circle([0, 0], 1.3))
+        plt.gca().add_patch(plt.Circle([0, 0], 1.3**.5))
 
         plt.title("levels 0, 1")
         plt.savefig("level1.png")
