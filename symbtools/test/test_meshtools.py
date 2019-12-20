@@ -15,6 +15,9 @@ import ipydex as ipd
 import unittest
 
 
+exec_show = False
+
+
 class TestGrid2d(unittest.TestCase):
     def setUp(self):
         xx = np.linspace(-4, 4, 9)
@@ -154,11 +157,18 @@ class MeshRefinement2d(unittest.TestCase):
 
     def test_refinement(self):
 
+        plot_points = False
+        exec_show = False
+
         grid = met.Grid(self.mg)
 
         pc0 = pc = grid.refinement_step(met.func_sphere_nd)
 
         ic0 = grid.inhomogeneous_cells[0]
+        ac0 = grid.levels[0]
+        plot_cells2d(ac0, color="0.7", alpha=0.3)
+        plot_cells2d(ic0, color="0.7", alpha=0.3)
+        plt.gca().add_patch(plt.Circle([0, 0], 1.3 ** .5, alpha=0.5))
 
         # there are 12 inhomogeneous cells (manually verified)
         self.assertEqual(len(ic0), 12)
@@ -166,15 +176,17 @@ class MeshRefinement2d(unittest.TestCase):
         self.assertEqual(pc.ibp.shape, (2, 5))
         self.assertEqual(pc.obp.shape, (2, 16))
 
-        # plot inner and outer points (level 0)
-        plt.plot(*pc.op, "bo", alpha=0.2, ms=5)
-        plt.plot(*pc.ip, "ro", alpha=0.2, ms=5)
+        if plot_points:
+            # plot inner and outer points (level 0)
+            plt.plot(*pc.op, "bo", alpha=0.2, ms=5)
+            plt.plot(*pc.ip, "ro", alpha=0.2, ms=5)
 
-        plt.plot(*pc.obp, "bo", ms=3)
-        plt.plot(*pc.ibp, "ro", ms=3)
+            plt.plot(*pc.obp, "bo", ms=3)
+            plt.plot(*pc.ibp, "ro", ms=3)
 
         plt.title("levels 0")
-        plt.savefig("level0.png")
+        plt.axis("square")
+        plt.savefig("n2_level0.png")
 
         # -----
 
@@ -185,53 +197,60 @@ class MeshRefinement2d(unittest.TestCase):
         self.assertEqual(pc.ibp.shape, (2, 16))
         self.assertEqual(pc.obp.shape, (2, 24))
 
-        # plot inner and outer points (level 1)
         plt.cla()
 
-        plt.plot(*pc.op, "go", alpha=0.2, ms=5)
-        plt.plot(*pc.ip, "mo", alpha=0.2, ms=5)
+        if plot_points:
+            # plot inner and outer points (level 1)
+            plt.plot(*pc.op, "go", alpha=0.2, ms=5)
+            plt.plot(*pc.ip, "mo", alpha=0.2, ms=5)
 
-        plt.plot(*pc.obp, "go", ms=3)
-        plt.plot(*pc.ibp, "mo", ms=3)
+            plt.plot(*pc.obp, "go", ms=3)
+            plt.plot(*pc.ibp, "mo", ms=3)
 
         pc2 = pc = grid.refinement_step(met.func_sphere_nd)
 
-        ac = grid.levels[0]
+        ac0 = grid.levels[0]
         ic0 = grid.inhomogeneous_cells[0]
         ic1 = grid.inhomogeneous_cells[1]
+        ac1 = grid.levels[1]
         ac2 = grid.levels[2]
         ic2 = grid.inhomogeneous_cells[2]
 
-        plot_cells2d(ac, color="0.7", alpha=0.3)
-        plot_cells2d(ic0, color="red", alpha=0.5)
-        plot_cells2d(ic1, color="red", alpha=0.8)
-        plot_cells2d(ac2, color="green", alpha=0.8)
-        plot_cells2d(ic2, color="orange", alpha=0.8)
+        plot_cells2d(ac0, color="0.7", alpha=0.3)
+        plot_cells2d(ac1, color="0.7", alpha=0.5)
+        plot_cells2d(ac2, color="0.7", alpha=0.8)
+        plot_cells2d(ic0, color=(.5, 0, 0))
+        plot_cells2d(ic1, color=(.7, 0, 0))
+        plot_cells2d(ic2, color=(.9, 0, 0))
 
         plt.gca().add_patch(plt.Circle([0, 0], 1.3**.5))
 
-        plt.title("levels 0, 1")
-        plt.savefig("level1.png")
-        plt.show()
-        ipd.IPS()
-        return
+        plt.title("levels 0, 1, 2")
+        plt.savefig("n2_level2.png")
+
+        if exec_show:
+            plt.show()
 
         # -----
 
         pc2 = pc = grid.refinement_step(met.func_sphere_nd)
         # plot inner and outer points (level 2)
         plt.cla()
+        plt.axis("square")
+        plt.axis([-1.8, 1.8, -1.8, 1.8])
+        plt.gca().add_patch(plt.Circle([0, 0], 1.3**.5, alpha=0.5))
 
-        plt.plot(*pc.op, "go", alpha=0.2, ms=5)
-        plt.plot(*pc.ip, "mo", alpha=0.2, ms=5)
+        #
+        # plt.plot(*pc.op, "go", alpha=0.2, ms=5)
+        # plt.plot(*pc.ip, "mo", alpha=0.2, ms=5)
 
         plt.plot(*pc.obp, "go", ms=3)
         plt.plot(*pc.ibp, "mo", ms=3)
 
         plt.title("levels 0, 1, 2")
-        plt.savefig("level2.png")
-        plt.show()
-        # ipd.IPS()
+        plt.savefig("n2_level2_points.png")
+        if exec_show:
+            plt.show()
 
 
 class MeshRefinement3d(unittest.TestCase):
@@ -289,15 +308,14 @@ class MeshRefinement3d(unittest.TestCase):
         ax.plot(*pc0.ibp, 'o', ms=3, color="m", alpha=1)
         ax.plot(*pc1.ibp, 'o', ms=3, color="r", alpha=1)
         ax.plot(*pc2.ibp, 'o', ms=3, color="g", alpha=1)
-        # ax.plot(*pc3.ibp, 'o', ms=3, color="b", alpha=1)
-
-        # result still looks somehow strange (asymmetric, some low density areas)
+        ax.plot(*pc3.ibp, 'o', ms=3, color="b", alpha=1)
 
         # -> plot the involved cells for debugging
 
-        ipd.IPS()
+        plt.savefig("n3_level3.png")
 
-        plt.show()
+        if exec_show:
+            plt.show()
 
 
 def plot_cells2d(cells, fname=None, show=False, **kwargs):

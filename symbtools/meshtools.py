@@ -545,7 +545,7 @@ def is_aux_node(node):
 
 
 def func_circle(xx):
-    return xx[0]**2 + xx[1]**2 <= 1.3
+    return xx[0]**2 + xx[1]**2 < 1.3
 
 
 def func_sphere_nd(xx):
@@ -555,7 +555,7 @@ def func_sphere_nd(xx):
     :param xx:
     :return:
     """
-    return np.sum(xx**2) <= 1.3
+    return np.sum(xx**2) < 1.3
 
 
 if __name__ == "__main__":
