@@ -2956,13 +2956,13 @@ def apply_round(expr, digits=3):
 
     assert is_scalar(expr)
 
-    res = expr
+    res = sp.sympify(expr)
 
     for a in sp.preorder_traversal(expr):
         # note that complex numbers are Float + Mul(Float, ImaginaryUnit), so they are handled here
 
         if isinstance(a, sp.Float):
-            res = res.subs(a, round(a, digits))
+            res = res.subs(a, round(a.num, digits))
 
     return res
 

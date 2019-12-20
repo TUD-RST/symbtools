@@ -125,7 +125,9 @@ class InteractiveConvenienceTest(unittest.TestCase):
 
         # now apply round
         st.random.seed(3319)
-        self.assertAlmostEqual(x.srnr, 8.59)
+        tmp = x.srnr
+        # debug travis specific fail
+        self.assertAlmostEqual(tmp, 8.59)
 
         # test compatibility with sp.Matrix
         # the order might depend on the platform (due to dict ordering)
