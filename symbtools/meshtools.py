@@ -8,6 +8,8 @@ Mainly it contains the classes Grid, GridCell and Node which facilitate an adapt
 dimensions. The used method is quite simple its like parallel interval bisection in n dimensions.
 
 The code was visually tested in 2 and 3 dimensions. No warrenty for correct results.
+
+Documentation is not yet available. But unittests (test/test_meshtools.py) might mitigate that lack.
 """
 
 import itertools
