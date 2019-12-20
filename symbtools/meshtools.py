@@ -1,15 +1,25 @@
 """
-This module contains algorithms to investigate the region off attraction of a dynamical system.
+Created on 2019-12-11 11:00:00
+
+@author: Carsten Knoll
+
+This module contains helper-algorithms to investigate the region off attraction of a dynamical system.
+Mainly it contains the classes Grid, GridCell and Node which facilitate an adaptive mesh refinement (AMR) scheme in n
+dimensions. The used method is quite simple its like parallel interval bisection in n dimensions.
+
+The code was visually tested in 2 and 3 dimensions. No warrenty for correct results.
 """
 
 import itertools
 import collections
 import numpy as np
-from matplotlib import pyplot as plt
 from scipy.spatial.distance import hamming
 
-from ipydex import IPS, activate_ips_on_exception
-activate_ips_on_exception()
+debug_mode = 0
+if debug_mode:
+    # noinspection PyUnresolvedReferences
+    from ipydex import IPS, activate_ips_on_exception
+    activate_ips_on_exception()
 
 PointCollection = collections.namedtuple("PointCollection", ["ip", "op", "ibp", "obp"])
 
@@ -307,7 +317,6 @@ class Grid(object):
         If `idcs` is a valid key of node_dict return the corresponding node, else create a new one.
         Only integer indices are possible here. coords are taken from the meshgrid.
 
-        :param mg:
         :param idcs:
         :param coords:
         :param level:
@@ -502,12 +511,6 @@ class GridCell(object):
                                                         self.vertex_nodes[0].coords)
 
 
-###
-
-
-###
-
-
 def get_index_difference(idcs1, idcs2):
     """
     Assume that the index tuples differ by exactly one index. Find out which dimension-index that is and the difference
@@ -536,14 +539,6 @@ def get_index_difference(idcs1, idcs2):
     return dim, dir, diff
 
 
-def is_main_node(node):
-    return node.node_class == "main"
-
-
-def is_aux_node(node):
-    return node.node_class == "aux"
-
-
 def func_circle(xx):
     return xx[0]**2 + xx[1]**2 < 1.3
 
@@ -556,29 +551,4 @@ def func_sphere_nd(xx):
     :return:
     """
     return np.sum(xx**2) < 1.3
-
-
-if __name__ == "__main__":
-    pass
-
-    # the testing code from here was moved to unittests (MeshRefinement2d)
-
-    """
-    General procedure:
-    
-    1. generate initial nodes
-    2. evaluate function on new nodes
-    3. determine boundary status (outer boundary -1, no boundary 0, inner boundary 1)
-    4. insert new main nodes where necessary
-        implicitly add auxiliary nodes such that every main node has well defined neighbours
-        thereby node_class can be upgraded from aux to main
-    5.  update neighbour-relations    
-    6.  go to 2.
-    
-    """
-
-
-
-
-    IPS()
 
