@@ -994,16 +994,16 @@ def system_pronlongation(f, gg, xx, prl_list, **kwargs):
     return fnew, ggnew, xxnew
 
 
-def multi_taylor(expr, args, x0 = None, order=1):
+def multi_taylor(expr, args, x0=None, order=1):
     """
     compute a multivariate taylor polynomial of a scalar function
 
     default: linearization about 0 (all args)
     """
 
-    if x0 == None:
+    if x0 is None:
         x0 = [0 for a in args]
-    x0 = list(x0) # to handle matrices
+    x0 = list(x0)  # to handle matrices
     assert len(args) == len(x0)
 
     x0list = lzip(args, x0)
