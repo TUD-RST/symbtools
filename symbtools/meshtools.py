@@ -16,6 +16,11 @@ import itertools
 import collections
 import numpy as np
 from scipy.spatial.distance import hamming
+import symbtools as st
+import scipy.integrate as sc_integrate
+
+# this is for debugging
+import matplotlib.pyplot as plt
 
 debug_mode = 0
 if debug_mode:
@@ -32,6 +37,7 @@ class NodeDataBase(object):
         self.levels = collections.defaultdict(list)
         self.all_nodes = []
         self.node_dict = {}
+        self.roi_boundary_nodes = []
 
         # these dicts will hold a set (not a list to prevent duplicates) for each level with all nodes which are part
         # of the boundaray when this level was reached.
@@ -58,6 +64,9 @@ class NodeDataBase(object):
         self.levels[node.level].append(node)
         self.all_nodes.append(node)
         self.new_nodes.append(node)
+        if node.is_on_roi_boundary():
+
+            self.roi_boundary_nodes.append(node)
 
     def apply_func(self, func):
         for node in self.new_nodes:
@@ -67,6 +76,10 @@ class NodeDataBase(object):
 
         # empty that list (prepare for next evaluation)
         self.new_nodes = []
+
+    def apply_func_roi(self, func):
+        for node in self.roi_boundary_nodes:
+            node.apply(func)
 
     @staticmethod
     def is_inner(node):
@@ -122,7 +135,7 @@ class NodeDataBase(object):
             selected_idcs = list(range(self.grid.ndim))
 
         if cond_func is None:
-            # noinspection PyShadowingNames
+            # noinspection PyShadowingNames,PyUnusedLocal
             def cond_func(node):
                 return True
 
@@ -134,6 +147,7 @@ class NodeDataBase(object):
                 r = [f(node) for f in cond_func_sequence]
                 return all(r)
 
+        # noinspection PyUnusedLocal
         res = [list() for i in range(len(selected_idcs))]
         # plot the first two dimensions
         for node in nl:
@@ -167,13 +181,24 @@ class Node(object):
         self.node_class = node_class
 
         # will be a list of len-2-lists; outer list-index ≙ axis (dimension), inner list-entries: neg./pos. direction
+        # noinspection PyUnusedLocal
         self.neighbours = [list([None, None]) for i in range(len(coords))]
 
         # counted positive in both directions
+        # noinspection PyUnusedLocal
         self.distances = [list([None, None]) for i in range(len(coords))]
+        # noinspection PyUnusedLocal
         self.idx_distances = [list([None, None]) for i in range(len(coords))]
 
         self.grid.ndb.add(self)
+
+    def is_on_roi_boundary(self):
+
+        temp1 = self.grid.maxima
+        temp2 = self.grid.minima
+        # noinspection PyTypeChecker
+        result = any([any(self.coords == temp1), any(self.coords == temp2)])
+        return result
 
     def apply(self, func):
         """
@@ -197,8 +222,8 @@ class Grid(object):
 
         # original meshgrid as returned by numpy.meshgrid
         self.mg = mg
-        self.all_mg_points = np.array([arr.flat[:] for arr in self.mg])
-        self.ndim = len(mg)
+        self.all_mg_points = np.array([arr.flat[:] for arr in self.mg])   # to 1d array
+        self.ndim = len(mg)  # 2d -> 2, 3d -> 3, ...
 
         # save all cells in a list
         self.cells = []
@@ -210,23 +235,24 @@ class Grid(object):
 
         self.homogeneous_cells = collections.defaultdict(list)
         self.inhomogeneous_cells = collections.defaultdict(list)
-
+        self.inner_cells = collections.defaultdict(list)
+        self.outer_cells = collections.defaultdict(list)
         self.boundary_cells = collections.defaultdict(list)
 
         self.ndb = NodeDataBase(grid=self)
 
-        minima = np.array([np.min(arr) for arr in self.mg])
-        maxima = np.array([np.max(arr) for arr in self.mg])
+        self.minima = np.array([np.min(arr) for arr in self.mg])
+        self.maxima = np.array([np.max(arr) for arr in self.mg])
 
         # note: all arrays in mg have the same shape
-        shapes = np.array(mg[0].shape)
+        shapes = np.array(mg[0].shape)   # depend on the  c of np.linspace(a,b,c)
         assert np.all(shapes > 1)
-        assert len(shapes) == self.ndim
+        assert len(shapes) == self.ndim  # 2d (a,b) 3d (a,b,c)
 
-        self.coord_extention = maxima - minima
+        self.coord_extention = self.maxima - self.minima
         self.coord_stepwidth = self.coord_extention/(shapes - 1)
 
-        self.coords_of_index_origin = minima
+        self.coords_of_index_origin = self.minima
 
         # these objects store index-coordinates which only depend on the dimension
         # we just need to compute them once (see 2d examples)
@@ -346,14 +372,14 @@ class Grid(object):
 
         :return:
         """
-        lengths = self.mg[0].shape
+        lengths = self.mg[0].shape  # (n1 von xx,n2 von yy)
 
         index_sequences = []
         for L in lengths:
             assert L > 2
-            index_sequences.append(range(0, L - 1))
+            index_sequences.append(range(0, L - 1))  # [range(0,8),range(0,8)]
 
-        inner_index_tuples = itertools.product(*index_sequences)
+        inner_index_tuples = itertools.product(*index_sequences)  # (0,0),(0,1),(0,2)....(8,8) length= 81
 
         cells = []
         for idcs in inner_index_tuples:
@@ -387,12 +413,19 @@ class Grid(object):
         """
         Iterate over the cells of the current max_level and find those which are not homogenous
         :return:
+        homogeneours cells= inter cells+ outer cells
+        inhomogeneous cells= boundart cells
         """
 
         for cell in self.levels[self.max_level]:
             if cell.is_homogeneous():
                 self.homogeneous_cells[self.max_level].append(cell)
                 cell.set_boundary_status(False)
+                if cell.grid_status():
+                    self.inner_cells[self.max_level].append(cell)
+                else:
+                    self.outer_cells[self.max_level].append(cell)
+
             else:
                 self.inhomogeneous_cells[self.max_level].append(cell)
                 cell.set_boundary_status(True)
@@ -406,14 +439,48 @@ class Grid(object):
         for cell in self.boundary_cells[max_level]:
             cell.make_childs()
 
+    def sum_volumes(self):
+        """
+        return: inner-, outer-,and boundary volume of grid
+        """
+
+        sum_inner = 0
+        sum_outer = 0
+        sum_boundary =0
+
+        for i in range (len(self.inner_cells)):
+            if len(self.inner_cells[i]) == 0:
+                continue
+            sum_inner += self.inner_cells[i][0].get_volumes() * len(self.inner_cells[i])
+        for i in range(len(self.outer_cells)):
+            if len(self.outer_cells[i]) == 0:
+                continue
+            sum_outer += self.outer_cells[i][0].get_volumes() * len(self.outer_cells[i])
+
+        sum_boundary += self.boundary_cells[self.max_level][0].get_volumes() * len(self.boundary_cells[self.max_level])
+
+        return sum_inner, sum_outer, sum_boundary
+
+    def volume_fraction(self):
+        """
+        retuen: volume fraction
+        """
+        aa = self.coord_extention
+        overall_volumes = 1
+        for i in range(aa.shape[0]):
+            overall_volumes *= aa[i]
+        res = self.sum_volumes()[0]
+        return res/overall_volumes
+
     def refinement_step(self, char_func):
 
         # this will do nothing in the first call (because we have no boundary cells yet)
         self.divide_boundary_cells()
 
         self.ndb.apply_func(char_func)
-        self.classify_cells_by_homogenity()
 
+        self.classify_cells_by_homogenity()
+        # self.classify_cells_by_grid_status()
         return PointCollection( self.ndb.get_inner_nodes(), self.ndb.get_outer_nodes(),
                                 self.ndb.get_inner_boundary_nodes(self.max_level),
                                 self.ndb.get_outer_boundary_nodes(self.max_level) )
@@ -431,7 +498,7 @@ class GridCell(object):
         self.parent_cell = None
         self.child_cells = None
         self._is_homogeneous = None
-
+        self._grid_status = None  # -1 -> out, 1 -> in
         self.grid.cells.append(self)
         self.grid.levels[self.level].append(self)
         if self.grid.max_level != self.level:
@@ -440,11 +507,33 @@ class GridCell(object):
 
     def is_homogeneous(self):
 
+        """
+        return:
+        1: all nodes in this cell have the same func_value,this cell is homogeneous
+        0: inhomogeneous
+        """
+
         cell_res = np.array([node.func_val for node in self.vertex_nodes])
 
         self._is_homogeneous = np.alltrue(cell_res) or np.alltrue(np.logical_not(cell_res))
 
         return self._is_homogeneous
+
+    def grid_status(self):
+
+        """
+        This function is only meaningful if the cell is homogeneous.
+        Determine whether the homogeneous cell is inside the boundary or outside.
+        return:
+        1: inner
+        0: outer
+        """
+
+        a = self.vertex_nodes[0].func_val
+
+        self._grid_status = a
+
+        return self._grid_status
 
     def make_childs(self):
 
@@ -508,9 +597,147 @@ class GridCell(object):
                 # only set to 0 if the node was not already flagged as boundary
                 node.boundary_flag = 0
 
+    def get_volumes(self):
+
+        grid_parameter = self.grid.coord_stepwidth
+        v_0 = 1
+        for i in range(grid_parameter.shape[0]):
+            v_0 *=grid_parameter[i]
+        vc = v_0 /(2**(self.level*self.ndim))
+
+        return vc
+
     def __repr__(self):
         return "<Cell: level:{}, rn:{}, rnc:{}>".format(self.level, self.vertex_nodes[0].idcs,
                                                         self.vertex_nodes[0].coords)
+
+
+# noinspection PyPep8Naming
+class ROA_Approximation(object):
+    """
+    Author Yuewen He
+    """
+
+    def __init__(self, mg, mod, Pole, max_level_refinement):
+        self.Pole = Pole
+        self.mod = mod
+        self.K = self.calculate_K(self.Pole)
+        self.rhs = self.rhs_bilden()
+        self.max_level_refinement = max_level_refinement
+        self.mg = mg
+        self.grid = Grid(mg)
+        self.Pole = Pole
+
+    def calculate_K(self, Pole):
+
+        f = self.mod.f.subs(dict(g=9.81, m1=2.3, m2=0.24, s2=0.5).items())
+        G = self.mod.g.subs(dict(g=9.81, m1=2.3, m2=0.24, s2=0.5).items())
+        xx = self.mod.x
+        A = f.jacobian(xx).subs({xx[0]: 0, xx[1]: 0, xx[2]: 0, xx[3]: 0})
+        B = G.subs({xx[0]: 0, xx[1]: 0, xx[2]: 0, xx[3]: 0})
+        K =st.siso_place(A, -B, Pole).T
+        return K
+
+    def calculate_u(self, xx, t):
+        xx = np.array([xx])
+        xx_res = np.array([[0, 0, 0, 0]])
+        lim = 50
+        u = self.K@(xx_res - xx).T
+        if np.abs(u) > lim:
+            return np.sign(u)*lim
+        else:
+            return u
+
+    def rhs_bilden(self):
+        sm = st.SimulationModel(self.mod.f, self.mod.g, self.mod.xx, model_parameters=dict(g=9.81,
+                                m1=2.3, m2=0.24, s2=0.5).items())
+        rhs = sm.create_simfunction(controller_function=self.calculate_u)
+        return rhs
+
+    def rhs2(self, t, xx):
+        return self.rhs(xx, t)
+
+    def judge(self, xx):
+        """
+        Funktion: ein Anfangswertpunkt bestimmen, ob der Punkt in der Einzugsbereich liegt
+
+        y0:[x1,x2,x3,x4]
+        returns:
+        flag = [Value]
+        Value: 0: Der Punkt ist außerhalb des Einzugsbereichs
+               1: Der Punkt ist inßerhalb des Einzugsbereichs
+        """
+        n_step = 200
+        tt = st.np.linspace(0, 5, n_step)
+        y0 = np.asarray([*xx, 0, 0])
+
+        # adapt args to be able to apply scipy.integrate.solve_ivo
+
+        def event1(t, y):
+            return np.sum(y**2) > 0.01
+
+        def event2(t, y):
+            return np.sum(y**2) < 10000
+
+        event1.terminal = True
+        event2.terminal = True
+        # noinspection PyTypeChecker
+        sol = sc_integrate.solve_ivp(self.rhs2, [tt[0], tt[-1]],
+                                    y0, method='RK23', t_eval=tt, events=(event1, event2),
+                                     dense_output=False)
+
+        # noinspection PyUnresolvedReferences
+        if sol.t_events[1].size != 0:
+            flag = 0
+        else:
+            flag = 1
+
+        return flag
+
+    def get_volume_fraction(self):
+
+        grid = self.grid
+        result = np.zeros((self.max_level_refinement, 3))
+        for i in range(self.max_level_refinement):
+            pc = grid.refinement_step(self.judge)
+            aa = grid.sum_volumes()
+            result[i, :] = aa
+        # self.draw_process(result)
+        sum_inner = []
+        for ii in range(self.max_level_refinement):
+            sum_inner += grid.inner_cells[i]
+        for i, cell in enumerate(sum_inner):
+            edges = np.array(cell.get_edge_coords())
+            plt.plot(*edges.T)
+        plt.title("Pole is %s" % self.Pole)
+        plt.xlabel('x1')
+        plt.ylabel('x2')
+        # plt.show
+        # self.plot_cells2d(grid.levels[0])
+        return grid.volume_fraction()
+
+    def draw_process(self, result):
+        x = np.arange(1, self.max_level_refinement+1, 1)
+        plt.plot(x, result[:, 0], 'r--', label='inner')
+        plt.plot(x, result[:, 1], 'g--', label='outer')
+        plt.plot(x, result[:, 2], 'b--', label='boundary')
+        plt.plot(x, result[:, 0], 'ro-', x, result[:, 1], 'g+-', x, result[:, 2], 'b^-')
+        plt.title('process')
+        plt.xlabel('Menge von refinement')
+        plt.ylabel('Volumes')
+        plt.legend()
+        plt.show()
+        plt.savefig("process")
+
+    def plot_cells2d(self, cells):
+
+        for i, cell in enumerate(cells):
+            edges = np.array(cell.get_edge_coords())
+            plt.plot(*edges.T)
+        plt.title("Pole is %s" % self.Pole)
+        plt.xlabel('x1')
+        plt.ylabel('x2')
+        plt.show()
 
 
 def get_index_difference(idcs1, idcs2):
@@ -542,7 +769,7 @@ def get_index_difference(idcs1, idcs2):
 
 
 def func_circle(xx):
-    return xx[0]**2 + xx[1]**2 < 1.3
+    return xx[0]**2 + xx[1]**2 < 8
 
 
 def func_sphere_nd(xx):
@@ -553,4 +780,3 @@ def func_sphere_nd(xx):
     :return:
     """
     return np.sum(xx**2) < 1.3
-
