@@ -355,6 +355,7 @@ def plot_cells3d(cells, ax=None, fname=None, show=False, imax=None, all_points=N
         plt.show()
 
 
-
-
+# if this module is executed as script, then run all tests from this module
+if __name__ == '__main__':
+    unittest.main()
 
