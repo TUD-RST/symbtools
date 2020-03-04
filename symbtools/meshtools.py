@@ -2,14 +2,21 @@
 Created on 2019-12-11 11:00:00
 
 @author: Carsten Knoll
+@author: Yuewen He
 
-This module contains helper-algorithms to investigate the region off attraction of a dynamical system.
+This module contains helper-algorithms to investigate the region off attraction (ROA) of a dynamical system.
 Mainly it contains the classes Grid, GridCell and Node which facilitate an adaptive mesh refinement (AMR) scheme in n
 dimensions. The used method is quite simple its like parallel interval bisection in n dimensions.
 
 The code was visually tested in 2 and 3 dimensions. No warrenty for correct results.
 
 Documentation is not yet available. But unittests (test/test_meshtools.py) might mitigate that lack.
+
+Abbreviations:
+ROA: region of attraction
+ROI: region of investigation (determined by the initial meshgrid)
+AMR: adaptive mesh refinement
+
 """
 
 import itertools
@@ -499,6 +506,18 @@ class GridCell(object):
         self.child_cells = None
         self._is_homogeneous = None
         self._grid_status = None  # -1 -> out, 1 -> in
+
+        self.roa_boundary_flag = None  # -1 -> out, 0 1 -> in
+
+        # min- and max-boundary-coincide-lists: (min_bcl, max_bcl)
+        # these lists encode whether a particular boundary-hypersurface (b-hsf) of
+        # a grid cell is part of the boundary of the overall region of investigation (roi)
+        # each cell has 2n B-HSFs. If a cell lays in the "minimal corner" (minimal for each direction) of the grid
+        # its boundary is part of n ROI-boundary-HSFs. Same holds for the "maximal corner".
+        # The lists are initialized with None
+        self.min_bcl = [None]*self.ndim
+        self.max_bcl = [None]*self.ndim
+
         self.grid.cells.append(self)
         self.grid.levels[self.level].append(self)
         if self.grid.max_level != self.level:
@@ -575,16 +594,21 @@ class GridCell(object):
 
         return np.array(vertices)
 
-    def set_boundary_status(self, flag):
+    def set_boundary_status(self, roa_boundary_flag):
         """
-        Notify each node about its boundary status.
+        - Notify each node of this cell about its ROA-boundary status.
+        - Determine self.roa_boundary_flag whether this cell is inside (1), outside (-1) or at the boundary of the ROA
 
-        :param flag:
+        :param roa_boundary_flag:   boolean flag. True: cell is part of the ROA-boundary, False: otherwise
         :return:
         """
+
+        node_func_vals = []
+
         for node in self.vertex_nodes:
-            if flag:
-                func_val_int = int(node.func_val)
+            func_val_int = int(node.func_val)
+            node_func_vals.append(func_val_int)
+            if roa_boundary_flag:
                 assert func_val_int in (0, 1)
                 if func_val_int == 0:
                     self.grid.ndb.outer_boundary_nodes[self.grid.max_level].add(node)
@@ -596,6 +620,17 @@ class GridCell(object):
             elif node.boundary_flag is None:
                 # only set to 0 if the node was not already flagged as boundary
                 node.boundary_flag = 0
+
+        node_func_vals = np.array(node_func_vals)
+        all_in = np.all(node_func_vals == 1)
+        all_out = np.all(node_func_vals == 0)
+
+        if all_in:
+            self.roa_boundary_flag = 1
+        elif all_out:
+            self.roa_boundary_flag = -1
+        else:
+            self.roa_boundary_flag = 0
 
     def get_volumes(self):
 

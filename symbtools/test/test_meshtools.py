@@ -60,6 +60,10 @@ class TestGrid2d(unittest.TestCase):
             plot_cells2d([gc]+childs1+childs2, show=True)
 
     def test_make_childs_bug(self):
+        """
+        ensure that a certain bug remains fixed
+        :return:
+        """
 
         grid = met.Grid(self.mg)
 
@@ -251,6 +255,23 @@ class MeshRefinement2d(unittest.TestCase):
         plt.savefig("n2_level2_points.png")
         if exec_show:
             plt.show()
+
+    def test_cell_roa_boundary_flag(self):
+        pass
+
+        grid = met.Grid(self.mg)
+
+        for level in range(4):
+            grid.refinement_step(met.func_sphere_nd)
+
+            for c in grid.inhomogeneous_cells[level]:
+                self.assertEqual(c.roa_boundary_flag, 0)
+
+            for c in grid.inner_cells[level]:
+                self.assertEqual(c.roa_boundary_flag, 1)
+
+            for c in grid.outer_cells[level]:
+                self.assertEqual(c.roa_boundary_flag, -1)
 
 
 class MeshRefinement3d(unittest.TestCase):
