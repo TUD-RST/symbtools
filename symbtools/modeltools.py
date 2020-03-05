@@ -596,6 +596,12 @@ class DAE_System(object):
         self.model_func = model_func
 
     def generate_constraints_funcs(self):
+        """
+        Generate callable functions which represent the algebraic constraints a(tt) and its first two derivatives
+        adot(tt, ttdot) and addot(tt, ttdot, ttddot).
+
+        :return: None
+        """
 
         if self.constraints_func is not None:
             return
@@ -717,10 +723,16 @@ class DAE_System(object):
 
     def calc_consistent_conf_vel(self, **kwargs):
         """
+        This function calculates configurations and velocities which of the mechanical dae system which are
+        consistent with the constraints. In general the solution is not unique and thus depends on the initial guess
+        (passed via special kwargs: {coord}_estimate; see below). The algebraic equation systems (for configuration
+        and velocities) are solved via scipy.optimize.fmin().
+
         Example call: calc_consistent_conf(p1=0.5, pdot1=-1.2, p2_estimate=-2, _ftol=1e-12)
 
         Notes,
-            - There must self.ndof coordinates be specified. These will be the independent variables.
+            - The number of coordinates which are specified in kwargs must equal self.ndof.
+              These will be the independent variables.
             - If velocities (of indep. vars) are not given explicitly, they are assumed to be zero.
             - If estimates (guess) for coords or velocities (of dep. vars) are not given explicitly,
               they are assumed to be zero.
@@ -735,6 +747,7 @@ class DAE_System(object):
         v_num_requests = []
         v_estimates = []
 
+        # determine whether to show the results of fmin or not
         disp_flag = kwargs.get("_disp", True)
 
         option_names = {"_ftol", "_xtol", "_disp"}
@@ -762,10 +775,11 @@ class DAE_System(object):
         dep_idcs = []
         for i, (theta_i, theta_dot_i) in enumerate(zip(self.mod.tt, self.mod.ttd)):
 
-            # first handle coordinates
+            # first: handle coordinates
             c_val = kwargs.get(theta_i.name)
             if c_val is not None:
                 c_num_requests.append(c_val)
+                # this is an indep. var
                 indep_idcs.append(i)
             else:
                 # look for estimate or choose 0 otherwise
@@ -792,8 +806,10 @@ class DAE_System(object):
 
         self.generate_constraints_funcs()
 
-        # construct the full argument for the constraints (zeros will be replaced at runtime)
+        # construct the full argument for the constraints (remaining zeros will be replaced at runtime)
         arg_c = np.zeros(self.ntt)
+
+        # fill in the requested values of the independent vars (using int-array-indexing)
         arg_c[indep_idcs] = c_num_requests
 
         def min_target_c(dep_coords):
@@ -876,11 +892,11 @@ class DAE_System(object):
     def calc_consistent_init_vals(self, t=0, **kwargs):
         """
         Assume yy = (xx, llmd) and xx = (ttheta, ttheta_d)
-        -> return yy_0 and and yyd_0 sucht that F(0, yy_0, yyd_0) = 0
+        -> return yy_0 and and yyd_0 such that F(t, yy_0, yyd_0) = 0
 
-        Note that it might be necessary to find a consistent initial configuration first (xx cannot choosen freely)
+        Note that it might be necessary to find a consistent initial configuration first (xx cannot chosen freely)
 
-        :param t:           time variabel (needed to evaluate the external_input_func)
+        :param t:           time variable (needed to evaluate the external_input_func)
         :param kwargs:      conditions (and estimates) for independent (and dependent) coordinates and velocities
                             see calc_constistent_conf_vel
         """
