@@ -838,11 +838,20 @@ def func_circle(xx):
     return xx[0]**2 + xx[1]**2 < 8
 
 
-def func_sphere_nd(xx):
+def func_sphere_nd_factory(radius):
     """
-    Characteristic function of n-dimensional sphere
+    :return: characteristic function of n-dimensional sphere for given radius
+    """
 
-    :param xx:
-    :return:
-    """
-    return np.sum(xx**2) < 1.3
+    level = radius**2
+
+    def sphere_func(xx):
+        """
+        Characteristic function of n-dimensional sphere
+
+        :param xx:
+        :return: True or False
+        """
+        return np.sum(xx**2) < level
+
+    return sphere_func

@@ -7,6 +7,8 @@ Created on 2019-12-12 00:14:14
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+# noinspection PyUnresolvedReferences
 import mpl_toolkits.mplot3d as a3
 
 import symbtools.meshtools as met
@@ -23,7 +25,7 @@ class TestGrid2d(unittest.TestCase):
         xx = np.linspace(-4, 4, 9)
         yy = np.linspace(-4, 4, 9)
 
-        XX, YY = mg = np.meshgrid(xx, yy, indexing="ij")
+        mg = np.meshgrid(xx, yy, indexing="ij")
 
         self.mg = mg
 
@@ -55,9 +57,9 @@ class TestGrid2d(unittest.TestCase):
         self.assertEqual(len(grid.levels[1]), len(childs1))
         self.assertEqual(len(grid.levels[2]), len(childs2))
 
-        if 0:
+        if None:
             plt.plot(*grid.all_mg_points, '.')
-            plot_cells2d([gc]+childs1+childs2, show=True)
+            # plot_cells2d([gc]+childs1+childs2, show=True)
 
     def test_make_childs_bug(self):
         """
@@ -129,7 +131,7 @@ class TestGrid3d(unittest.TestCase):
                                       [-4.0, -4.0, -3.5],
                                       [-4.0, -3.5, -4.0],
                                       [-4.0, -3.5, -3.5],
-                                      [-3.5, -4.0, -4. ],
+                                      [-3.5, -4.0, -4.0],
                                       [-3.5, -4.0, -3.5],
                                       [-3.5, -3.5, -4.0],
                                       [-3.5, -3.5, -3.5]])
@@ -143,9 +145,8 @@ class TestGrid3d(unittest.TestCase):
 
         self.assertEqual(len(grid.cells), l1 + len(childs1) + len(childs2))
 
-        if 0:
+        if None:
             plot_cells = grid.cells[:1] + [grid.cells[-16]] + grid.cells[-8:]
-
             plot_cells3d(plot_cells, imax=None, show=True, all_points=grid.all_mg_points)
 
 
@@ -162,17 +163,17 @@ class MeshRefinement2d(unittest.TestCase):
     def test_refinement(self):
 
         plot_points = False
-        exec_show = False
 
         grid = met.Grid(self.mg)
 
-        pc0 = pc = grid.refinement_step(met.func_sphere_nd)
+        func_sphere_nd = met.func_sphere_nd_factory(radius=1.3)
+        pc = grid.refinement_step(func_sphere_nd)
 
         ic0 = grid.inhomogeneous_cells[0]
         ac0 = grid.levels[0]
         plot_cells2d(ac0, color="0.7", alpha=0.3)
         plot_cells2d(ic0, color="0.7", alpha=0.3)
-        plt.gca().add_patch(plt.Circle([0, 0], 1.3 ** .5, alpha=0.5))
+        plt.gca().add_patch(plt.Circle((0, 0), 1.3 ** .5, alpha=0.5))
 
         # there are 12 inhomogeneous cells (manually verified)
         self.assertEqual(len(ic0), 12)
@@ -195,7 +196,7 @@ class MeshRefinement2d(unittest.TestCase):
         # -----
 
         self.assertEqual(grid.max_level, 0)
-        pc1 = pc = grid.refinement_step(met.func_sphere_nd)
+        pc = grid.refinement_step(func_sphere_nd)
         self.assertEqual(grid.max_level, 1)
 
         self.assertEqual(pc.ibp.shape, (2, 16))
@@ -211,7 +212,7 @@ class MeshRefinement2d(unittest.TestCase):
             plt.plot(*pc.obp, "go", ms=3)
             plt.plot(*pc.ibp, "mo", ms=3)
 
-        pc2 = pc = grid.refinement_step(met.func_sphere_nd)
+        grid.refinement_step(func_sphere_nd)
 
         ac0 = grid.levels[0]
         ic0 = grid.inhomogeneous_cells[0]
@@ -227,7 +228,7 @@ class MeshRefinement2d(unittest.TestCase):
         plot_cells2d(ic1, color=(.7, 0, 0))
         plot_cells2d(ic2, color=(.9, 0, 0))
 
-        plt.gca().add_patch(plt.Circle([0, 0], 1.3**.5))
+        plt.gca().add_patch(plt.Circle((0, 0), 1.3**.5))
 
         plt.title("levels 0, 1, 2")
         plt.savefig("n2_level2.png")
@@ -237,12 +238,12 @@ class MeshRefinement2d(unittest.TestCase):
 
         # -----
 
-        pc2 = pc = grid.refinement_step(met.func_sphere_nd)
+        pc = grid.refinement_step(func_sphere_nd)
         # plot inner and outer points (level 2)
         plt.cla()
         plt.axis("square")
         plt.axis([-1.8, 1.8, -1.8, 1.8])
-        plt.gca().add_patch(plt.Circle([0, 0], 1.3**.5, alpha=0.5))
+        plt.gca().add_patch(plt.Circle((0, 0), 1.3**.5, alpha=0.5))
 
         #
         # plt.plot(*pc.op, "go", alpha=0.2, ms=5)
@@ -260,8 +261,9 @@ class MeshRefinement2d(unittest.TestCase):
 
         grid = met.Grid(self.mg)
 
+        func_sphere_nd = met.func_sphere_nd_factory(radius=1.3)
         for level in range(4):
-            grid.refinement_step(met.func_sphere_nd)
+            grid.refinement_step(func_sphere_nd)
 
             for c in grid.inhomogeneous_cells[level]:
                 self.assertEqual(c.roa_boundary_flag, 0)
@@ -276,8 +278,9 @@ class MeshRefinement2d(unittest.TestCase):
 
         grid = met.Grid(self.mg2)
 
+        func_sphere_nd = met.func_sphere_nd_factory(radius=1.3)
         for level in range(4):
-            grid.refinement_step(met.func_sphere_nd)
+            grid.refinement_step(func_sphere_nd)
 
         n1, n2 = grid.base_resolutions
 
@@ -321,8 +324,9 @@ class MeshRefinement3d(unittest.TestCase):
 
         grid = met.Grid(self.mg)
 
+        func_sphere_nd = met.func_sphere_nd_factory(radius=1.3)
         # perform refinement and get a point_collection (pc)
-        pc0 = pc = grid.refinement_step(met.func_sphere_nd)
+        pc0 = pc = grid.refinement_step(func_sphere_nd)
 
         # check inner and outer points
         self.assertEqual(pc.ip.shape, (3, 7))
@@ -345,15 +349,15 @@ class MeshRefinement3d(unittest.TestCase):
 
         # plot level 1
 
-        pc1 = pc = grid.refinement_step(met.func_sphere_nd)
+        pc1 = pc = grid.refinement_step(func_sphere_nd)
 
         ax.plot(*pc.ibp, 'o', ms=3, color="r", alpha=1)
         ax.plot(*pc.obp, 'o', ms=3, color="b", alpha=1)
 
         # advance to level 3
 
-        pc2 = grid.refinement_step(met.func_sphere_nd)
-        pc3 = grid.refinement_step(met.func_sphere_nd)
+        pc2 = grid.refinement_step(func_sphere_nd)
+        pc3 = grid.refinement_step(func_sphere_nd)
 
         # new figure
         ax = plt.figure().add_subplot(1, 1, 1, projection='3d')
