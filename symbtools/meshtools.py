@@ -761,6 +761,12 @@ class ROA_Approximation(object):
         return flag
 
     def get_volume_fraction(self):
+        """
+
+        :return: vf (value between 0 and 1)
+        """
+
+        # TODO: write unittest
 
         grid = self.grid
         result = np.zeros((self.max_level_refinement, 3))
@@ -770,7 +776,7 @@ class ROA_Approximation(object):
             result[i, :] = aa
         # self.draw_process(result)
         sum_inner = []
-        for ii in range(self.max_level_refinement):
+        for i in range(self.max_level_refinement):
             sum_inner += grid.inner_cells[i]
         for i, cell in enumerate(sum_inner):
             edges = np.array(cell.get_edge_coords())
