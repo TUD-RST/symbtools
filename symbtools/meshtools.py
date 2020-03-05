@@ -855,3 +855,7 @@ def func_sphere_nd_factory(radius):
         return np.sum(xx**2) < level
 
     return sphere_func
+
+
+# for backward compatibility
+func_sphere_nd = func_sphere_nd_factory(radius=1.3)
