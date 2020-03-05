@@ -154,10 +154,10 @@ class MeshRefinement2d(unittest.TestCase):
     def setUp(self):
         xx = np.linspace(-4, 4, 9)
         yy = np.linspace(-4, 4, 9)
+        yy2 = np.linspace(-4, 4, 7)
 
-        mg = np.meshgrid(xx, yy, indexing="ij")
-
-        self.mg = mg
+        self.mg = np.meshgrid(xx, yy, indexing="ij")
+        self.mg2 = np.meshgrid(xx, yy2, indexing="ij")  # more columns than rows (n1 != n2 helps to test)
 
     def test_refinement(self):
 
@@ -257,7 +257,6 @@ class MeshRefinement2d(unittest.TestCase):
             plt.show()
 
     def test_cell_roa_boundary_flag(self):
-        pass
 
         grid = met.Grid(self.mg)
 
@@ -272,6 +271,41 @@ class MeshRefinement2d(unittest.TestCase):
 
             for c in grid.outer_cells[level]:
                 self.assertEqual(c.roa_boundary_flag, -1)
+
+    def test_cell_roi_boundary_status(self):
+
+        grid = met.Grid(self.mg2)
+
+        for level in range(4):
+            grid.refinement_step(met.func_sphere_nd)
+
+        n1, n2 = grid.base_resolutions
+
+        # ##test level0 cells
+        # note that the cells are column-wise stacked in the levels[0]-list
+        # first test min-boundary
+        self.assertEqual(tuple(grid.levels[0][0].min_bcl),    (True, True))
+        self.assertEqual(tuple(grid.levels[0][1].min_bcl),    (True, False))
+        self.assertEqual(tuple(grid.levels[0][n2-1].min_bcl), (True, False))
+        self.assertEqual(tuple(grid.levels[0][n2].min_bcl),   (False, True))
+        self.assertEqual(tuple(grid.levels[0][n2+1].min_bcl), (False, False))
+
+        all_min_bcls = [tuple(c.min_bcl) for c in grid.levels[0]]
+
+        self.assertEqual(all_min_bcls.count((True, True)), 1)
+
+        self.assertEqual(all_min_bcls.count((True, False)), n2 - 1)  # left column of cells (except the corner)
+        self.assertEqual(all_min_bcls.count((False, True)), n1 - 1)  # lower row of cells (except the corner)
+
+        # now test max-boundary
+
+        all_max_bcls = [tuple(c.max_bcl) for c in grid.levels[0]]
+        self.assertEqual(all_max_bcls.count((True, True)), 1)
+        self.assertEqual(tuple(grid.levels[0][0].max_bcl),    (False, False))
+        self.assertEqual(tuple(grid.levels[0][1].max_bcl),    (False, False))
+        self.assertEqual(tuple(grid.levels[0][n2-1].max_bcl), (False, True))  # upper end of left column
+        self.assertEqual(tuple(grid.levels[0][-1].max_bcl),   (True, True))   # upper right corner
+        self.assertEqual(tuple(grid.levels[0][-2].max_bcl),   (True, False))  # below upper right corner
 
 
 class MeshRefinement3d(unittest.TestCase):

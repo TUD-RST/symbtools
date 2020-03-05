@@ -259,6 +259,9 @@ class Grid(object):
         self.coord_extention = self.maxima - self.minima
         self.coord_stepwidth = self.coord_extention/(shapes - 1)
 
+        # numer of level0-cells in each direction
+        self.base_resolutions = shapes - 1
+
         self.coords_of_index_origin = self.minima
 
         # these objects store index-coordinates which only depend on the dimension
@@ -517,6 +520,7 @@ class GridCell(object):
         # The lists are initialized with None
         self.min_bcl = [None]*self.ndim
         self.max_bcl = [None]*self.ndim
+        self.set_roi_boindary_status()
 
         self.grid.cells.append(self)
         self.grid.levels[self.level].append(self)
@@ -632,6 +636,27 @@ class GridCell(object):
         else:
             self.roa_boundary_flag = 0
 
+    def set_roi_boindary_status(self):
+        """
+        Determine which of the cell boundary hyper surfaces (B-HSF) coincides with the B-HSFs of the
+        region of investigation (ROI). This information encoded in two boolean sequences of length n:
+        self.min_bcl and self.max_bcl
+
+        See also: respective comment in self.__init__(...)
+
+        :return: None
+        """
+
+        # Explanation:
+        # self.get_vertex_coords() -> (2**n, n)-array of coordinates of all vertices of this cell
+        # each row is a vertex
+        # if a vertex has a value in common with self.grid.minima then this cell shares the respective
+        # part of the roi-boundary (make a sketch)
+        # with np.any(..., axis=0) we get this information separately for each direction (axis=0 -> )
+
+        self.min_bcl = np.any(self.get_vertex_coords() == self.grid.minima, axis=0)
+        self.max_bcl = np.any(self.get_vertex_coords() == self.grid.maxima, axis=0)
+
     def get_volumes(self):
 
         grid_parameter = self.grid.coord_stepwidth
@@ -643,6 +668,12 @@ class GridCell(object):
         return vc
 
     def __repr__(self):
+        """
+        :return: string-representation of this cell
+
+        rn:  -> reference-node (index-coordinates)
+        rnc: -> reference-node (cartesian-coordinates)
+        """
         return "<Cell: level:{}, rn:{}, rnc:{}>".format(self.level, self.vertex_nodes[0].idcs,
                                                         self.vertex_nodes[0].coords)
 
