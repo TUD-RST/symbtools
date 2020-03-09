@@ -95,6 +95,8 @@ def casadify(expr, state_vect, input_vect=None, cs_vars=None):
     :param state_vect:  symbolic state vector
     :param input_vect:  symbolic input vector (optional)
     :param cs_vars:     casadi variables which should be used instead of creating new ones (optional)
+
+    :return: 2-tuple: (casadi_expression, casadi_vars)
     """
 
     if input_vect is None:

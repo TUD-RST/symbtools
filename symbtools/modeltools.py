@@ -632,7 +632,9 @@ class DAE_System(object):
 
     def gen_leqs_for_acc_llmd(self, parameter_values=None):
         """
-        Create a callable function which returns A, bnum of the linear eqn-system A*ww = bnum, where ww = (ttheta_dd, llmnd)
+        Create a callable function which returns A, bnum of the linear eqn-system
+                A*ww = bnum,
+        where ww := (ttheta_dd, llmnd).
 
 
         :return: None, set self.leqs_acc_lmd_func
