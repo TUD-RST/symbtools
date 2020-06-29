@@ -153,7 +153,8 @@ class Visualiser:
                        vis_object.interact(x=(xmin, xmax, step))
                        vis_object.interact(x=(xmin, xmax, step, inistial_value))
         """
-        assert in_ipython_context, "Interactive mode only works in an IPython notebook"
+        assert in_ipython_context, "Interactive mode only works in an IPython notebook" \
+                                   "(maybe you need to install `ipywidgets`, see visualization_requirements.txt)"
 
         widget_dict = dict()
 
