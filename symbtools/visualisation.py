@@ -2,6 +2,7 @@ import numpy as np
 import sympy as sp
 import symbtools as st
 import warnings
+import colorsys
 
 # The following packages are only necessary for visualization. The respective requirements are listed in
 # visualization_requirements.txt
@@ -10,6 +11,8 @@ import warnings
 import matplotlib.pyplot as plt
 # noinspection PyPackageRequirements
 import matplotlib.animation as animation
+# noinspection PyPackageRequirements
+import matplotlib.colors as colors
 try:
     # TODO: the whole way we handle different usage contexts is very not great right now.
     #  For example plots get automatically closed, making it very hard to see them outside of Jupyter
@@ -136,6 +139,43 @@ class Visualiser:
             drawables += element.drawables
 
         return drawables
+
+    def plot_onion_skinned(self, variables_values, axes=None, max_lightness=0.9):
+        """
+        !!! EXPERIMENTAL !!!
+        Plot multiple configurations in one picture with 'older' data shown lighter
+        :param variables_values: 2D NumPy array, each row as one set of variable values
+        :param axes: the matplotlib axes to plot on, one will be created if none is given
+        """
+        assert len(self.variables) == variables_values.shape[1], \
+            f"You need to pass as many variable values as this visualiser has variables. Required:" \
+            f"{len(self.variables)}, Given: {variables_values.shape[1]}"
+
+        fig = None
+        if axes is None:
+            fig, axes = self.create_default_axes()
+            # TODO: Probably should not do that, but it prevents an empty plot from popping up in IPython
+            plt.close(fig)
+
+        total_frames = variables_values.shape[0]
+        
+        for i in range(total_frames):
+            frame_values = variables_values[i]
+            i_norm = i / (total_frames - 1)  # 0.0 is iteration start, 1.0 is last iteration
+            drawables = self.plot_init(frame_values, axes)
+            for drawable in drawables:
+                orig_mpl_color = drawable.get_color()
+                orig_rgb = colors.to_rgb(orig_mpl_color)  # 3-tuple of floats [0, 1]
+                # convert to hue, lightness, saturation color space
+                orig_h, orig_l, orig_s = colorsys.rgb_to_hls(*orig_rgb)
+                # interpolate, max_lightness for oldest frame, original lightness for newest
+                #new_l = orig_l + (max_lightness - orig_l) * (1 - i_norm)  # linear interpolation
+                new_l = (orig_l - max_lightness) * i_norm**2 + max_lightness  # quadratic, local max at higher brightness
+                new_rgb = colorsys.hls_to_rgb(orig_h, new_l, orig_s)
+                drawable.set_color(new_rgb)
+
+        if fig is not None and in_ipython_context:
+            ip_display(fig)
 
     def interact(self, fig=None, axes=None, constraints=None, free_vars=None, caching=True, **kwargs):
         """
