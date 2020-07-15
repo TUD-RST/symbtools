@@ -157,6 +157,17 @@ class Visualiser:
             # TODO: Probably should not do that, but it prevents an empty plot from popping up in IPython
             plt.close(fig)
 
+        def lighten_color(orig_mpl_color, i_norm):
+            orig_rgb = colors.to_rgb(orig_mpl_color)  # 3-tuple of floats [0, 1]
+            # convert to hue, lightness, saturation color space
+            orig_h, orig_l, orig_s = colorsys.rgb_to_hls(*orig_rgb)
+            # interpolate, max_lightness for oldest frame, original lightness for newest
+            #new_l = orig_l + (max_lightness - orig_l) * (1 - i_norm)  # linear interpolation
+            new_l = (orig_l - max_lightness) * i_norm**2 + max_lightness  # quadratic, local max at higher brightness
+            new_rgb = colorsys.hls_to_rgb(orig_h, new_l, orig_s)
+
+            return new_rgb
+
         total_frames = variables_values.shape[0]
         
         for i in range(total_frames):
@@ -164,15 +175,20 @@ class Visualiser:
             i_norm = i / (total_frames - 1)  # 0.0 is iteration start, 1.0 is last iteration
             drawables = self.plot_init(frame_values, axes)
             for drawable in drawables:
-                orig_mpl_color = drawable.get_color()
-                orig_rgb = colors.to_rgb(orig_mpl_color)  # 3-tuple of floats [0, 1]
-                # convert to hue, lightness, saturation color space
-                orig_h, orig_l, orig_s = colorsys.rgb_to_hls(*orig_rgb)
-                # interpolate, max_lightness for oldest frame, original lightness for newest
-                #new_l = orig_l + (max_lightness - orig_l) * (1 - i_norm)  # linear interpolation
-                new_l = (orig_l - max_lightness) * i_norm**2 + max_lightness  # quadratic, local max at higher brightness
-                new_rgb = colorsys.hls_to_rgb(orig_h, new_l, orig_s)
-                drawable.set_color(new_rgb)
+                try:
+                    # drawable is a line
+                    new_color = lighten_color(drawable.get_color(), i_norm)
+                    new_mec = lighten_color(drawable.get_mec(), i_norm)
+                    new_mfc = lighten_color(drawable.get_mfc(), i_norm)
+                    drawable.set_color(new_color)
+                    drawable.set_mec(new_mec)
+                    drawable.set_mfc(new_mfc)
+                except:
+                    # drawable is a patch
+                    new_fc = lighten_color(drawable.get_facecolor(), i_norm)
+                    new_ec = lighten_color(drawable.get_edgecolor(), i_norm)
+                    drawable.set_facecolor(new_fc)
+                    drawable.set_edgecolor(new_ec)
 
         if fig is not None and in_ipython_context:
             ip_display(fig)
