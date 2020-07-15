@@ -140,7 +140,7 @@ class Visualiser:
 
         return drawables
 
-    def plot_onion_skinned(self, variables_values, axes=None, max_lightness=0.9):
+    def plot_onion_skinned(self, variables_values, axes=None, change_alpha=False, max_lightness=0.9):
         """
         !!! EXPERIMENTAL !!!
         Plot multiple configurations in one picture with 'older' data shown lighter
@@ -175,20 +175,25 @@ class Visualiser:
             i_norm = i / (total_frames - 1)  # 0.0 is iteration start, 1.0 is last iteration
             drawables = self.plot_init(frame_values, axes)
             for drawable in drawables:
-                try:
-                    # drawable is a line
-                    new_color = lighten_color(drawable.get_color(), i_norm)
-                    new_mec = lighten_color(drawable.get_mec(), i_norm)
-                    new_mfc = lighten_color(drawable.get_mfc(), i_norm)
-                    drawable.set_color(new_color)
-                    drawable.set_mec(new_mec)
-                    drawable.set_mfc(new_mfc)
-                except:
-                    # drawable is a patch
-                    new_fc = lighten_color(drawable.get_facecolor(), i_norm)
-                    new_ec = lighten_color(drawable.get_edgecolor(), i_norm)
-                    drawable.set_facecolor(new_fc)
-                    drawable.set_edgecolor(new_ec)
+                if change_alpha:
+                    # interpolate alpha linearly from (1 - max_lightness) to 1
+                    new_alpha = 1 - (1-i_norm) * max_lightness
+                    drawable.set_alpha(new_alpha)
+                else:
+                    try:
+                        # drawable is a line
+                        new_color = lighten_color(drawable.get_color(), i_norm)
+                        new_mec = lighten_color(drawable.get_mec(), i_norm)
+                        new_mfc = lighten_color(drawable.get_mfc(), i_norm)
+                        drawable.set_color(new_color)
+                        drawable.set_mec(new_mec)
+                        drawable.set_mfc(new_mfc)
+                    except:
+                        # drawable is a patch
+                        new_fc = lighten_color(drawable.get_facecolor(), i_norm)
+                        new_ec = lighten_color(drawable.get_edgecolor(), i_norm)
+                        drawable.set_facecolor(new_fc)
+                        drawable.set_edgecolor(new_ec)
 
         if fig is not None and in_ipython_context:
             ip_display(fig)
