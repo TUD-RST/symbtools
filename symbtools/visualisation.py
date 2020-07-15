@@ -457,12 +457,21 @@ def update_polygon(ax, drawables, points, kwargs):
 
 
 def init_disk(ax, points, kwargs):
+    kwargs = kwargs.copy()  # don't modify passed in dict
+    plot_radius = kwargs.pop("plot_radius", True)
+
     assert points.shape == (2, 2)
     center_point = points[:, 0]
     border_point = points[:, 1]
     radius = np.sqrt(np.sum((border_point - center_point) ** 2))
     circle = plt.Circle(center_point, radius, **merge_options(kwargs, fill=False))
-    line, = ax.plot(points[0, :], points[1, :], **merge_options(kwargs, color=circle.get_edgecolor()))
+
+    line_incompatible_kwargs = ["fill", "edgecolor", "ec", "facecolor", "fc"]
+    line_kwargs = {k:v for (k,v) in kwargs.items() if k not in line_incompatible_kwargs}
+    line, = ax.plot(points[0, :], points[1, :],
+                    **merge_options(line_kwargs,
+                        color=circle.get_edgecolor(),
+                        ls='-' if plot_radius else 'None'))
 
     ax.add_patch(circle)
 
