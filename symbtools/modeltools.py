@@ -11,6 +11,7 @@ import numpy as np
 from scipy.optimize import fmin
 import symbtools as st
 from symbtools import lzip
+from enum import Enum, auto
 
 
 # noinspection PyPep8Naming
@@ -45,7 +46,7 @@ def point_velocity(point, coord_symbs, velo_symbs, t):
     v1_f = p1.diff(t)
 
     backsubs = lzip(coord_funcs, coord_symbs) + lzip(coord_funcs.diff(t),
-                                                   velo_symbs)
+                                                     velo_symbs)
 
     return v1_f.subs(backsubs)
 
@@ -117,6 +118,7 @@ class SymbolicModel(object):
         self.f = None
         self.g = None
         self.tau = None
+        self.eqlbr = None
 
         self.x = None  # deprecated
 
@@ -213,8 +215,8 @@ class SymbolicModel(object):
         if simplify:
             d = d.simplify()
             adj.simplify()
-        Minv = adj/d
-        res = Minv*rhs
+        Minv = adj / d
+        res = Minv * rhs
 
         return res
 
@@ -241,6 +243,66 @@ class SymbolicModel(object):
         if simplify:
             self.f.simplify()
             self.g.simplify()
+
+    def calc_eqlbr(self, parameter_values=None, ttheta_guess=None, etype='one_ep', display=False, **kwargs):
+        """In the simplest case(RT1 and 2) only one of the equilibrium points of
+        a system is used for linearization and other researches. Such a equilibrium
+        point is calculated by minimizing the target function for a certain
+        input variable.
+        In other case(NT) all of the equilibrium points of a system are needed, which can be calculated
+        by using Slover in Sympy to solve the differential equations for certain input values.
+
+        :param: uu: certain input value defined by user
+        :param: parameter_values: unknown system parameters in list.(Default: all parameters are known)
+        :param: ttheta_guess: initial values for minimizing the target function.(Default: 0)
+        :param: etype: 'one_ep': one equilibrium point, 'all_ep': all of the equilibrium points.
+        :param: display: display all information of the result of the 'fmin' fucntion
+        :return: equilibrium point(s) in list
+        """
+
+        if parameter_values is None:
+            parameter_values = []
+
+        if kwargs.get('uu') is None:
+            # if the system doesn't have input
+            assert self.tau is None
+            uu = []
+            all_vars = st.row_stack(self.tt)
+            uu_para = []
+
+        else:
+            uu = kwargs.get('uu')
+            all_vars = st.row_stack(self.tt, self.tau)
+            uu_para = list(zip(self.tau, uu))
+
+        class Type_equilibrium(Enum):
+            one_ep = auto()
+            all_ep = auto()
+
+        if etype == Type_equilibrium.one_ep.name:
+            # set all of the derivatives of the system states to zero
+            state_eqns = self.eqns.subz0(self.ttd, self.ttdd)
+
+            # target function for minimizing
+            state_eqns_func = st.expr_to_func(all_vars, state_eqns.subs(parameter_values))
+
+            if ttheta_guess is None:
+                ttheta_guess = st.to_np(self.tt * 0)
+
+            def target(ttheta):
+                """target function for the certain global input values uu
+                """
+                all_values = np.r_[ttheta, uu]  # combine arrays
+                rhs = state_eqns_func(*all_values)
+
+                return np.sum(rhs ** 2)
+
+            self.eqlbr = fmin(target, ttheta_guess, disp=display)
+
+        elif etype == Type_equilibrium.all_ep.name:
+            state_eqns = self.eqns.subz0(self.ttd, self.ttdd)
+            all_vars_value = uu_para + parameter_values
+            self.eqlbr = sp.solve(state_eqns.subs(all_vars_value), self.tt)
 
     def calc_dae_eq(self, parameter_values=None):
         """
@@ -287,14 +349,14 @@ class SymbolicModel(object):
         if simplify:
             d = d.simplify()
             adj.simplify()
-        M11inv = adj/d
+        M11inv = adj / d
 
         # setting input and acceleration to 0
         C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
         # eq_passive = -M11inv*C1K1 - M11inv*M12*self.aa
 
-        self.ff = st.row_stack(self.ttd, -M11inv*C1K1, self.aa*0)
-        self.gg = st.row_stack(sp.zeros(np + nq, nq), -M11inv*M12, sp.eye(nq))
+        self.ff = st.row_stack(self.ttd, -M11inv * C1K1, self.aa * 0)
+        self.gg = st.row_stack(sp.zeros(np + nq, nq), -M11inv * M12, sp.eye(nq))
 
         if simplify:
             self.ff.simplify()
@@ -310,7 +372,7 @@ class SymbolicModel(object):
         n = len(self.tt)
         nq = len(self.tau)
         np = n - nq
-        nx = 2*n
+        nx = 2 * n
 
         # make sure that the system has the desired structure
         B = self.eqns.jacobian(self.tau)
@@ -324,7 +386,7 @@ class SymbolicModel(object):
         qq = self.tt[np:, :]
         uu = self.ttd[:np, :]
         vv = self.ttd[np:, :]
-        ww = st.symb_vector('w1:{0}'.format(np+1))
+        ww = st.symb_vector('w1:{0}'.format(np + 1))
         assert len(vv) == nq
 
         # state w.r.t normal form
@@ -336,7 +398,7 @@ class SymbolicModel(object):
 
         # input vectorfield
         self.gz = sp.zeros(nx, nq)
-        self.gz[nq:2*nq, :] = sp.eye(nq)  # identity matrix for the active coordinates
+        self.gz[nq:2 * nq, :] = sp.eye(nq)  # identity matrix for the active coordinates
 
         # drift vectorfield (will be completed below)
         self.fz = sp.zeros(nx, 1)
@@ -353,22 +415,22 @@ class SymbolicModel(object):
         if simplify:
             d = d.simplify()
             adj.simplify()
-        M11inv = adj/d
+        M11inv = adj / d
 
         # defining equation for ww: ww := uu + M11inv*M12*vv
-        uu_expr = ww - M11inv*M12*vv
+        uu_expr = ww - M11inv * M12 * vv
 
         # setting input tau and acceleration to 0 in the equations of motion
         C1K1 = self.eqns[:np, :].subs(st.zip0(self.ttdd, self.tau))
 
-        N = st.time_deriv(M11inv*M12, self.tt)
-        ww_dot = -M11inv*C1K1.subs(lzip(uu, uu_expr)) + N.subs(lzip(uu, uu_expr))*vv
+        N = st.time_deriv(M11inv * M12, self.tt)
+        ww_dot = -M11inv * C1K1.subs(lzip(uu, uu_expr)) + N.subs(lzip(uu, uu_expr)) * vv
 
-        self.fz[2*nq:2*nq+np, :] = uu_expr
-        self.fz[2*nq+np:, :] = ww_dot
+        self.fz[2 * nq:2 * nq + np, :] = uu_expr
+        self.fz[2 * nq + np:, :] = ww_dot
 
         # how the new coordinates are defined:
-        self.ww_def = uu + M11inv*M12*vv
+        self.ww_def = uu + M11inv * M12 * vv
 
         if simplify:
             self.fz.simplify()
@@ -409,7 +471,7 @@ class SymbolicModel(object):
         if parameter_values is None:
             parameter_values = []
         if eqlbr is None:
-            eqlbr = list(zip(self.tt, self.tt*0)) + list(zip(self.ttd, self.tt*0))
+            eqlbr = list(zip(self.tt, self.tt * 0)) + list(zip(self.ttd, self.tt * 0))
 
         parameter_values = list(eqlbr) + list(parameter_values)
 
@@ -432,7 +494,7 @@ class DAE_System(object):
     """
     This class encapsulates an differential algebraic equation (DAE).
     """
-    
+
     info = "encapsulate all dae-relevant information"
 
     def __init__(self, mod, parameter_values=None):
@@ -472,13 +534,13 @@ class DAE_System(object):
         self.yyd = yyd = st.symb_vector("ydot1:{}".format(1 + nx + self.nll))
 
         # list of flags whether a variable occurs differentially (1) or only algebraically (0)
-        self.diff_alg_vars = [1]*len(mod.xx) + [0]*len(mod.llmd)
+        self.diff_alg_vars = [1] * len(mod.xx) + [0] * len(mod.llmd)
 
         # definiotric equations
         eqns1 = yyd[:self.ntt, :] - mod.ttd
 
         # dynamic equations (second order; M(tt)*ttdd + ... = 0)
-        eqns2 = mod.eqns.subz(mod.ttdd, yyd[self.ntt:2*self.ntt])
+        eqns2 = mod.eqns.subz(mod.ttdd, yyd[self.ntt:2 * self.ntt])
 
         self.constraints = mod.constraints = sp.Matrix(mod.constraints).subs(parameter_values)
         self.constraints_d = None
@@ -552,7 +614,7 @@ class DAE_System(object):
         self.eq_func = st.expr_to_func(fvars, eqns)
 
         # only the ode part
-        self.deq_func = st.expr_to_func(fvars, eqns[:2*self.ntt, :])
+        self.deq_func = st.expr_to_func(fvars, eqns[:2 * self.ntt, :])
 
         def model_func(t, yy, yyd):
             """
@@ -576,7 +638,7 @@ class DAE_System(object):
             args = np.concatenate((yy, yyd, external_forces))
 
             ttheta = yy[:ntt]
-            ttheta_d = yy[ntt:2*ntt]
+            ttheta_d = yy[ntt:2 * ntt]
 
             # not needed, just for comprehension
             # llmd = yy[2*ntt:2*ntt + nll]
@@ -705,9 +767,9 @@ class DAE_System(object):
             """
 
             ttheta = args[:ntt]
-            ttheta_d = args[ntt:2*ntt]
-            llmd = args[2*ntt:2*ntt+nll]
-            ttau = args[2*ntt+nll:]
+            ttheta_d = args[ntt:2 * ntt]
+            llmd = args[2 * ntt:2 * ntt + nll]
+            ttau = args[2 * ntt + nll:]
 
             args1 = np.concatenate((ttheta, ttheta_d, ttau))
 
@@ -758,7 +820,7 @@ class DAE_System(object):
         # or if symbol names clash with additional options
         keys = set(kwargs.keys())
         valid_symbol_names = set([s.name for s in list(self.mod.tt) + list(self.mod.ttd)])
-        valid_estimate_names = set([n+"_estimate" for n in valid_symbol_names])
+        valid_estimate_names = set([n + "_estimate" for n in valid_symbol_names])
 
         assert not valid_symbol_names.intersection(option_names)
         assert not valid_estimate_names.intersection(option_names)
@@ -874,11 +936,10 @@ class DAE_System(object):
         nll = self.nll
 
         if isinstance(xx, (tuple, list)) and len(xx) == 2 \
-           and isinstance(xx[0], np.ndarray) and isinstance(xx[1], np.ndarray):
-
+                and isinstance(xx[0], np.ndarray) and isinstance(xx[1], np.ndarray):
             xx = np.concatenate(xx)
 
-        assert xx.shape == (2*ntt,)
+        assert xx.shape == (2 * ntt,)
 
         external_forces = self.input_func(t)
 
@@ -909,7 +970,7 @@ class DAE_System(object):
         acc, llmd = self.calc_consistent_accel_lmd((ttheta, ttheta_d), t=t)
 
         yy = np.concatenate((ttheta, ttheta_d, llmd))
-        yyd = np.concatenate((ttheta_d, acc, llmd*0))
+        yyd = np.concatenate((ttheta_d, acc, llmd * 0))
 
         # a b c # write unit test for this function, then try IDA algorithm
 
@@ -1045,7 +1106,7 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, dissip
     dissipation_function = sp.sympify(dissipation_function)
     assert isinstance(dissipation_function, sp.Expr)
 
-    llmd = st.symb_vector("lambda_1:{}".format(nC+1))
+    llmd = st.symb_vector("lambda_1:{}".format(nC + 1))
 
     F = sp.Matrix(F)
 
@@ -1054,7 +1115,7 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, dissip
         F = F.T
     if not F.shape == (n, 1):
         msg = "Vector of external forces has the wrong length. Should be " + \
-        str(n) + " but is %i!"  % F.shape[0]
+              str(n) + " but is %i!" % F.shape[0]
         raise ValueError(msg)
 
     # introducing symbols for the derivatives
@@ -1080,7 +1141,7 @@ def generate_symbolic_model(T, U, tt, F, simplify=True, constraints=None, dissip
 
     # constraints
 
-    constraint_terms = list(llmd.T*jac_constraints)
+    constraint_terms = list(llmd.T * jac_constraints)
 
     # lagrange equation 1st kind (which include 2nd kind as special case if constraints are empty)
 
@@ -1139,7 +1200,7 @@ def solve_eq(model):
 def is_zero_equilibrium(model):
     """ checks model for equilibrium point zero """
     # substitution of state variables and their derivatives to zero
-    #substitution of input to zero --> stand-alone system
+    # substitution of input to zero --> stand-alone system
     subslist = st.zip0(model.qs) + st.zip0(model.qds) + st.zip0(
         model.qdds) + st.zip0(model.extforce_list)
     eq_1 = model.eq_list.subs(subslist)
@@ -1171,15 +1232,15 @@ def transform_2nd_to_1st_order_matrices(P0, P1, P2, xx):
     """
 
     assert P0.shape == P1.shape == P2.shape
-    assert xx.shape == (P0.shape[1]*2, 1)
+    assert xx.shape == (P0.shape[1] * 2, 1)
 
     xxd = st.time_deriv(xx, xx)
 
-    N = int(xx.shape[0]/2)
+    N = int(xx.shape[0] / 2)
 
     # definitional equations like xdot1 - x3 = 0 (for N=2)
     eqns_def = xx[N:, :] - xxd[:N, :]
-    eqns_mech = P2*xxd[N:, :] + P1*xxd[:N, :] + P0*xx[:N, :]
+    eqns_mech = P2 * xxd[N:, :] + P1 * xxd[:N, :] + P0 * xx[:N, :]
 
     F = st.row_stack(eqns_def, eqns_mech)
 
@@ -1187,4 +1248,3 @@ def transform_2nd_to_1st_order_matrices(P0, P1, P2, xx):
     P1_bar = F.jacobian(xxd)
 
     return P0_bar, P1_bar
-
