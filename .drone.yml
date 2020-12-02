@@ -14,3 +14,5 @@ steps:
   - ls symbtools
   - ls symbtools/test
   - python symbtools/test/run_all_tests.py all
+  - pip install control casadi
+  - python symbtools/test/run_all_tests.py optdep

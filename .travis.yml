@@ -17,7 +17,7 @@ script:
  - ls
  - ls symbtools
  - ls symbtools/test
- - python symbtools/test/test_all.py all
+ - python symbtools/test/run_all_tests.py all
 #  install optional dependency
  - pip install control casadi
- - python symbtools/test/test_all.py optdep
+ - python symbtools/test/run_all_tests.py optdep
