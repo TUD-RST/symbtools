@@ -403,7 +403,7 @@ class TestSupportFunctions(unittest.TestCase):
 
         x2_func = sp.Function(x2.name)(t)
 
-        self.assertEqual(type(type(m3[0][1])), sp.function.UndefinedFunction)
+        self.assertEqual(type(type(m3[0][1])), sp.core.function.UndefinedFunction)
         self.assertEqual(m3[-1][1], x2_func.diff(t, t))
 
 

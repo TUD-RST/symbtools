@@ -268,7 +268,7 @@ def commutative_simplification(expr, exclude, max_deg=20):
               "The following are not: %s" % str(com_symbs)
         raise ValueError(msg)
 
-    functions = expr.atoms(sp.function.AppliedUndef)
+    functions = expr.atoms(sp.core.function.AppliedUndef)
     if not len(functions) == 0:
         msg = "Undefined functions currently not supported."
         raise NotImplementedError(msg)
