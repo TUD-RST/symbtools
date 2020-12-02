@@ -50,7 +50,7 @@ class Tests1(unittest.TestCase):
 
         # due to time_deriv now the .ddt_func attribute is set for a, b, adot, bdot
         self.assertTrue(isinstance(adot.ddt_func, sp.Derivative))
-        self.assertEqual(type(type(a.ddt_func)), sp.function.UndefinedFunction)
+        self.assertEqual(type(type(a.ddt_func)), sp.core.function.UndefinedFunction)
         self.assertEqual(type(a.ddt_func).__name__, a.name)
 
         self.assertEqual(a.ddt_child, adot)

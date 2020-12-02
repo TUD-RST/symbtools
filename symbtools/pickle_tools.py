@@ -109,17 +109,26 @@ class PseudoAppliedFunc(object):
         :param appl_func:
         """
 
-        assert isinstance(appl_func, sp.function.AppliedUndef)
+        assert isinstance(appl_func, sp.core.function.AppliedUndef)
         self.name = appl_func.name
         self.args = appl_func.args
         # noinspection PyProtectedMember
         self.assumptions = appl_func._assumptions
 
-        if not appl_func.atoms(sp.function.AppliedUndef) == {appl_func}:
+        if not appl_func.atoms(sp.core.function.AppliedUndef) == {appl_func}:
             msg = "nested calls of applied Functions are not yet supported."
             raise NotImplementedError(msg)
 
     def make_func(self):
+
+        # in sympy 1.7 there is a difference between ._assumptions and .assumptions0
+        #  ._assumptions was used to create self.assumptions before pickling.
+        # it e.g. might contain {"commutative": True}
+        # however this should not be passed to the constructor (it is implicitly assumed, but results in a different
+        # object when explicitly passed)
+
+        if self.assumptions.get("commutative", None) is True:
+            self.assumptions.pop("commutative")
 
         return sp.Function(self.name, **self.assumptions)(*self.args)
 
@@ -171,7 +180,7 @@ def find_relevant_attributes(symbol_list):
         for key, value in local_relevant_items:
             if hasattr(value, "atoms"):
                 symbs = value.atoms(sp.Symbol)
-                appl_funcs = value.atoms(sp.function.AppliedUndef)
+                appl_funcs = value.atoms(sp.core.function.AppliedUndef)
                 new_symbol_candidates = new_symbol_candidates.union(symbs)
 
                 # store the key to easily access this attribute later
@@ -201,7 +210,7 @@ def replace_functions_in_pdata(pdata, attributes, function_keys):
     for key, value in pdata.__dict__.items():
         if isinstance(value, (sp.Expr, sp.MatrixBase)):
             sp_obj_keys.append(key)
-            expr_funcs.update(value.atoms(sp.function.AppliedUndef))
+            expr_funcs.update(value.atoms(sp.core.function.AppliedUndef))
 
     attr_funcs = set(function_keys.keys())  # functions which are hidden in attribute-store dict
 

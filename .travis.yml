@@ -1,9 +1,9 @@
 language: python
 
 python:
-  - "3.4"
   - "3.5"
   - "3.6"
+  - "3.7"
 
 install:
  - pip install -r requirements.txt
@@ -13,7 +13,11 @@ install:
 script:
 # matplotlib is only needed in some testing scripts (no real requirement)
  - pip install matplotlib
- - python symbtools/test/test_all.py all
+ - pwd
+ - ls
+ - ls symbtools
+ - ls symbtools/test
+ - python symbtools/test/run_all_tests.py all
 #  install optional dependency
  - pip install control casadi
- - python symbtools/test/test_all.py optdep
+ - python symbtools/test/run_all_tests.py optdep

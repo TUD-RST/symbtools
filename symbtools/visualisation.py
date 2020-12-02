@@ -140,7 +140,7 @@ class Visualiser:
 
         return drawables
 
-    def plot_onion_skinned(self, variables_values, axes=None, max_lightness=0.9):
+    def plot_onion_skinned(self, variables_values, axes=None, change_alpha=False, max_lightness=0.9):
         """
         !!! EXPERIMENTAL !!!
         Plot multiple configurations in one picture with 'older' data shown lighter
@@ -157,6 +157,17 @@ class Visualiser:
             # TODO: Probably should not do that, but it prevents an empty plot from popping up in IPython
             plt.close(fig)
 
+        def lighten_color(orig_mpl_color, i_norm):
+            orig_rgb = colors.to_rgb(orig_mpl_color)  # 3-tuple of floats [0, 1]
+            # convert to hue, lightness, saturation color space
+            orig_h, orig_l, orig_s = colorsys.rgb_to_hls(*orig_rgb)
+            # interpolate, max_lightness for oldest frame, original lightness for newest
+            #new_l = orig_l + (max_lightness - orig_l) * (1 - i_norm)  # linear interpolation
+            new_l = (orig_l - max_lightness) * i_norm**2 + max_lightness  # quadratic, local max at higher brightness
+            new_rgb = colorsys.hls_to_rgb(orig_h, new_l, orig_s)
+
+            return new_rgb
+
         total_frames = variables_values.shape[0]
         
         for i in range(total_frames):
@@ -164,15 +175,25 @@ class Visualiser:
             i_norm = i / (total_frames - 1)  # 0.0 is iteration start, 1.0 is last iteration
             drawables = self.plot_init(frame_values, axes)
             for drawable in drawables:
-                orig_mpl_color = drawable.get_color()
-                orig_rgb = colors.to_rgb(orig_mpl_color)  # 3-tuple of floats [0, 1]
-                # convert to hue, lightness, saturation color space
-                orig_h, orig_l, orig_s = colorsys.rgb_to_hls(*orig_rgb)
-                # interpolate, max_lightness for oldest frame, original lightness for newest
-                #new_l = orig_l + (max_lightness - orig_l) * (1 - i_norm)  # linear interpolation
-                new_l = (orig_l - max_lightness) * i_norm**2 + max_lightness  # quadratic, local max at higher brightness
-                new_rgb = colorsys.hls_to_rgb(orig_h, new_l, orig_s)
-                drawable.set_color(new_rgb)
+                if change_alpha:
+                    # interpolate alpha linearly from (1 - max_lightness) to 1
+                    new_alpha = 1 - (1-i_norm) * max_lightness
+                    drawable.set_alpha(new_alpha)
+                else:
+                    try:
+                        # drawable is a line
+                        new_color = lighten_color(drawable.get_color(), i_norm)
+                        new_mec = lighten_color(drawable.get_mec(), i_norm)
+                        new_mfc = lighten_color(drawable.get_mfc(), i_norm)
+                        drawable.set_color(new_color)
+                        drawable.set_mec(new_mec)
+                        drawable.set_mfc(new_mfc)
+                    except:
+                        # drawable is a patch
+                        new_fc = lighten_color(drawable.get_facecolor(), i_norm)
+                        new_ec = lighten_color(drawable.get_edgecolor(), i_norm)
+                        drawable.set_facecolor(new_fc)
+                        drawable.set_edgecolor(new_ec)
 
         if fig is not None and in_ipython_context:
             ip_display(fig)
@@ -441,12 +462,21 @@ def update_polygon(ax, drawables, points, kwargs):
 
 
 def init_disk(ax, points, kwargs):
+    kwargs = kwargs.copy()  # don't modify passed in dict
+    plot_radius = kwargs.pop("plot_radius", True)
+
     assert points.shape == (2, 2)
     center_point = points[:, 0]
     border_point = points[:, 1]
     radius = np.sqrt(np.sum((border_point - center_point) ** 2))
     circle = plt.Circle(center_point, radius, **merge_options(kwargs, fill=False))
-    line, = ax.plot(points[0, :], points[1, :], **merge_options(kwargs, color=circle.get_edgecolor()))
+
+    line_incompatible_kwargs = ["fill", "edgecolor", "ec", "facecolor", "fc"]
+    line_kwargs = {k:v for (k,v) in kwargs.items() if k not in line_incompatible_kwargs}
+    line, = ax.plot(points[0, :], points[1, :],
+                    **merge_options(line_kwargs,
+                        color=circle.get_edgecolor(),
+                        ls='-' if plot_radius else 'None'))
 
     ax.add_patch(circle)
 

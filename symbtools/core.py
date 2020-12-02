@@ -22,6 +22,7 @@ import warnings
 # goal: trigger deprecation warnings in this module, result: triggers many warnings in
 # other modules, too. -> comment out
 # warnings.simplefilter('default')
+# warnings.filterwarnings("error")
 
 import numpy as np
 import sympy as sp
@@ -41,7 +42,7 @@ np.set_printoptions(8, linewidth=300)
 
 piece_wise = sp.functions.elementary.piecewise.Piecewise # avoid name clashes with sage
 
-zf = sp.numbers.Zero()
+zf = sp.core.numbers.Zero()
 
 # SymNum_Container:
 SNC = namedtuple("SNC", ("expr", "func"))
@@ -1230,7 +1231,7 @@ def funcs_to_symbs(expr, funcs=None, symbs=None, arg=None, kwargs = None):
     if not kwargs:
         kwargs = {}
 
-    funcs = list(atoms(expr, sp.function.AppliedUndef))
+    funcs = list(atoms(expr, sp.core.function.AppliedUndef))
     symbs = [sp.Symbol(str(type(f)), **kwargs) for f in funcs]
 
     return expr.subs(lzip(funcs, symbs))
@@ -3022,7 +3023,7 @@ def random_equaltest(exp1, exp2,  info = False, integer = False, seed = None, to
 
     # we only look for undefined functions, but not for cos(..) etc
     # the latter would be matched by sp.Function
-    func_class = sp.function.AppliedUndef
+    func_class = sp.core.function.AppliedUndef
 
     funcs = exp1.atoms(func_class).union(exp2.atoms(func_class))
 
@@ -3087,7 +3088,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
     # now functions
     # we only look for undefined functions, but not for cos(..) etc
     # the latter would be matched by sp.Function
-    func_class = sp.function.AppliedUndef
+    func_class = sp.core.function.AppliedUndef
     funcs = list(expr.atoms(func_class))
 
     # the challenge is to filter out all functions and derivative objects
@@ -3263,11 +3264,11 @@ def generic_rank(M, **kwargs):
 
     # define the precisions
     prec1, prec2, prec3 = plist = 100, 200, 300
-    # rnst1, rnst2, rnst3 = rnst_list = [rnd_number_subs_tuples(M, seed=seed, prec=p) for p in plist]
-    # M1, M2, M3 = [M.subs(r).evalf(prec=p) for (r, p) in lzip(rnst_list, plist)]
+    # rnst1, rnst2, rnst3 = rnst_list = [rnd_number_subs_tuples(M, seed=seed, n=p) for p in plist]
+    # M1, M2, M3 = [M.subs(r).evalf(n=p) for (r, p) in lzip(rnst_list, plist)]
 
     rnst = rnd_number_subs_tuples(M, seed=seed, rational=True)
-    M1, M2, M3 = [M.subs(rnst).evalf(prec=p) for p in plist]
+    M1, M2, M3 = [M.subs(rnst).evalf(n=p) for p in plist]
 
     # calculate the coeffs of the charpoly
     # berkowitz-method sorts from highes to lowest -> reverse the tuples
@@ -3383,8 +3384,8 @@ def rnd_number_rank(M, **kwargs):
     nod2 = nod1 + 200
 
     rnst = rnd_number_subs_tuples(M, **kwargs)
-    M1 = M.subs(rnst).evalf(prec=nod1)
-    M2 = M.subs(rnst).evalf(prec=nod2)
+    M1 = M.subs(rnst).evalf(n=nod1)
+    M2 = M.subs(rnst).evalf(n=nod2)
 
     if 0:
 
