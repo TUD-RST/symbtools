@@ -22,6 +22,7 @@ import warnings
 # goal: trigger deprecation warnings in this module, result: triggers many warnings in
 # other modules, too. -> comment out
 # warnings.simplefilter('default')
+# warnings.filterwarnings("error")
 
 import numpy as np
 import sympy as sp
@@ -41,7 +42,7 @@ np.set_printoptions(8, linewidth=300)
 
 piece_wise = sp.functions.elementary.piecewise.Piecewise # avoid name clashes with sage
 
-zf = sp.numbers.Zero()
+zf = sp.core.numbers.Zero()
 
 # SymNum_Container:
 SNC = namedtuple("SNC", ("expr", "func"))
