@@ -121,6 +121,15 @@ class PseudoAppliedFunc(object):
 
     def make_func(self):
 
+        # in sympy 1.7 there is a difference between ._assumptions and .assumptions0
+        #  ._assumptions was used to create self.assumptions before pickling.
+        # it e.g. might contain {"commutative": True}
+        # however this should not be passed to the constructor (it is implicitly assumed, but results in a different
+        # object when explicitly passed)
+
+        if self.assumptions.get("commutative", None) is True:
+            self.assumptions.pop("commutative")
+
         return sp.Function(self.name, **self.assumptions)(*self.args)
 
 
