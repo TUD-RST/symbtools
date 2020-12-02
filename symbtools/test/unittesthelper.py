@@ -1,7 +1,8 @@
 """
 This modules provides some auxiliary functions for test execution.
 1. Handle command line args which are passed to the test_* scripts.
-2. Enable the command: python -c "from symbtools.test import run_all; run_all()".
+2. Enable the command: `python -c "from symbtools.test import run_all; run_all()"`.
+This is relvant for test execution on travis.
 
 It should be loaded before the `untitest` module as it alters sys.argv which seems to be evaluated by that module
 """
