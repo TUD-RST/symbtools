@@ -1218,16 +1218,18 @@ class RandNumberTest(unittest.TestCase):
         self.assertEqual(st.generic_rank(M7.T, seed=1814), 3)
         self.assertEqual(st.generic_rank(M8, seed=1814), 3)
 
-        # TODO: This should raise a warning
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             warnings.simplefilter("always")
             res = st.generic_rank(M9, seed=2051)
 
-            self.assertEqual(len(w), 1)
-            self.assertTrue(issubclass(w[-1].category, UserWarning))
-            self.assertTrue("Float" in str(w[-1].message))
-        # nevertheless result should be correct
+        # there should be exactly one warning (triggered by us).
+        # However other warnings (such as deprecations), should not cause the tes to fail.
+        self.assertTrue(len(w) >= 1)
+        self.assertTrue(issubclass(w[0].category, UserWarning))
+        self.assertTrue("Float" in str(w[0].message))
+
+        # anyway result should be correct
         self.assertEqual(res, 6)
 
     def test_rationalize_all_numbers(self):

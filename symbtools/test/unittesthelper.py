@@ -148,7 +148,7 @@ def smart_run_tests_in_ns(ns):
         runner.run(gen_suite_from_ns_and_list(ns, tests_with_optional_deps))
     else:
         globals().update(ns)
-        unittest.main()
+        unittest.main(failfast=True)
 
 
 def run_all():

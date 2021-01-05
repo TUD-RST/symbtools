@@ -5,8 +5,8 @@
 useful functions on basis of sympy
 """
 
-import inspect
-from collections import Counter, Iterable, namedtuple
+from collections import Counter, namedtuple
+from collections.abc import Iterable
 import random
 import itertools as it
 import collections as col
@@ -26,6 +26,7 @@ import warnings
 
 import numpy as np
 import sympy as sp
+from sympy.matrices.matrices import MatrixBase
 
 
 try:
@@ -3608,7 +3609,7 @@ def ensure_mutable(arg):
     # TODO: e.g. sp.sympify converts a MutableMatrix to ImmutableMatrix
     # maybe this changes in future sympy releases
     # which might make this function obsolete (?)
-    if isinstance(arg, sp.matrices.MatrixBase):
+    if isinstance(arg, MatrixBase):
         return as_mutable_matrix(arg)
     else:
         return arg
