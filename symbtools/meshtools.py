@@ -730,7 +730,9 @@ class Grid(object):
         for n in all_boundary_nodes:
 
             # map from func_value \in {False, True} to boundary_flag_value \in (-1, 1)
-            problematic_flag_value = (1, -1)[n.func_val]
+
+            int_index = int(n.func_val)  # convert boolean to 0 or 1
+            problematic_flag_value = (1, -1)[int_index]
 
             cells = self.get_cells_for_point(n.idcs)
             for c in cells:
