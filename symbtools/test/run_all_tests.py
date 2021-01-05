@@ -11,10 +11,11 @@ import test_core
 import test_modeltools
 import test_nctools
 import test_quick
+import test_meshtools
 
 
 def main():
-    modules = [test_core, test_modeltools, test_nctools, test_quick]
+    modules = [test_core, test_modeltools, test_nctools, test_quick, test_meshtools]
 
     if uth.FLAGS.optdep:
         import test_mpctools
