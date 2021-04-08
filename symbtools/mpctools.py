@@ -22,6 +22,7 @@ class CassadiPrinter(LambdaPrinter):
                          'allow_unknown_functions': True, 'order': None,
                          'human': True,
                          'full_prec': True,
+                         'standard': 'python3',
                          'user_functions': {}}
 
     printmethod = "_numexprcode"
