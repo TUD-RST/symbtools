@@ -4,7 +4,7 @@ Created on 2019-12-11 11:00:00
 @author: Carsten Knoll
 @author: Yuewen He
 
-This module contains helper-algorithms to investigate the region off attra-
+This module contains helper-algorithms to investigate the region of attra-
 ction (ROA) of a dynamical system.
 Mainly it contains the classes Grid, GridCell and Node which facilitate
 an adaptive mesh refinement (AMR) scheme in n
@@ -39,7 +39,7 @@ import os
 # this is for debugging
 import matplotlib.pyplot as plt
 import matplotlib.patches as mp
-debug_mode = 0
+debug_mode = 1
 if debug_mode:
     # noinspection PyUnresolvedReferences
     from ipydex import IPS, activate_ips_on_exception
@@ -79,7 +79,9 @@ class NodeDataBase(object):
 
     def add(self, node):
         """
-        add a node to the appriate level-list and to the list of all nodes
+        add a node to the appriate level-list and to the list of all nodes；
+        if the node is on the boundary of the roi, then add the node to the
+        boundary node list
         """
 
         assert isinstance(node, Node)
@@ -94,7 +96,8 @@ class NodeDataBase(object):
         """
 
         :param func:
-        :param simulation_mod:  flag to determine whether simulation results should be stored inside node
+        :param simulation_mod:
+        flag to determine whether simulation results should be stored inside node
         :return:
         """
         for node in self.new_nodes:
@@ -114,6 +117,9 @@ class NodeDataBase(object):
         return not bool(node.func_val)
 
     def get_all_or_max_level_nodes(self, only_max_level):
+        """
+        get all nodes in the maximal level or get all nodes
+        """
         if only_max_level:
             target_nodes = self.levels[self.grid.max_level]
         else:
@@ -122,21 +128,35 @@ class NodeDataBase(object):
         return target_nodes
 
     def get_inner_nodes(self, idcs=None, only_max_level=True):
+        """
+        get all inside nodes in the maximal level
+        """
         target_nodes = self.get_all_or_max_level_nodes(only_max_level)
         return self.node_list_to_array(target_nodes,
                                        idcs, cond_func=self.is_inner)
 
     def get_outer_nodes(self, idcs=None, only_max_level=True):
+        """
+        get all outside nodes in the maximal level
+        """
         target_nodes = self.get_all_or_max_level_nodes(only_max_level)
         return self.node_list_to_array(target_nodes,
                                        idcs, cond_func=self.is_outer)
 
     def get_inner_boundary_nodes(self, level):
-
+        """
+        get the nodes of boundary cells, which are also inside of the boundary.
+        Notice: the boundary of the aim form will pass across the boundary cells
+        and divides the nodes of the boundary cells into 2 type:
+        inner_boundary_nodes and outer_boundary_nodes
+        """
         target_nodes = self.inner_boundary_nodes[level]
         return self.node_list_to_array(target_nodes)
 
     def get_outer_boundary_nodes(self, level):
+        """
+        get the nodes of boundary cells, which are also outside of the boundary.
+        """
 
         target_nodes = self.outer_boundary_nodes[level]
         return self.node_list_to_array(target_nodes)
@@ -162,20 +182,13 @@ class NodeDataBase(object):
             nl = [nl]
 
         if selected_idcs is None:
+            # 2-dimension selected_idcs=[0, 1]; 3-d:[0, 1, 2]
             selected_idcs = list(range(self.grid.ndim))
 
         if cond_func is None:
             # noinspection PyShadowingNames,PyUnusedLocal
             def cond_func(node):
                 return True
-
-        if isinstance(cond_func, (tuple, list)):
-            cond_func_sequence = cond_func
-
-            # noinspection PyShadowingNames
-            def cond_func(node):
-                r = [f(node) for f in cond_func_sequence]
-                return all(r)
 
         # noinspection PyUnusedLocal
         res = [list() for i in range(len(selected_idcs))]
@@ -261,7 +274,7 @@ class Node(object):
 
         neighbors = []
 
-        # iterate over all cells where this node is a part of
+        # iterate over all cells which contains this node
         for c in self.cells:
 
             # get all edges of this cell where this node is a part of
@@ -279,15 +292,6 @@ class Node(object):
         # remove duplicates:
 
         return list(dict.fromkeys(neighbors))
-
-    # noinspection PyPep8Naming
-    def find_near_iDCs(self):
-        """
-        Check all neighbour
-        :return:
-        """
-        # will be finished later
-        raise NotImplementedError
 
     def __repr__(self):
 
@@ -395,7 +399,7 @@ class Grid(object):
         all_pairs = list(itertools.combinations(self.vertex_local_idcs, 2))
 
         def is_edge(pair):
-            return hamming(pair[0], pair[1])*self.ndim == 1
+            return hamming(pair[0], pair[1]) * self.ndim == 1
 
         edge_pairs = list(filter(is_edge, all_pairs))
 
@@ -497,7 +501,7 @@ class Grid(object):
 
         :return:
         """
-        lengths = self.mg[0].shape  # (n1 von xx,n2 von yy)
+        lengths = self.mg[0].shape  # (n1 of xx,n2 of yy)
 
         index_sequences = []
         for L in lengths:
@@ -730,9 +734,7 @@ class Grid(object):
         for n in all_boundary_nodes:
 
             # map from func_value \in {False, True} to boundary_flag_value \in (-1, 1)
-
-            int_index = int(n.func_val)  # convert boolean to 0 or 1
-            problematic_flag_value = (1, -1)[int_index]
+            problematic_flag_value = (1, -1)[n.func_val]
 
             cells = self.get_cells_for_point(n.idcs)
             for c in cells:
@@ -934,7 +936,7 @@ class GridCell (object):
         edge_node_tuples = []
         for n1, n2 in self.grid.idx_edge_pairs:
             edge_node_tuples.append((self.vertex_nodes[n1],
-                               self.vertex_nodes[n2]))
+                                     self.vertex_nodes[n2]))
 
         return edge_node_tuples
 
@@ -1110,19 +1112,22 @@ class object_wothout_simulation(object):
         self.func = func
         self.pc = pc
 
+
 # noinspection PyPep8Naming
 class ROA_Approximation(object):
     """
     Author Yuewen He
     arg:
-    mg: meshgrid; mod: model of the system, which has right-hand-side equation,
-    para: parameter of the system; mod_name, number: used to save the picture;
+    mg: meshgrid;
+    mod: model of the system, which has right-hand-side equation;
+    para: parameter of the system; mod_name;
     xx_res: Target balance point
-    refinement: default means no simulation, otherweise start the simulation
+    refinement: default means no refinement,
+    otherweise start the refinement.
     """
 
     def __init__(self, mg, mod, Pole,
-                 max_level_refinement, para, mod_name, number,
+                 max_level_refinement, para,
                  xx_res=None, refinement=None):
         self.Pole = Pole
         self.mod = mod
@@ -1131,8 +1136,6 @@ class ROA_Approximation(object):
         self.grid = Grid(mg)
         self.Pole = Pole
         self.para = para
-        self.number = number
-        self.mod_name = mod_name
         # parameters of the system
         if xx_res is None:
             self.xx_res = np.zeros(len(mod.xx))
@@ -1145,9 +1148,6 @@ class ROA_Approximation(object):
         else:
             self.data = self.get_volume_fraction()
             self.fraction = self.data[1]
-            self.inner_cells = self.data[2]
-            self.outer_cells = self.data[3]
-            self.boundary_cells = self.data[4]
             self.nodes = self.data[0].ndb.all_nodes
             self.result = self.data[5]
             self.roi_volumes = self.data[6]
@@ -1245,7 +1245,7 @@ class ROA_Approximation(object):
         """
         return:
         grid
-        vf: volume fraction( value between 0 and 1)
+        vf: volume fraction (value between 0 and 1)
         list of cells in different type. This is for matplotlib
         """
 
@@ -1256,29 +1256,12 @@ class ROA_Approximation(object):
             aa = grid.sum_volumes()
             result[i, :] = aa
         # self.draw_process(result)
-        plt.figure()
-        a = sum_cells(grid.inner_cells, self.max_level_refinement)
-        b = sum_cells(grid.outer_cells, self.max_level_refinement)
-        c = grid.boundary_cells[self.max_level_refinement-1]
-        cells_in = []
-        cells_out = []
-        cells_bou = []
-        for i, cell in enumerate(a):
-            edges = np.array(cell.get_edge_coords())
-            cells_in.append(edges)
-        for i, cell in enumerate(b):
-            edges = np.array(cell.get_edge_coords())
-            cells_out.append(edges)
-        for i, cell in enumerate(c):
-            edges = np.array(cell.get_edge_coords())
-            cells_bou.append(edges)
         roi_volumes = grid.roi_volumes()
         res_roi = roi_volumes[0]/sum(roi_volumes)
         res_roa = grid.volume_fraction()
         roa_volumes = grid.sum_volumes()
         return \
             grid, np.array([res_roa, res_roi]), \
-            cells_in, cells_out, cells_bou, result, \
             roi_volumes, roa_volumes
 
     def draw_process(self):
@@ -1299,7 +1282,6 @@ class ROA_Approximation(object):
         plt.legend()
         plt.show()
         plt.savefig("process")
-
 
 
 class ROA_Approximation_judge(object):
@@ -1334,9 +1316,6 @@ class ROA_Approximation_judge(object):
         else:
             self.data = self.get_data()
             self.fraction = self.data[1]
-            self.inner_cells = self.data[2]
-            self.outer_cells = self.data[3]
-            self.boundary_cells = self.data[4]
             self.nodes = self.data[0].ndb.all_nodes
             self.result = self.data[5]
             self.roi_volumes = self.data[6]
@@ -1352,7 +1331,6 @@ class ROA_Approximation_judge(object):
         grid, volume fraction (value between 0 and 1),
         list of cells in different type. This is for matplotlib
         """
-
         grid = self.grid
         result = np.zeros((self.max_level_refinement, 3))
         for i in range(self.max_level_refinement):
@@ -1360,38 +1338,12 @@ class ROA_Approximation_judge(object):
             aa = grid.sum_volumes()
             result[i, :] = aa
         # self.draw_process(result)
-        plt.figure()
-        # collect all cells of different types
-        a = sum_cells(grid.inner_cells)
-        b = sum_cells(grid.outer_cells)
-        c = grid.boundary_cells[self.max_level_refinement-1]
-        # save data of cells into lists:
-        # (original punkt of the cell, length of each edge)
-        cells_in = []
-        cells_out = []
-        cells_bou = []
-        for i, cell in enumerate(a):
-            edges = np.array(cell.get_edge_coords())
-            vertex0 = cell.get_vertex_coords()[0]  # original punkt of the cell
-            lw = grid.coord_stepwidth / (2 ** (cell.level))
-            cells_in.append([edges, vertex0, lw])
-        for i, cell in enumerate(b):
-            edges = np.array(cell.get_edge_coords())
-            vertex0 = cell.get_vertex_coords()[0]
-            lw = grid.coord_stepwidth / (2 ** (cell.level))
-            cells_out.append([edges, vertex0, lw])
-        for i, cell in enumerate(c):
-            edges = np.array(cell.get_edge_coords())
-            vertex0 = cell.get_vertex_coords()[0]
-            lw = grid.coord_stepwidth / (2 ** (cell.level))
-            cells_bou.append([edges, vertex0, lw])
         roi_volumes = grid.roi_volumes()
         res_roi = roi_volumes[0]/sum(roi_volumes)
         res_roa = grid.volume_fraction()
         roa_volumes = grid.sum_volumes()
         return \
             grid, np.array([res_roa, res_roi]), \
-            cells_in, cells_out, cells_bou, result, \
             roi_volumes, roa_volumes
 
     def draw_process(self):
@@ -1559,7 +1511,7 @@ def draw_cells(object_temp, name_number, save=None, path_folder=None, node_examp
         XX, YY, ZZ = grid_eval_2d_func(object_temp.func, x_min_max, y_min_max)
         plt.contour(XX, YY, ZZ, colors='k')
     # if the apptoximation need simulation, then add the trajektories in plot
-    if object_temp.judge is not None:
+    elif object_temp.judge is not None:
         for i in node_examples:
             pp = object_temp.judge(i)
             # draw the trajektory of a initial punkt
