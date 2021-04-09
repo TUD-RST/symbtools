@@ -1459,22 +1459,15 @@ def func_bump(x, offset=0, amplitude=1, exponent=2):
     return offset + amplitude/(1 + x**exponent)
 
 
-def draw_cells(object_temp, name_number, save=None, path_folder=None, node_examples=None):
-    """
-    arg:
-    object_temp: class object, which contains grid, target form, level of refinement;
-    save: difault None. When the bild need to be saved, assign it.
-    foder path: save the bild with the folder path
-    this function is used to draw the cells of different types.
-    """
-    fig, ax = plt.subplots(1, figsize=(7, 7))
+def draw_cells(grid):
+    max_level_refinement = grid.max_level + 1
     # collect all cells of different types
-    all_inner_cells = sum_cells(object_temp.grid.inner_cells,
-                                object_temp.max_level_refinement)
-    all_outer_cells = sum_cells(object_temp.grid.outer_cells,
-                                object_temp.max_level_refinement)
-    boundary_cells_maxlevel = object_temp.grid.boundary_cells[
-                              object_temp.max_level_refinement - 1]
+    all_inner_cells = sum_cells(grid.inner_cells, max_level_refinement)
+    all_outer_cells = sum_cells(grid.outer_cells, max_level_refinement)
+    boundary_cells_maxlevel = grid.boundary_cells[ max_level_refinement - 1]
+
+    ax = plt.gca()
+
     for cell in (all_inner_cells):
         edges = np.array(cell.get_edge_coords())
         plt.plot(*edges.T, 'C2--')
@@ -1482,76 +1475,25 @@ def draw_cells(object_temp, name_number, save=None, path_folder=None, node_examp
         vertex0 = cell.get_vertex_coords()[0]
         # lw: taking vertex0 as the origin, the extension of the cell
         # in each dimension
-        lw = object_temp.grid.coord_stepwidth / (2 ** (cell.level))
+        lw = grid.coord_stepwidth / (2 ** (cell.level))
         rect1 = mp.Rectangle(vertex0, lw[0], lw[1], facecolor='C2', alpha=0.3)
         ax.add_patch(rect1)
-    plt.plot(*edges[0][0].T, 'C2--', label='positiv cells')
 
     for cell in (all_outer_cells):
         edges = np.array(cell.get_edge_coords())
         plt.plot(*edges.T, 'C1--')
         vertex0 = cell.get_vertex_coords()[0]
-        lw = object_temp.grid.coord_stepwidth / (2 ** (cell.level))
+        lw = grid.coord_stepwidth / (2 ** (cell.level))
         rect2 = mp.Rectangle(vertex0, lw[0], lw[1], facecolor='C1', alpha=0.3)
         ax.add_patch(rect2)
-    plt.plot(*edges[0][0].T, 'C1--', label='negativ cells')
 
     for cell in (boundary_cells_maxlevel):
         edges = np.array(cell.get_edge_coords())
         plt.plot(*edges.T, 'C0-')
         vertex0 = cell.get_vertex_coords()[0]
-        lw = object_temp.grid.coord_stepwidth / (2 ** (cell.level))
+        lw = grid.coord_stepwidth / (2 ** (cell.level))
         rect3 = mp.Rectangle(vertex0, lw[0], lw[1], facecolor='C0', alpha=0.3)
         ax.add_patch(rect3)
-    # limit of the grid
-    x_min_max = [object_temp.grid.minima[0], object_temp.grid.maxima[0]]
-    y_min_max = [object_temp.grid.minima[1], object_temp.grid.maxima[1]]
-    # draw the target form in contour line
-    if object_temp.func is not None:
-        XX, YY, ZZ = grid_eval_2d_func(object_temp.func, x_min_max, y_min_max)
-        plt.contour(XX, YY, ZZ, colors='k')
-    # if the apptoximation need simulation, then add the trajektories in plot
-    elif object_temp.judge is not None:
-        for i in node_examples:
-            pp = object_temp.judge(i)
-            # draw the trajektory of a initial punkt
-            XX1, XX2 = pp[2]
-            plt.plot(XX1, XX2, "k-", alpha=0.3)
-            # mark the initial punkt
-            plt.scatter(XX1[0], XX2[0], marker='x', s=50)
-
-    # show the punkts of the boundary cells
-    p1 = plt.scatter(*object_temp.pc.obp, c='C1', label="outside punkt",
-                     s=150, marker="x")
-    p2 = plt.scatter(*object_temp.pc.ibp, c='C2', label="inside punkt",
-                     s=80, marker="o")
-    # axis information
-    plt.xlabel(r"$x_{1}$", size=25)
-    plt.ylabel(r"$x_{2}$", size=25)
-    plt.xticks(fontsize=20)
-    plt.yticks(fontsize=20)
-    # show the legend
-    rect1 = mp.Rectangle((0, 0), 1, 1, facecolor='C2', alpha=0.3)
-    rect2 = mp.Rectangle((0, 1), 1, 1, facecolor='C1', alpha=0.3)
-    rect3 = mp.Rectangle((0, 0), 1, 1, facecolor='C0', alpha=0.3)
-    font1 = {'weight': 'normal',
-             'size': 20}
-    plt.legend((rect1, rect2, rect3, p1, p2),
-               ('positiv cells', 'negativ cells', 'boundary cells', "op", "ip"),
-               handlelength=1, handleheight=1, loc=3, prop=font1,
-               bbox_to_anchor=(1.05, 0))
-    # plt.legend(prop=font1,loc=3,bbox_to_anchor=(1.05, 0))
-    # path = r'C:/...'
-
-    if path_folder is not None:
-        fpath = os.path.join(path_folder, f"{0}_{name_number}.pdf")
-    else:
-        print("waiting for path...input folder path in arg 'path_folder=...'")
-    if save == 1:
-        plt.savefig(fpath, bbox_inches='tight', pad_inches=0.1)
-    # plt.axis('equal')
-    plt.show()
-
 
 def sum_cells(grid_type, max_level_refinement):
     """
