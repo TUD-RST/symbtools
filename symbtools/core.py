@@ -2411,10 +2411,10 @@ def matrix_with_rationals(A):
 
     return sp.Matrix(res)
 
-arr_float = np.frompyfunc(np.float, 1,1)
+arr_float = np.frompyfunc(float, 1,1)
 
 
-def to_np(arr, dtype=np.float):
+def to_np(arr, dtype=float):
     """ converts a sympy matrix in a nice numpy array
     """
     if isinstance(arr, sp.Matrix):
@@ -2448,7 +2448,7 @@ def zeros_to_coeffs(*z_list, **kwargs):
     p = sp.Mul(*[s-s0 for s0 in z_list])
 
     real_coeffs = kwargs.get("real_coeffs", True)
-    c = np.array(coeffs(p, s), dtype=np.float)
+    c = np.array(coeffs(p, s), dtype=float)
 
     if real_coeffs:
         c = np.real(c)
@@ -3560,7 +3560,7 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
         funcs = []
         for e in new_expr:
             func_i = sp.lambdify(args, e, modules, printer, use_imps)
-            func_iv = np.vectorize(func_i, otypes=[np.float])
+            func_iv = np.vectorize(func_i, otypes=[float])
             funcs.append(func_iv)
 
         def func2(*allargs):
@@ -3646,7 +3646,7 @@ def is_col_reduced(A, symb, return_internals = False):
     A = trunc_small_values(A)
 
     # degrees:
-    A_deg = to_np(matrix_degrees(A, symb), dtype = np.float)
+    A_deg = to_np(matrix_degrees(A, symb), dtype = float)
     max_degrees = list(A_deg.max(axis=0)) # columnwise maximum
 
     # TODO: unit-Test

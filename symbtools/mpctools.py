@@ -277,13 +277,13 @@ def unpack(sx_matrix, *args):
     return res
 
 
-def SX_to_np(sx_matrix, dtype=np.float):
+def SX_to_np(sx_matrix, dtype=np.float64):
     """
     convert sx_matrix in a numpy array of the same shape
     """
     # there is probably a better (direct) way to do that.
 
-    return np.array(unpack(sx_matrix), dtype=np.float).reshape(sx_matrix.shape)
+    return np.array(unpack(sx_matrix), dtype=np.float64).reshape(sx_matrix.shape)
 
 
 def distribute(in_data, *shapes):

@@ -947,7 +947,7 @@ class SymbToolsTest4(unittest.TestCase):
         self.assertTrue(st.is_number(sp.Rational(2, 7)))
         self.assertTrue(st.is_number(sp.Rational(2, 7).evalf(30)))
         self.assertTrue(st.is_number(sin(7)))
-        self.assertTrue(st.is_number(np.float(9000)))
+        self.assertTrue(st.is_number(float(9000)))
 
         self.assertFalse(st.is_number(x1))
         self.assertFalse(st.is_number(sin(x1)))
@@ -968,7 +968,7 @@ class SymbToolsTest4(unittest.TestCase):
         self.assertTrue(st.is_scalar(sp.Rational(2, 7)))
         self.assertTrue(st.is_scalar(sp.Rational(2, 7).evalf(30)))
         self.assertTrue(st.is_scalar(sin(7)))
-        self.assertTrue(st.is_scalar(np.float(9000)))
+        self.assertTrue(st.is_scalar(float(9000)))
         self.assertTrue(st.is_scalar(x1**2 + x3))
 
         self.assertFalse(st.is_scalar( sp.eye(3)*x2 ))
@@ -990,6 +990,7 @@ class SymbToolsTest4(unittest.TestCase):
         self.assertTrue(iss(0.1))
         self.assertTrue(iss(7.5 - 23j))
         self.assertTrue(iss(np.float64(0.1)))
+        self.assertTrue(iss(np.float128(0.1)))
 
         self.assertFalse(iss(M1))
         self.assertFalse(iss(M2))

@@ -33,6 +33,15 @@ def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
 
+def skip_sympy19_pickle_problem(func):
+    # this prevents tests crashing until the fix is released:
+    # see https://github.com/sympy/sympy/issues/22241
+    if sp.__version__ == "1.9":
+        return unittest.expectedFailure(func)
+    else:
+        return func
+
+
 def make_abspath(*args):
     """
     returns new absolute path, basing on the path of this module
@@ -336,6 +345,7 @@ class NCTTest(unittest.TestCase):
 
         self.assertTrue( all([r.is_commutative for r in exp1_c.atoms()]) )
 
+    @skip_sympy19_pickle_problem
     def test_make_all_symbols_commutative2(self):
         import pickle
         path = make_abspath('test_data', 'Q_matrix_cart_pendulum.pcl')
