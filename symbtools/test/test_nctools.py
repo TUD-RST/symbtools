@@ -294,9 +294,8 @@ class NCTTest(unittest.TestCase):
         self.assertEqual(res3, adot*s)
 
 
-    @unittest.expectedFailure
     def test_nc_sympy_multiplication_bug(self):
-    # This seems to be a sympy bug
+    # This once was a a sympy bug
         a, b = sp.symbols("a, b", commutative=False)
         E = sp.eye(2)
 
@@ -325,8 +324,8 @@ class NCTTest(unittest.TestCase):
 
         # this was a bug 2019-02-08 10:18:36
         Mb2 = sp.ImmutableDenseMatrix(Mb)
-        self.assertEqual(nct.nc_mul(a, Mb2), Mb*a)
-        self.assertEqual(nct.nc_mul(Mb2, a), a*Mb)
+        self.assertEqual(nct.nc_mul(a, Mb2), a*Mb)
+        self.assertEqual(nct.nc_mul(Mb2, a), Mb*a)
         self.assertFalse(Mb*a == a*Mb)
 
     def test_make_all_symbols_commutative(self):
