@@ -1131,7 +1131,7 @@ def is_number(expr, eps=1e-25, allow_complex=False):
 
     if allow_complex:
         try:
-            c = np.complex(expr)
+            c = complex(expr)
         except TypeError:
             return False
         if c == expr:
