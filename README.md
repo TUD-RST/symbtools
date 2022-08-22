@@ -19,8 +19,8 @@ Analyse und Numerischen Lösung (Simulation) von Bewegungsgleichungen mechanisch
 und ohne algebraische Nebenbedingungen mit Hilfe der Lagrange-Gleichungen 1. bzw. 2. Art dient.
 
 Eine klassische Dokumentation des Paketes ist in Vorbereitung. Vorerst wird auf die, die
-[Demo-Notebooks](https://nbviewer.jupyter.org/github/TUD-RST/symbtools/tree/master/docs/demo_notebooks/),
-auf die [Unit-Tests](https://github.com/TUD-RST/symbtools/blob/master/symbtools/test/test_modeltools.py)
+[Demo-Notebooks](https://nbviewer.jupyter.org/github/TUD-RST/symbtools/tree/main/docs/demo_notebooks/),
+auf die [Unit-Tests](https://github.com/TUD-RST/symbtools/blob/main/symbtools/test/test_modeltools.py)
 und auf die Docstrings im Quellcode verwiesen.
 Für Fragen und Anregungen stehen die Github-Issue-Funktion sowie der [Paketbereuer](https://tu-dresden.de/ing/elektrotechnik/rst/das-institut/beschaeftigte/carsten-knoll)
 per Mail zur Verfügung.
@@ -43,8 +43,8 @@ and simulating the equations of motion of mechanical systems based on the Lagran
 1st and 2nd kind.
 
 Classical docs for this package are still in preparation. Meanwhile we refer to the
-[Demo Notebooks](https://nbviewer.jupyter.org/github/TUD-RST/symbtools/tree/master/docs/demo_notebooks/),
-to the [unit tests](https://github.com/TUD-RST/symbtools/blob/master/symbtools/test/test_modeltools.py)
+[Demo Notebooks](https://nbviewer.jupyter.org/github/TUD-RST/symbtools/tree/main/docs/demo_notebooks/),
+to the [unit tests](https://github.com/TUD-RST/symbtools/blob/main/symbtools/test/test_modeltools.py)
 and finally to the docstrings im in the sources. If you have any question feel, free to open an
 issue or to email the [maintainer](https://tu-dresden.de/ing/elektrotechnik/rst/das-institut/beschaeftigte/carsten-knoll).
 
