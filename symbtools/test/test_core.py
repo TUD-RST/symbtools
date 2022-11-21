@@ -529,6 +529,9 @@ class SymbToolsTest2(unittest.TestCase):
         rhs0_s_ivp = mod.create_simfunction(solver="solve_ivp")
         rhs0_s_ivp_wrong_solver = mod.create_simfunction(solver="odeint")
 
+        # any argument that is not solve_ivp or odeint should raise an exception
+        self.assertRaises(ValueError, mod.create_simfunction, solver="unsolve_ode")
+
         res0_1 = rhs0(x0, 0)
         dres0_1 = st.to_np(fxu.subs(lzip(xx, x0) + st.zip0(uu))).squeeze()
 
