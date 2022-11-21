@@ -4588,13 +4588,18 @@ class SimulationModel(object):
         time_direction = kwargs.get("time_direction", 1)
         assert time_direction in (-1, 1)
 
+        solver = kwargs.get("solver", "odeint")
+        if solver != "solve_ivp" and solver != "odeint":
+            errmsg = "The solver {} is not part of the allowed solvers, please use either \"odeint\" or \"solve_ivp\""
+            raise ValueError(errmsg.format(solver))
+
         # here we evaluate input_function / controller_function
         self.u_func = self._get_input_func(kwargs)
         use_sp2c = bool(kwargs.get("use_sp2c", False))
 
         if callable(self.f_func) and callable(self.G_func) and use_sp2c == self.use_sp2c:
             # this is just an update (of input function)
-            return self._produce_sim_function(time_direction)
+            return self._produce_sim_function(time_direction, solver)
 
         self.use_sp2c = use_sp2c
         n = self.state_dim
@@ -4626,13 +4631,13 @@ class SimulationModel(object):
             self.G_func = expr_to_func(self.xx, G, np_wrapper=True, eltw_vectorize=False)
             self.compiler_called = False
 
-        rhs = self._produce_sim_function(time_direction)
+        rhs = self._produce_sim_function(time_direction, solver)
 
         # handle exceptions which occur inside
         # rhs = self.exceptionwrapper(rhs)
         return rhs
 
-    def _produce_sim_function(self, time_direction):
+    def _produce_sim_function(self, time_direction, solver):
 
         assert time_direction in (-1, 1)
         # load the (possibly compiled) functions
@@ -4668,7 +4673,11 @@ class SimulationModel(object):
 
                 return xx_dot*time_direction
 
-        return rhs
+        # if user wants to use solve_ivp to solve the sim function, the argument order has to be switched
+        if solver == "solve_ivp":
+            return lambda time, xx: rhs(xx, time)
+        else:
+            return rhs
 
     def num_trajectory_compatibility_test(self, tt, xx, uu, rtol=0.01, **kwargs):
         """ This functions accepts 3 arrays (time, state, input) and tests, whether they are

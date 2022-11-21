@@ -525,6 +525,10 @@ class SymbToolsTest2(unittest.TestCase):
         self.assertFalse(mod.compiler_called)
         self.assertFalse(mod.use_sp2c)
 
+        # create rhs-function to be used with solve_ivp
+        rhs0_s_ivp = mod.create_simfunction(solver="solve_ivp")
+        rhs0_s_ivp_wrong_solver = mod.create_simfunction(solver="odeint")
+
         res0_1 = rhs0(x0, 0)
         dres0_1 = st.to_np(fxu.subs(lzip(xx, x0) + st.zip0(uu))).squeeze()
 
@@ -537,6 +541,17 @@ class SymbToolsTest2(unittest.TestCase):
         # simulate
         tt = np.linspace(0, 0.5, 100)  # simulation should be short due to instability
         res1 = sc.integrate.odeint(rhs0, x0, tt)
+        # High accuracy required, because solve_ivp is less accurate with default tolerances
+        # new tolerances were hand-picked by trial-and-error
+        res1_s_ivp = sc.integrate.solve_ivp(rhs0_s_ivp, (tt[0], tt[-1]), x0, t_eval=tt, method="LSODA",
+                                            rtol=1e-8, atol=1e-11).y.T
+        # solve_ivp should raise an exception, if the argument order of the rhs func is state, then time
+        self.assertRaises(TypeError, sc.integrate.solve_ivp, rhs0_s_ivp_wrong_solver, (tt[0], tt[-1]), x0, t_eval=tt)
+
+        # test whether solve_ivp and odeint produce same solution
+        bin_res1_s_ivp = np.isclose(res1, res1_s_ivp, rtol=2e-5)
+
+        self.assertTrue(np.all(bin_res1_s_ivp))
 
         # create and try sympy_to_c bridge (currently only works on linux
         # and if sympy_to_c is installed (e.g. with `pip install sympy_to_c`))
