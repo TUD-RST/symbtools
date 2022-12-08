@@ -199,15 +199,24 @@ class ModelToolsTest(unittest.TestCase):
 
         # in that situation there is no force
         acc_1, llmd_1 = dae.calc_consistent_accel_lmd((ttheta_1, ttheta_d_1))
+
         # these values seem reasonable but have yet not been checked analytically
+
+        print(acc_1)
+        print(llmd_1)
+
         self.assertTrue(npy.allclose(acc_1, [13.63475466, -1.54473017, -8.75145644]))
         self.assertTrue(npy.allclose(llmd_1, [-0.99339947,  0.58291489]))
 
         # qdot1 ≠ 0
         ttheta_2, ttheta_d_2 = dae.calc_consistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
 
+        # expected results
         eres_c = npy.array([-0.85754267,  0.89969149,  0.875])*npy.pi
         eres_v = npy.array([-3.42862311,  2.39360715,  3.])
+
+        print(ttheta_2, eres_c)
+        print(ttheta_d_2, eres_v)
 
         self.assertTrue(npy.allclose(ttheta_2, eres_c))
         self.assertTrue(npy.allclose(ttheta_d_2, eres_v))
