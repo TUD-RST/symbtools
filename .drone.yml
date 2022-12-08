@@ -43,6 +43,8 @@ steps:
   - ls
   - ls symbtools
   - ls symbtools/test
+# test for a specific bug
+  - python symbtools/test/test_modeltools.py ModelToolsTest.test_four_bar_constraints
   - python symbtools/test/run_all_tests.py all
   - pip install control casadi
   - python symbtools/test/run_all_tests.py optdep
@@ -70,6 +72,8 @@ steps:
   - ls
   - ls symbtools
   - ls symbtools/test
+# test for a specific bug
+  - python symbtools/test/test_modeltools.py ModelToolsTest.test_four_bar_constraints
   - python symbtools/test/run_all_tests.py all
   # currently (2021-12-21) casadi seems not to be available for python3.10
   # - pip install control casadi
