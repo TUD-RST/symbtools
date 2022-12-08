@@ -432,7 +432,7 @@ class DAE_System(object):
     """
     This class encapsulates an differential algebraic equation (DAE).
     """
-    
+
     info = "encapsulate all dae-relevant information"
 
     def __init__(self, mod, parameter_values=None):
@@ -854,7 +854,7 @@ class DAE_System(object):
 
         return ttheta_cons, ttheta_dot_cons
 
-    def calc_consistent_accel_lmd(self, xx, t=0):
+    def calc_consistent_accel_lmd(self, xx, t=0, debug=None):
         """
         This function solves numerically the the equations system
          M(ttheta) * ttheta_dd + ... + H(llmd) = 0
@@ -888,6 +888,13 @@ class DAE_System(object):
 
         acc = sol[:ntt]
         llmd = sol[-nll:]
+
+        if debug is not None:
+            # assume that `debug` is a container
+            debug.A = A
+            debug.b = b
+            debug.external_forces = external_forces
+            debug.sol = sol
 
         return acc, llmd
 
@@ -1187,4 +1194,3 @@ def transform_2nd_to_1st_order_matrices(P0, P1, P2, xx):
     P1_bar = F.jacobian(xxd)
 
     return P0_bar, P1_bar
-

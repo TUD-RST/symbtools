@@ -15,8 +15,6 @@ from symbtools.modeltools import Rz
 import sys
 
 
-from IPython import embed as IPS
-
 
 # noinspection PyPep8Naming
 class ModelToolsTest(unittest.TestCase):
@@ -198,9 +196,19 @@ class ModelToolsTest(unittest.TestCase):
         self.assertTrue(npy.allclose(ttheta_d_1, eres_v))
 
         # in that situation there is no force
-        acc_1, llmd_1 = dae.calc_consistent_accel_lmd((ttheta_1, ttheta_d_1))
+
+
+        import ipydex
+        debug = ipydex.Container()
+        acc_1, llmd_1 = dae.calc_consistent_accel_lmd((ttheta_1, ttheta_d_1), debug=debug)
+
+        for name, value in debug.item_list():
+            print(f"{name} = \n{value}\n")
+
+        # ipydex.IPS()
 
         # these values seem reasonable but have yet not been checked analytically
+        # (also: the values depend on python version )
 
         print(acc_1)
         print(llmd_1)
