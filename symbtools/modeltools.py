@@ -630,7 +630,7 @@ class DAE_System(object):
         # this function depends on coordinates ttheta and velocities ttheta_dot and accel
         self.constraints_dd_func = st.expr_to_func(zz, self.constraints_dd)
 
-    def gen_leqs_for_acc_llmd(self, parameter_values=None):
+    def gen_leqs_for_acc_llmd(self, parameter_values=None, debug=None):
         """
         Create a callable function which returns A, bnum of the linear eqn-system
                 A*ww = bnum,
@@ -722,6 +722,11 @@ class DAE_System(object):
             return ttheta_dd_res
 
         self.acc_of_lmd_func = acc_of_lmd_func
+
+        if debug is not None:
+            import ipydex
+            debug: ipydex.Container
+            debug.fetch_locals()
 
     def calc_consistent_conf_vel(self, **kwargs):
         """
@@ -895,6 +900,7 @@ class DAE_System(object):
             debug.b = b
             debug.external_forces = external_forces
             debug.sol = sol
+            debug.xx = xx
 
         return acc, llmd
 

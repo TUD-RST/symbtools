@@ -197,13 +197,24 @@ class ModelToolsTest(unittest.TestCase):
 
         # in that situation there is no force
 
-
         import ipydex
+        debug = ipydex.Container()
+        print("gen_leqs_for_acc_llmd")
+        dae.gen_leqs_for_acc_llmd(debug=debug)
+
+        # ipydex.IPS()
+        for name, value in debug.item_list():
+            if value is debug:
+                continue
+            print(f"{name} = \n{repr(value)}\n- - -\n")
+
+        # ---
+        print("calc_consistent_accel_lmd")
         debug = ipydex.Container()
         acc_1, llmd_1 = dae.calc_consistent_accel_lmd((ttheta_1, ttheta_d_1), debug=debug)
 
         for name, value in debug.item_list():
-            print(f"{name} = \n{value}\n")
+            print(f"{name} = \n{value}\n- - -")
 
         # ipydex.IPS()
 
@@ -215,6 +226,9 @@ class ModelToolsTest(unittest.TestCase):
 
         self.assertTrue(npy.allclose(acc_1, [13.63475466, -1.54473017, -8.75145644]))
         self.assertTrue(npy.allclose(llmd_1, [-0.99339947,  0.58291489]))
+
+        # debug
+        return
 
         # qdot1 ≠ 0
         ttheta_2, ttheta_d_2 = dae.calc_consistent_conf_vel(q1=npy.pi/8*7, qdot1=3, _disp=False)
@@ -278,10 +292,10 @@ class ModelToolsTest(unittest.TestCase):
         mod = mt.generate_symbolic_model(T, V, ttheta, [0, F1])
         mod_1 = mt.generate_symbolic_model(T, V, ttheta, QQ)
         mod_2 = mt.generate_symbolic_model(T, V, ttheta, QQ.T)
-        
+
         self.assertEqual(mod.eqns, mod_1.eqns)
         self.assertEqual(mod.eqns, mod_2.eqns)
-        
+
         mod.eqns.simplify()
 
         M = mod.MM
@@ -621,7 +635,7 @@ def main():
     # remove command line args which should not be passed to the testframework
     if 'all' in sys.argv:
         sys.argv.remove('all')
-    
+
     unittest.main()
 
 
