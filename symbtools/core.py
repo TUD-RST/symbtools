@@ -3503,22 +3503,17 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
     arg_tup = aux_make_tup_if_necc(args)
 
     new_expr = []
-    arg_set = set(arg_tup)
+    
+    useful_zero = sp.Add(sp.Add(*arg_tup), -sp.Add(*arg_tup), evaluate=False)
+    
 
     # be prepared for the case that the args might not occur in the expression
     # constant function (special case of a polynomial)
     for e in expr_tup:
         assert isinstance(e, sp.Expr)
         # args (Symbols) which are not in that expression
-        diff_set = arg_set.difference(e.atoms(sp.Symbol))
-
-        # add and subtract the respective argument such that it occurs
-        # without changing the result
-        for d in diff_set:
-            assert isinstance(d, sp.Symbol)
-            e = sp.Add(e, d, -d, evaluate = False)
-
-        new_expr.append(e)
+        new_e = sp.Add(e, useful_zero, evaluate = False)
+        new_expr.append(new_e)
 
     # if not hasattr(expr, '__len__'):
     #     assert len(new_expr) == 1
@@ -4674,6 +4669,7 @@ class SimulationModel(object):
                 return xx_dot*time_direction
 
         # if user wants to use solve_ivp to solve the sim function, the argument order has to be switched
+        
         if solver == "solve_ivp":
             return lambda time, xx: rhs(xx, time)
         else:
