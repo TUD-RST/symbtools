@@ -3105,6 +3105,7 @@ def rnd_number_subs_tuples(expr, seed=None, rational=False, prime=False, minmax=
         dummy_symbol_list.append(dummy)
 
     regular_symbol_list = list(expr.atoms(sp.Symbol))  # original Symbols
+    regular_symbol_list.sort(key=str)
 
     for atom in list(derivs) + list(funcs) + regular_symbol_list:
         if not atom.is_commutative:
@@ -3287,14 +3288,6 @@ def generic_rank(M, **kwargs):
     #zero_count = [cl.count(0) for cl in (coeffs1, coeffs2, coeffs3)]
 
     # find out the first (w.r.t to the index) non-vanishing coeff
-
-    nz_coeffs1 = np.array([c for c in coeffs1 if c != 0], dtype=sp.Float)
-    nz_coeffs2 = np.array([c for c in coeffs2 if c != 0], dtype=sp.Float)
-    nz_coeffs3 = np.array([c for c in coeffs3 if c != 0], dtype=sp.Float)
-
-    res21_list = []
-    res32_list = []
-
     err_msg = "unexpected behavior of berkowitz coeffs during rank calculation"
     threshold = 1e-2
     for i, (c1, c2, c3) in enumerate(lzip(coeffs1, coeffs2, coeffs3)):
@@ -3305,13 +3298,32 @@ def generic_rank(M, **kwargs):
         q21 = abs(c2/c1)
         q32 = abs(c3/c2)
 
+        # conditions; True -> coeff gets smaller
         res21 = q21 < threshold
         res32 = q32 < threshold
 
         if res21 != res32:
             # one precision-step indicates a vanishing coeff
             # while the other does not
-            raise ValueError(err_msg)
+
+            if not res21 and res32:
+                # this is very odd and should be examined manually
+                raise ValueError(err_msg)
+            else:
+                # there are situations where the coefficient indeed gets smaller with initial
+                # precision increment (-> res21 = True) but then stabilizes (res32 = False)
+                # we need to evaluate with even higher precision
+                M4 = M.subs(rnst).evalf(n=400)
+                coeffs4 = (M4.T*M4).berkowitz()[-1][::-1]
+                c4 = coeffs4[i]
+                q43 = abs(c4/c3)
+                res43 = q43 < threshold
+                if res43:
+                    # coeff does not stabilize -> res32 is inconsistent -> examine manually
+                    raise ValueError(err_msg)
+                else:
+                    # the coeff does indeed stabilze
+                    break
 
         if res21 == False:
             # the coeff has not changed sufficiently due to the precision step
