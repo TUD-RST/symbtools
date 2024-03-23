@@ -4471,7 +4471,7 @@ def symbolify_matrix(M):
 # noinspection PyPep8Naming
 class SimulationModel(object):
     """
-    This class encapsulates all data pertaining a nonlinear state-space model
+    This class encapsulates all data pertaining a nonlinear, input-affine state-space model
     (parameter values, state-dimension, number of inputs)
     """
 
