@@ -197,6 +197,7 @@ class ModelToolsTest(unittest.TestCase):
 
         # in that situation there is no force
 
+        # temporary debug code
         import ipydex
         debug = ipydex.Container()
         print("gen_leqs_for_acc_llmd")
