@@ -1,0 +1,64 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: CI
+
+on:
+  push:
+    branches:
+    - main
+    - develop
+    - develop_tmp
+  pull_request:
+    branches:
+    - main
+    - develop
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.11"
+
+# The following command allows to connect to the ci-container via ssh
+# very useful for debugging
+# move this step before the failing step
+# source: https://github.com/marketplace/actions/debugging-with-tmate
+
+#    - name: Setup tmate session
+#       uses: mxschmitt/action-tmate@v3
+
+    - name: Install pip
+      run: |
+        python -m pip install --upgrade pip
+
+    - name: Installing requirements
+      run: |
+        # install this package
+        pwd
+        pip install -r requirements.txt
+
+
+    - name: install package
+      run: |
+        # install in editable mode -> simplify the discovery of the (internal) test data
+        pip install -e .
+
+    - name: run all tests
+      run: |
+        python -m unittest
+
+
+# from drone.yml
+# - ls symbtools
+# -  - ls symbtools/test
+# -  - python symbtools/test/run_all_tests.py all
+# -  - pip install control casadi
+# -  - python symbtools/test/run_all_tests.py optdep
