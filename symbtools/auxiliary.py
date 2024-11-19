@@ -27,14 +27,15 @@ class Container(object):
 
 # data structure to store some data on module level without using `global` keyword
 if not hasattr(sp, 'global_data'):
-    # host this object in sp module to prevent dataloss when reloading the module
+    # host this object in sp module to prevent data loss when reloading the module
     # not very clean but facilitates interactive development
     sp.global_data = Container()
 
 # noinspection PyUnresolvedReferences
 global_data = sp.global_data
 
-# the following is usefull for recursive functions to aviod code-duplication
+
+# the following is useful for recursive functions to avoid code-duplication
 # (repetition of function name)
 # https://stackoverflow.com/a/35951133/333403
 

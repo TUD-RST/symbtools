@@ -363,6 +363,10 @@ class TestSupportFunctions(unittest.TestCase):
     """
 
     def setUp(self):
+        # prevent cross-test-influence via stored attributes
+        st.global_data.attribute_store.clear()
+
+    def tearDown(self):
         pass
 
     def test_recursive_function_decorator(self):
@@ -389,7 +393,7 @@ class TestSupportFunctions(unittest.TestCase):
 
         m1 = st.get_custom_attr_map("ddt_child")
         em1 = [(x1, xdot1), (x2, xdot2), (xdot1, xddot1), (xdot2, xddot2)]
-        # convert to set because sorting might depend on plattform
+        # convert to set because sorting might depend on platform
         self.assertEqual(set(m1), set(em1))
 
         m2 = st.get_custom_attr_map("ddt_parent")
