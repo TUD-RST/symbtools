@@ -334,8 +334,13 @@ def fractionfromfloat(x_, maxden = 1000):
     maxdenominator (default = 1000)
     """
 
+    # fails intentionally for numpy.complex
     x = float(x_)
-    assert x == x_ # fails intentionally for numpy.complex
+    diff = x_ - x
+    if diff != 0:
+        msg = "Values of x_ and float(x_) are unexpectedly not equal"
+        raise ValueError(msg)
+
     return Fr.from_float(x).limit_denominator(maxden)
 
 
@@ -3202,8 +3207,6 @@ def subs_random_numbers(expr, *args, **kwargs):
 
     :param expr:  sympy expression or matrix
 
-    :param \**kwargs:
-
     :Keyword Arguments:
         * *seed* (``float``) --
           seed for random number generator
@@ -3262,7 +3265,7 @@ def generic_rank(M, **kwargs):
     kwargs.update(prime=prime)
 
     #eps = kwargs.pop('eps', 1e-160)
-    seed = kwargs.pop('seed', random.randint(0, 1e5))
+    seed = kwargs.pop('seed', random.randint(0, int(1e5)))
 
     # define the precisions
     prec1, prec2, prec3 = plist = 100, 200, 300
