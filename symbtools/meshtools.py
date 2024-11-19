@@ -868,8 +868,8 @@ class GridCell (object):
         """
 
         cell_res = np.array([node.func_val for node in self.vertex_nodes])
-        valbool_alltrue = np.alltrue(cell_res)
-        valbool_allfalse = np.alltrue(np.logical_not(cell_res))
+        valbool_alltrue = np.all(cell_res)
+        valbool_allfalse = np.all(np.logical_not(cell_res))
         self._is_homogeneous = valbool_alltrue or valbool_allfalse
 
         return self._is_homogeneous
@@ -1447,8 +1447,8 @@ def func_ellipse_2d_factory(radius, M_matrix, Rotation_angle):
 
 
 def func_bump(x, offset=0, amplitude=1, exponent=2):
-    """
-    Function that looks like: __/\__ and which can be scaled.
+    r"""
+    Function that looks like: __/\__ and can be scaled.
 
     :param x:
     :param offset:
@@ -1547,4 +1547,3 @@ def grid_eval_2d_func(func, x_min_max=None, y_min_max=None, resolution=None, ax=
     ZZ = np.array([func(row) for row in mg_array2]).reshape(mg_array.shape[1:])
 
     return XX, YY, ZZ
-
