@@ -116,16 +116,16 @@ class InteractiveConvenienceTest(unittest.TestCase):
     def test_srn(self):
         x, y, z = xyz = st.symb_vector('x, y, z')
         st.random.seed(3319)
-        self.assertAlmostEqual(x.srn01, 0.843044195656457)
+        self.assertAlmostEqual(float(x.srn01), 0.843044195656457)
 
         st.random.seed(3319)
-        x_srn = x.srn
+        x_srn = float(x.srn)
         self.assertNotAlmostEqual(x_srn, 8.59)
         self.assertAlmostEqual(x_srn, 8.58739776090811)
 
         # now apply round
         st.random.seed(3319)
-        tmp = x.srnr
+        tmp = float(x.srnr)
         # debug travis specific fail
         self.assertAlmostEqual(tmp, 8.59)
 
@@ -139,7 +139,7 @@ class InteractiveConvenienceTest(unittest.TestCase):
         xyz_srn = list(xyz.srn)
         xyz_srn.sort()
         for a, b in zip(xyz_srn, expected_res):
-            self.assertAlmostEqual(a, b)
+            self.assertAlmostEqual(float(a), b)
 
         # should live in a separate test !!
         st.random.seed(3319)
