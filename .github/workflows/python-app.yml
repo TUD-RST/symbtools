@@ -51,9 +51,17 @@ jobs:
         # install in editable mode -> simplify the discovery of the (internal) test data
         pip install -e .
 
-    - name: run all tests
+    - name: run all tests (without optional dependencies)
       run: |
-        python -m unittest
+        pytest -rs
+
+    - name: install optional dependencies
+      run: |
+        pip install casadi
+
+    - name: run those tests which require optional dependencies
+      run: |
+        pytest -rs --opt-dep
 
 
 # from drone.yml
