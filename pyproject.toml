@@ -1,0 +1,44 @@
+[build-system]
+
+# setuptools-scm helps to find package-data which is tracked by git
+# anyway, make sure the following packages are installed
+# pip install build setuptools_scm
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+
+
+name = "symbtools"
+description = "Symbolic calculations related to dynamical systems."
+authors=[{name = "Carsten Knoll", email = "firstname.lastname@tu-dresden.de"}, {name= "Klemens Fritzsche", email = "firstname2.lastname@tu-dresden.de"}]
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+dynamic = ["dependencies", "version"]
+
+classifiers=[
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+]
+
+# see also https://realpython.com/python-toml/
+# https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+
+[project.urls]
+Homepage = "https://github.com/TUD-RST/symbtools"
+
+[project.optional-dependencies]
+mpc = ["casadi"]
+visualization = ["matplotlib>=3.1", "ipywidgets>=7.5"]
+
+
+[tool.setuptools.packages.find]
+# note: `include-package-data = true` by default in pyproject.toml
+where = ["src"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+version = {attr = "symbtools.release.__version__"}

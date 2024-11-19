@@ -10,5 +10,7 @@ MANIFEST
 nohup.out
 source-test-env-office
 symbtools/*.so
-symbtools/test/*.pcl
-symbtools/test/z_test_core1_test.py
+tests/*.pcl
+tests/z_test_core1_test.py
+.vscode
+
