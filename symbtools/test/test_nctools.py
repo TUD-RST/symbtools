@@ -33,7 +33,7 @@ def skip_slow(func):
     return unittest.skipUnless(FLAG_all, 'skipping slow test')(func)
 
 
-def skip_sympy19_pickle_problem(func):
+def skip_sympy_pickle_problem(func):
     # this prevents tests crashing until the fix is released:
     # see https://github.com/sympy/sympy/issues/22241
     if sp.__version__ == "1.9":
@@ -344,12 +344,18 @@ class NCTTest(unittest.TestCase):
 
         self.assertTrue( all([r.is_commutative for r in exp1_c.atoms()]) )
 
-    @skip_sympy19_pickle_problem
     def test_make_all_symbols_commutative2(self):
         import pickle
-        path = make_abspath('test_data', 'Q_matrix_cart_pendulum.pcl')
-        with open(path, 'rb') as pfile:
-            Q = pickle.load(pfile)
+        # path = make_abspath('test_data', 'Q_matrix_cart_pendulum.pcl')
+        # with open(path, 'rb') as pfile:
+        #     Q = pickle.load(pfile)
+        A0, B0, Bdot0, Bddot0 = sp.symbols("A0, B0, Bdot0, Bddot0", commutative=False)
+        # this once was read from "test_data/Q_matrix_cart_pendulum.pcl"
+        # now hardcoded due to pickle-problems
+        Q = sp.Matrix([[
+            -B0*(A0*B0 + Bddot0), -B0*(-B0*(A0*B0 + Bddot0) + 2*Bdot0**2),
+            -2*B0*Bdot0, 2*B0**2*Bdot0
+        ]])
 
         Qc, stl = nct.make_all_symbols_commutative(Q, '')
 
@@ -442,7 +448,8 @@ class NCTTest(unittest.TestCase):
 
         M1 = sp.Matrix([yy[0]])
         M1inv = nct.unimod_inv(M1, s, time_dep_symbs=yy)
-        self.assertEqual(M1inv, M1.inv())
+        M1inv_expected = sp.Matrix([[y1**(-1)]])
+        self.assertEqual(M1inv, M1inv_expected)
 
         M2 = sp.Matrix([[y1, y1*s], [0, y2]])
         M2inv = nct.unimod_inv(M2, s, time_dep_symbs=yy)
