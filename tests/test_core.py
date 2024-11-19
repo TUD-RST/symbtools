@@ -25,15 +25,8 @@ except ImportError:
     control = None
 
 
-from symbtools.test import unittesthelper as uth
+from symbtools import unittesthelper as uth
 import unittest
-
-from symbtools.test import test_core1
-from symbtools.test import test_time_deriv
-from symbtools.test import test_pickle_tools
-
-uth.inject_tests_into_namespace(globals(), test_time_deriv)
-uth.inject_tests_into_namespace(globals(), test_core1)
 
 
 def make_abspath(*args):

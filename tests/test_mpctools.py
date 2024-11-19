@@ -5,26 +5,34 @@ Created 2019-05-27 17:56:03
 @author: Carsten Knoll
 """
 
-from symbtools.test import unittesthelper as uth
-import unittest
 import sys
+import os
+import unittest
 import sympy as sp
 from typing import Sequence
 
 import symbtools as st
-import symbtools.mpctools as mpc
 import numpy as np
+from symbtools import unittesthelper as uth
+
+import pytest
+try:
+    import symbtools.mpctools as mpc
+except ImportError:
+    mpc = None
+    if not os.environ.get("PYTEST_ENFORCE_ALL") == True:
+        pass
+        # pytest.skip(allow_module_level=True)
 
 
 from IPython import embed as IPS
 
-
+@pytest.mark.optional_dependency
 class MPCToolsTest(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(2001)
 
-    @uth.optional_dependency
     def test_conversion1(self):
         x1, x2, x3 = xx = st.symb_vector("x1:4")
         u1, u2 = uu = st.symb_vector("u1:3")
@@ -42,7 +50,6 @@ class MPCToolsTest(unittest.TestCase):
         res_cs = func_cs(*argvals_cs).full().squeeze()
         self.assertTrue(np.allclose(res_np, res_cs))
 
-    @uth.optional_dependency
     def test_conversion2(self):
         x1, x2, x3 = xx = st.symb_vector("x1:4")
         u1, u2 = uu = st.symb_vector("u1:3")
@@ -63,7 +70,6 @@ class MPCToolsTest(unittest.TestCase):
         res_cs = func_cs(argvals).full().squeeze()
         self.assertTrue(np.allclose(res_np, res_cs))
 
-    @uth.optional_dependency
     def test_unpack(self):
 
         pp = mpc.SX.sym('p', 2, 5)
@@ -79,7 +85,6 @@ class MPCToolsTest(unittest.TestCase):
         self.assertTrue(st.aux.test_type(l_ppxxy, Sequence[mpc.SX]))
         self.assertEqual(len(l_ppxxy), 16)
 
-    @uth.optional_dependency
     def test_casadify(self):
 
         x1, x2, x3 = xx = st.symb_vector("x1:4")
@@ -96,7 +101,6 @@ class MPCToolsTest(unittest.TestCase):
 
         self.assertTrue(mpc.cs.is_equal(cs_symbols1, cs_symbols2))
 
-    @uth.optional_dependency
     def test_conversion_all_funcs(self):
         x1, x2, x3 = xx = st.symb_vector("x1:4")
         u1, u2 = uu = st.symb_vector("u1:3")
@@ -150,15 +154,3 @@ class MPCToolsTest(unittest.TestCase):
         self.assertTrue(np.all(a == np.arange(10).reshape(5, 2).T))
         self.assertTrue(np.all(b == np.array([10])))
         self.assertEqual(c.shape, (3,  4))
-
-
-def main():
-    # remove command line args which should not be passed to the testframework
-    if 'all' in sys.argv:
-        sys.argv.remove('all')
-
-    unittest.main()
-
-
-if __name__ == '__main__':
-    main()

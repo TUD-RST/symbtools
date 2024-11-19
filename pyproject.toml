@@ -42,3 +42,7 @@ where = ["src"]
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 version = {attr = "symbtools.release.__version__"}
+
+# this significantly speeds up pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]

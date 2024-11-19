@@ -5,20 +5,29 @@ Created 2019-10-12 13:25:50
 @author: Carsten Knoll
 """
 
+import os
+import sys
 import unittest
-import sympy as sp
-from symbtools.test import unittesthelper as uth
-import symbtools as st
-import symbtools.mpctools as mpc
 from typing import Sequence
 
+import sympy as sp
+from symbtools import unittesthelper as uth
+import symbtools as st
 
+import pytest
+
+try:
+    import symbtools.mpctools as mpc
+except ImportError:
+    mpc = None
+
+
+@pytest.mark.optional_dependency
 class AuxiliaryTest(unittest.TestCase):
 
     def setUp(self):
         pass
 
-    @uth.optional_dependency
     def test_test_type(self):
 
         import casadi as cs
@@ -34,11 +43,3 @@ class AuxiliaryTest(unittest.TestCase):
 
         self.assertTrue(st.aux.test_type(["10", "20", "XYZ"], Sequence[str]))
         self.assertFalse(st.aux.test_type([10, "20", "XYZ"], Sequence[str]))
-
-
-def main():
-    unittest.main()
-
-
-if __name__ == '__main__':
-    main()

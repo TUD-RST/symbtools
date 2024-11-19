@@ -106,6 +106,8 @@ def inject_tests_into_namespace(target_ns, list_of_modules):
     :return:                    None
     """
 
+    assert False, "This function is deprecated"
+
     if isinstance(list_of_modules, types.ModuleType):
         list_of_modules = [list_of_modules]
 
