@@ -339,6 +339,14 @@ class SymbToolsTest(unittest.TestCase):
         self.assertTrue(st.is_number(np.pi*1j + np.exp(1), allow_complex=True) )
         self.assertFalse(st.is_number(np.pi*1j + np.exp(1)))
 
+    def test_simplify_numbers(self):
+
+        res1 = st.np_round_to_significant_digits([-10.0001, 0, 0.00456789])
+        self.assertTrue(np.allclose(res1, np.array([-10, 0, 0.00457])))
+        x1, x2, x3, x4 = xx = sp.symbols('x1:5')
+        res2 = st.simplify_numbers(1234.5 * x1 - 0.3 * x2 + 0.047777 * x3 + 0.04772 * x4)
+        self.assertEqual(res2, 1234.0 * x1 - 0.3 * x2 + 0.0478 * x3 + 0.0477 * x4)
+
     def test_deriv_2nd_order_chain_rule(self):
         a, b, x = sp.symbols('a, b, x')
 
@@ -473,5 +481,3 @@ class FunctionToolsTest(unittest.TestCase):
         self.assertTrue(pefnc(1) < eps)
         self.assertTrue(pefnc(5) - 25 < eps)
         self.assertTrue(pefnc(-3) - 9 < eps)
-
-

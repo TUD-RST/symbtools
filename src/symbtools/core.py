@@ -3198,6 +3198,40 @@ def rnd_trig_tuples(symbols, seed = None):
     return tuples
 
 
+def np_round_to_significant_digits(numbers, digits: int = 3):
+    """
+    rounds numbers to significant digits
+
+    :param numbers:  sequence of numbers
+    :param digits:   int; number of significant digits
+    """
+
+    numbers = np.array(numbers)
+    nonzero_mask = numbers != 0
+    numbers1 = numbers[nonzero_mask]
+    f1 = np.log10(np.abs(numbers1))
+    f2 = -1 * np.sign(f1)*np.floor(np.abs(f1))
+    tmp = numbers1*10**f2
+    tmp2 = np.round(tmp, digits)
+    res = np.zeros_like(numbers)
+    res[nonzero_mask] = tmp2 * 10**-f2
+    return res
+
+
+def simplify_numbers(expr, digits: int = 3):
+    """
+    applies np_round_to_significant_digits to all numbers in expr
+
+    :param expr:  sympy expression
+    :param digits:   int; number of significant digits
+    """
+
+    numbers_atoms = list(expr.atoms(sp.Number))
+    rounded_numbers = np_round_to_significant_digits(np.array(numbers_atoms, dtype=float), digits)
+    replacements = list(zip(numbers_atoms, rounded_numbers))
+    return expr.subs(replacements)
+
+
 def subs_random_numbers(expr, *args, **kwargs):
     """
     replaces all symbols in the given expr (scalar or matrx) by random numbers
@@ -3518,9 +3552,9 @@ def expr_to_func(args, expr, modules='numpy', **kwargs):
     arg_tup = aux_make_tup_if_necc(args)
 
     new_expr = []
-    
+
     useful_zero = sp.Add(sp.Add(*arg_tup), -sp.Add(*arg_tup), evaluate=False)
-    
+
 
     # be prepared for the case that the args might not occur in the expression
     # constant function (special case of a polynomial)
@@ -4684,7 +4718,7 @@ class SimulationModel(object):
                 return xx_dot*time_direction
 
         # if user wants to use solve_ivp to solve the sim function, the argument order has to be switched
-        
+
         if solver == "solve_ivp":
             return lambda time, xx: rhs(xx, time)
         else:
