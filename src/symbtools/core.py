@@ -3215,6 +3215,16 @@ def np_round_to_significant_digits(numbers, digits: int = 3):
     tmp2 = np.round(tmp, digits)
     res = np.zeros_like(numbers)
     res[nonzero_mask] = tmp2 * 10**-f2
+
+    assert len(res.shape) == 1
+    decimal_part = np.modf(res)[0]
+    int_mask = np.logical_or((decimal_part == 0), np.logical_and(abs(res) > 1, abs(decimal_part) < 1e-8))
+
+    res = list(res)
+    for idx, (value, int_flag) in enumerate(zip(res, int_mask)):
+        if int_flag:
+            res[idx] = int(value)
+
     return res
 
 
